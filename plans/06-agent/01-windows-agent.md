@@ -91,6 +91,9 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] one-shot enrollment coordinator и atomic file credential-store fallback;
 - [x] server heartbeat contract `protocol_version=1` с валидацией и сохранением
   hostname/IP/MAC metadata в station/agent binding;
+- [x] `CredentialProtector` через `Protocol`, atomic protected-byte store и
+  Windows DPAPI adapter с user-scope по умолчанию; plaintext store остаётся
+  только явным development fallback;
 - [ ] actual server command delivery/signature transport;
-- [ ] Windows ACL/DPAPI credential store и реальный Service wrapper;
+- [ ] deployment ACL для каталога credential и реальный Windows Service wrapper;
 - [ ] согласовать фактический `game_version_marker` источник.
