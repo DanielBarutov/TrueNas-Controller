@@ -207,7 +207,6 @@ def upgrade() -> None:
         sa.Column("received_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("processes", sa.JSON(), nullable=False),
         sa.Column("drives", sa.JSON(), nullable=False),
-        sa.Column("game_version_marker", sa.String(length=255), nullable=True),
         sa.Column("agent_version", sa.String(length=64), nullable=False),
         sa.Column("freshness_status", sa.String(length=32), nullable=False),
         sa.ForeignKeyConstraint(

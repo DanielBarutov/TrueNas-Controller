@@ -78,7 +78,7 @@ Component/page tests для:
 
 - mock tests — обязательны и запускаются всегда;
 - fixture schema tests — обязательны;
-- реальный read-only integration — отдельный marker/profile;
+- реальный read-only integration — отдельный opt-in profile;
 - real write/switch — только выделенная LAN station и explicit environment confirmation.
 
 ## Fault injection matrix

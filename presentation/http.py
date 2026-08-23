@@ -161,7 +161,6 @@ def create_app(
                     )
                     for item in payload.drives
                 ),
-                game_version_marker=payload.game_version_marker,
             )
             try:
                 result = await receive_heartbeat.execute(

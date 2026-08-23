@@ -141,7 +141,6 @@ class SqlAlchemyAgentRepository:
                     }
                     for item in snapshot.drives
                 ],
-                game_version_marker=snapshot.game_version_marker,
                 agent_version=snapshot.agent_version,
                 freshness_status="fresh",
             )

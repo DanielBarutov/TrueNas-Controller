@@ -17,8 +17,8 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [31 — frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
-- **Текущая задача:** собрать операторский React/Vite shell с Basic Auth, пояснениями к статусам/полям, station read/create и allowlisted Markdown reader. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
-- **Следующий разрешённый шаг:** подключить полный stations/preflight/publish workflow к API; real Redis execution, TrueNAS write и storage switch пока не включать.
+- **Текущая задача:** закрыть frontend-проверки и общий Compose-контур после фиксации операторских решений. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
+- **Следующий разрешённый шаг:** добавить frontend tests/authorized visual check и Compose; real Redis execution, TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -31,7 +31,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и baseline migration созданы; apply/production registration ещё нет | migration review/apply gate, service account validation и marker decision |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и baseline migration созданы; apply/production registration ещё нет | migration review/apply gate и service account validation |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -56,7 +56,7 @@
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
 | [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
-| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create и allowlisted Markdown reader созданы; полный workflow и Compose не подключены | stations/preflight/publish API, frontend tests и visual check |
+| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, allowlisted Markdown reader, publish wizard и job read model созданы; Compose не подключён | frontend tests, authorized visual check и Compose |
 
 ## Чекап решений
 
@@ -68,7 +68,7 @@
 - [x] TrueNAS API key остаётся отдельным backend/worker secret и не связан с Basic Auth приложения.
 - [x] Официальная документация TrueNAS найдена и занесена в [docs/ONLINE_DOCS.md](docs/ONLINE_DOCS.md).
 - [x] Проверить фактическую версию `25.10.5` и live `/api/docs/current/` конкретного NAS через временный доступ; runtime smoke check отдельно.
-- [ ] Согласовать формат `game_version_marker` и тестовый путь игры.
+- [x] Автоматическая проверка версии игры через `game_version_marker` не входит в MVP; факт обновления подтверждает оператор.
 - [x] Чистая архитектура: `presentation`, `application`, `repository`, `domain`.
 - [x] Порты через `Protocol`, без `abc.ABC`.
 - [x] UoW с новым экземпляром на каждый use case/Dramatiq task.
@@ -166,11 +166,15 @@
 - [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
-## Решение, которое требует объяснения
+## Принятое решение по версии игры
 
-Вопрос про `game_version_marker` означает: **как агент поймёт после переключения, что новая версия игры действительно доступна?**
+Автоматически определять, обновилась ли игра, не требуется. Оператор отвечает за
+подтверждение факта обновления; backend проверяет только технический результат
+workflow: состояние агента, доступность `D:` и соответствие target/mapping.
 
-Примеры: marker-файл на `D:`, label/metadata zvol или заранее известный тестовый путь вроде `D:\Games\<game>`. Это не нужно решать прямо сейчас; до выбора оставляем verify в состоянии `pending decision`.
+`game_version_marker` удалён из текущего agent payload, domain snapshot, API,
+хранилища и baseline migration, поэтому он не создаёт отдельной настройки игры
+и не является gate для publish/verify.
 
 ## История изменений состояния
 
@@ -183,6 +187,7 @@
 | 2026-08-23 | Добавлены `PROJECT_RULES.md`, план 11 и Ruff baseline | Зафиксированы правила архитектуры и разработки |
 | 2026-08-23 | Добавлен план 12 и bootstrap package layout | Начат этап read-only backend; создана граница domain/application |
 | 2026-08-23 | Добавлен корневой `.gitignore` | Исключены кеши Python, утилит, IDE, локальные данные и секреты |
+| 2026-08-23 | Убран автоматический `game_version_marker` | Версию игры подтверждает оператор; приложение не поддерживает дополнительную game-specific настройку |
 | 2026-08-23 | Добавлен план 13 и persistence slice | Созданы ORM models, station repository и concrete UoW; миграции не применялись |
 | 2026-08-23 | Добавлен план 14 и минимальный read-only API | Health, stations list, Basic Auth и Alembic config; TrueNAS не подключался |
 | 2026-08-23 | Добавлены планы 15–16 | Реализованы agent lifecycle и чистый preflight evaluator; TrueNAS write не добавлялся |

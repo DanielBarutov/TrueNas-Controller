@@ -18,7 +18,7 @@
 - target/initiator mapping;
 - отсутствие участия в другом активном job;
 - отсутствие unknown/recovery state;
-- соответствие expected version/marker, если задано.
+- оператор подтвердил факт обновления игры; автоматический version/marker gate не используется.
 
 Результат каждой проверки: `pass`, `block`, `unknown`, `warning`, code, human message, observed_at, source snapshot ID. `unknown` не превращается в pass.
 
@@ -74,10 +74,11 @@ Hot switch требует explicit flag, permission, warning и audit; по ум
 
 - agent снова отвечает;
 - `D:` present;
-- expected marker/label;
-- тестовый путь игры доступен;
-- target→extent mapping соответствует новой версии;
+- target→extent mapping соответствует созданной storage-публикации;
 - old mapping retained in history.
+
+Факт доступности обновлённой игры подтверждает оператор и не хранится как
+game-specific настройка или автоматическая проверка приложения.
 
 При mismatch target остаётся `error`/`recovery_required`, old mapping сохраняется, успешные targets не откатываются автоматически.
 

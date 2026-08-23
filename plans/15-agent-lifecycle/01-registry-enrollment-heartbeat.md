@@ -10,7 +10,7 @@ TrueNAS actions.
 ## Изменяемые модели
 
 - `enrollment_tokens`: hash, station binding, expiry, used/revoked timestamps;
-- `process_snapshots`: normalized processes/drives, marker, capture/receive time;
+- `process_snapshots`: normalized processes/drives, capture/receive time;
 - `agents`: credential hash, enrollment metadata и heartbeat timestamps;
 - station operational state обновляется до `online` только после валидного
   heartbeat для enabled station.

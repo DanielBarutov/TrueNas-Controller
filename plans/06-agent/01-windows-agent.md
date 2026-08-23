@@ -8,7 +8,7 @@
 
 - `agent.py` — lifecycle, reconnect, heartbeat scheduler;
 - `process_monitor.py` — `psutil.process_iter()` и нормализация;
-- `drive_monitor.py` — доступность `D:`, free bytes, marker;
+- `drive_monitor.py` — доступность `D:` и free bytes;
 - `enrollment.py` — initial registration и credential storage;
 - `windows_service.py` — service wrapper, stop/start, graceful shutdown;
 - `protocol.py` — versioned payload and server command validation;
@@ -22,7 +22,6 @@
 - IP/MAC как справочные признаки;
 - process snapshot timestamp и процессы `name/pid/path`;
 - drive `letter/present/free_bytes`;
-- game version marker;
 - optional diagnostic code, но без файлов, содержимого игр и секретов.
 
 Backend считается authoritative для freshness: агент не может сам заявить `healthy` и тем самым снять stale.
@@ -31,12 +30,14 @@ Backend считается authoritative для freshness: агент не мо�
 
 Использовать `psutil.process_iter()` с безопасной обработкой `AccessDenied`, `NoSuchProcess`, `ZombieProcess` и неожиданного отсутствия атрибута. Нормализовать имя процесса и сохранять PID/path, если доступны. Не завершать процессы. Не считать `vgc.exe` blocking автоматически — это определяется правилом/persistent policy.
 
-## Drive и marker
+## Drive
 
 - Проверить `D:` exists/present.
 - Получить free bytes без чтения пользовательских файлов.
-- Marker получать из заранее согласованного безопасного источника: например label/metadata/test path; формат должен быть ограничен и versioned.
 - Ошибка доступа к `D:` — blocking или unknown по политике, но не зелёный результат.
+
+Факт обновления игры не проверяется агентом. Оператор подтверждает его отдельно;
+это не является preflight/verify gate и не требует game-specific настройки.
 
 ## Reconnect и offline
 
@@ -76,10 +77,9 @@ Backend считается authoritative для freshness: агент не мо�
   пропуском недоступных/исчезнувших процессов;
 - [x] drive collector для `D:` с present/free bytes и fail-closed missing/denied
   результатом;
-- [x] snapshot composer с UTC timestamp, station ID, agent version и optional
-  marker reader;
-- [x] ключевые collector tests: normal, denied/disappeared process, drive
-  missing/invalid letter и marker failure;
+- [x] snapshot composer с UTC timestamp, station ID и agent version;
+- [x] ключевые collector tests: normal, denied/disappeared process и drive
+  missing/invalid letter;
 - [x] versioned heartbeat payload и HTTPS transport с Bearer credential,
   TLS-only default и redacted status errors;
 - [x] bounded exponential backoff с jitter и retry contract tests;
@@ -109,4 +109,3 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] baseline Alembic migration сгенерирована, но не применена;
 - [ ] production installer/service registration и проверка ACL под фактической
   service account;
-- [ ] согласовать фактический `game_version_marker` источник.

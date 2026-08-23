@@ -21,7 +21,6 @@ def test_heartbeat_payload_is_versioned_and_contains_no_credential() -> None:
         agent_version="0.1.0",
         processes=(ProcessInfo("game.exe", 42, "D:\\game.exe"),),
         drives=(DriveInfo("D:", True, 100),),
-        game_version_marker="build-001",
     )
     payload = HeartbeatPayloadBuilder(
         AgentIdentity(station_id, "CLIENT-01", "0.1.0", ("192.0.2.10",), ("00:11:22:33:44:55",))

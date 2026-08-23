@@ -32,4 +32,3 @@ class ProcessSnapshot:
     agent_version: str
     processes: tuple[ProcessInfo, ...] = ()
     drives: tuple[DriveInfo, ...] = ()
-    game_version_marker: str | None = None

@@ -48,7 +48,7 @@ Rollback — отдельная операция над `publish_target`, а н�
 | 3 client preflight | selected station IDs | target rows ready | stale, process, drive, mapping, busy |
 | 4 master publish | all required checks | one master version | NAS/mock error, duplicate object |
 | 5 switch | per-target approval | target switched or preserved old | unsafe mapping, idle policy, timeout |
-| 6 verify | fresh agent + adapter reads | target verified/error | marker/path/target mismatch |
+| 6 verify | fresh agent + adapter reads | target verified/error | технический target/mapping mismatch |
 | 7 finish | all target results | completed/partial_failure | unresolved worker state |
 
 ## Формат перехода

@@ -213,7 +213,6 @@ class ProcessSnapshotRecord(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     processes: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False, default=list)
     drives: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False, default=list)
-    game_version_marker: Mapped[str | None] = mapped_column(String(255), nullable=True)
     agent_version: Mapped[str] = mapped_column(String(64), nullable=False)
     freshness_status: Mapped[str] = mapped_column(String(32), nullable=False, default="fresh")
 

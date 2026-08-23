@@ -281,7 +281,7 @@ function ConfigurationStep({
           <label>
             Игра
             <input required value={form.game_name} onChange={(event) => setForm({ ...form, game_name: event.target.value })} placeholder="Game Name" />
-            <HelpHint>Идентификатор игры; marker-решение остаётся серверной policy.</HelpHint>
+            <HelpHint>Идентификатор игры для job и аудита; факт обновления подтверждает оператор.</HelpHint>
           </label>
           <label className="wide-field">
             Описание

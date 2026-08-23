@@ -9,14 +9,13 @@ from agent.http_client import HttpHeartbeatTransport
 from agent.process_monitor import ProcessSnapshotCollector
 from agent.protocol import AgentCommandValidator, AgentIdentity, HeartbeatPayloadBuilder
 from agent.service import AgentService
-from agent.snapshot import AgentSnapshotCollector, MarkerReader
+from agent.snapshot import AgentSnapshotCollector
 
 
 def build_agent_service(
     config: AgentConfig,
     credential: str,
     *,
-    marker_reader: MarkerReader | None = None,
     process_collector: ProcessSnapshotCollector | None = None,
     drive_collector: DriveSnapshotCollector | None = None,
     transport: HttpHeartbeatTransport | None = None,
@@ -31,7 +30,6 @@ def build_agent_service(
         agent_version=config.agent_version,
         process_collector=process_collector or ProcessSnapshotCollector(),
         drive_collector=drive_collector or DriveSnapshotCollector(config.drive_letter),
-        marker_reader=marker_reader,
     )
     heartbeat = HeartbeatAgent(
         snapshot_source=snapshot_collector.collect,

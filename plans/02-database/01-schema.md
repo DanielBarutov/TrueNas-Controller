@@ -37,7 +37,6 @@ IP и MAC не являются primary key. Историю наблюдений
 - `id UUID PK`, `station_id FK`, `captured_at`, `received_at`;
 - `processes JSONB` — нормализованные name/pid/path;
 - `drives JSONB` — letter/present/free_bytes;
-- `game_version_marker`;
 - `agent_version`;
 - `freshness_status`.
 

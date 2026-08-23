@@ -43,5 +43,4 @@ class SqlAlchemyProcessSnapshotRepository:
                 )
                 for item in record.drives
             ),
-            game_version_marker=record.game_version_marker,
         )

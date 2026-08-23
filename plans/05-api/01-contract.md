@@ -24,7 +24,7 @@ Request: одноразовый token, agent UUID, hostname, agent version, obse
 
 ### `POST /agents/heartbeat`
 
-Auth agent credential. Payload содержит station ID, timestamp, process snapshot, drives, marker и version. Backend проверяет station binding, размер/формат payload, timestamp skew, нормализует процессы и записывает freshness.
+Auth agent credential. Payload содержит station ID, timestamp, process snapshot, drives и version. Backend проверяет station binding, размер/формат payload, timestamp skew, нормализует процессы и записывает freshness.
 
 ### `POST /agents/{id}/processes/refresh`
 

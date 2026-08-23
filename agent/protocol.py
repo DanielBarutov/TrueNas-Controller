@@ -71,7 +71,6 @@ class HeartbeatPayloadBuilder:
                 }
                 for item in snapshot.drives
             ],
-            "game_version_marker": snapshot.game_version_marker,
         }
 
 

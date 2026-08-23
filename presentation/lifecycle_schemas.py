@@ -70,7 +70,6 @@ class HeartbeatRequest(BaseModel):
     agent_version: str = Field(min_length=1, max_length=64)
     processes: list[ProcessPayload] = Field(default_factory=list, max_length=512)
     drives: list[DrivePayload] = Field(default_factory=list, max_length=32)
-    game_version_marker: str | None = Field(default=None, max_length=255)
 
 
 class AgentCommandResponse(BaseModel):

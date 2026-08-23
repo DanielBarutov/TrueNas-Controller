@@ -99,8 +99,7 @@ MAC и IP не считать стабильной идентичностью: D
   "timestamp": "...",
   "process_snapshot_at": "...",
   "processes": [{"name": "steam.exe", "pid": 1234, "path": "..."}],
-  "drives": [{"letter": "D:", "present": true, "free_bytes": 0}],
-  "game_version_marker": "..."
+  "drives": [{"letter": "D:", "present": true, "free_bytes": 0}]
 }
 ```
 
@@ -156,7 +155,7 @@ MAC и IP не считать стабильной идентичностью: D
 
 ### Шаг 6 — верификация
 
-После switch запросить новый process/drive snapshot. Проверить `D:` present, ожидаемый marker/label версии, доступность тестового пути игры и соответствие target→extent на TrueNAS. Статус по каждой станции: `verified` или `error`; partial success допустим. Ошибочная станция сохраняет старый рабочий target и не блокирует отчёт по успешным, если это безопасно.
+После switch запросить новый process/drive snapshot. Проверить `D:` present и соответствие target→extent на TrueNAS. Факт обновления игры подтверждает оператор вне автоматического safety gate. Статус по каждой станции: `verified` или `error`; partial success допустим. Ошибочная станция сохраняет старый рабочий target и не блокирует отчёт по успешным, если это безопасно.
 
 ### Шаг 7 — завершение и rollback
 

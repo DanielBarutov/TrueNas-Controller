@@ -69,7 +69,7 @@ Adapter сообщает capabilities: `read_only`, `snapshot`, `clone`, `mappin
 
 ## Интеграционный gate
 
-Для реального NAS нужны отдельные environment flag, явное подтверждение, LAN-only endpoint, secret injection и выделенная тестовая станция. Интеграционные тесты не запускаются в обычном `pytest`; например, отдельный marker/profile и safety precheck должны явно подтвердить цель.
+Для реального NAS нужны отдельные environment flag, явное подтверждение, LAN-only endpoint, secret injection и выделенная тестовая станция. Интеграционные тесты не запускаются в обычном `pytest`; отдельный opt-in profile и safety precheck должны явно подтвердить цель.
 
 ## Проверяемые результаты
 

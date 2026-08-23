@@ -100,7 +100,6 @@ async def test_heartbeat_updates_station_and_snapshot(
         agent_version="1.0.1",
         processes=(ProcessInfo(name="game.exe", pid=42, path="D:\\Games\\game.exe"),),
         drives=(DriveInfo(letter="D:", present=True, free_bytes=1234),),
-        game_version_marker="build-001",
     )
 
     result = await ReceiveHeartbeatUseCase(factory).execute(
@@ -121,7 +120,6 @@ async def test_heartbeat_updates_station_and_snapshot(
     assert stored_snapshot.processes == [
         {"name": "game.exe", "pid": 42, "path": "D:\\Games\\game.exe"}
     ]
-    assert stored_snapshot.game_version_marker == "build-001"
     assert stored_agent is not None and stored_agent.status == "online"
     assert stored_agent.last_ip_addresses == ["192.0.2.10"]
     assert stored_agent.last_mac_addresses == ["00:11:22:33:44:55"]

@@ -73,6 +73,8 @@ key. Basic Auth credential живёт только в памяти текуще�
 - exact blocking process/PID и drive checks;
 - multi-select только online/fresh станций;
 - явные пояснения `dry_run`, `idle_only`, `allow_hot_switch`, cleanup;
+- факт обновления игры подтверждается оператором; UI не запрашивает и не хранит
+  game-specific version marker;
 - server response остаётся authoritative: UI не может сам разблокировать шаг;
 - partial failure, rollback и recovery-required состояния.
 
