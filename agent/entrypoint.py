@@ -19,6 +19,7 @@ from agent.windows_service import PyWin32ServiceRuntime
 SERVICE_NAME = "TrueNasControllerAgent"
 SERVICE_DISPLAY_NAME = "TrueNAS Controller Agent"
 ENROLL_COMMAND = "enroll"
+SCM_COMMANDS = frozenset({"install", "update", "remove", "start", "stop", "restart", "debug"})
 
 
 async def enroll_agent(
@@ -86,19 +87,37 @@ def build_service_runtime(
     config: AgentConfig | None = None,
     *,
     credential_store: CredentialStore | None = None,
+    require_credential: bool = True,
 ) -> PyWin32ServiceRuntime:
-    """Build the SCM adapter after loading an enrolled protected credential."""
+    """Build the SCM adapter and defer credential loading for SCM commands."""
 
     resolved_config = config or AgentConfig.from_env()
     store = credential_store or build_credential_store(resolved_config.credential_path)
-    credential = store.load()
-    if not credential:
-        raise AgentConfigError("agent credential is missing; enrollment is required")
+    if require_credential:
+        credential = store.load()
+        if not credential:
+            raise AgentConfigError("agent credential is missing; enrollment is required")
+
+        def build_service():
+            return build_agent_service(resolved_config, credential)
+
+    else:
+
+        def build_service():
+            return _build_enrolled_service(resolved_config, store)
+
     return PyWin32ServiceRuntime(
         service_name=SERVICE_NAME,
         display_name=SERVICE_DISPLAY_NAME,
-        build_service=lambda: build_agent_service(resolved_config, credential),
+        build_service=build_service,
     )
+
+
+def _build_enrolled_service(config: AgentConfig, store: CredentialStore):
+    credential = store.load()
+    if not credential:
+        raise AgentConfigError("agent credential is missing; enrollment is required")
+    return build_agent_service(config, credential)
 
 
 def main() -> None:
@@ -107,7 +126,8 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == ENROLL_COMMAND:
         asyncio.run(enroll_from_environment())
         return
-    build_service_runtime().run()
+    command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
+    build_service_runtime(require_credential=command not in SCM_COMMANDS).run()
 
 
 if __name__ == "__main__":

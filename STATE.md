@@ -138,6 +138,11 @@
 - [x] Explicit one-shot enrollment command проверяет `AGENT_UUID`/token, использует
   injected Protocol boundaries и не выводит credential/token; deployment notes
   добавлены в `docs/AGENT_DEPLOYMENT.md`.
+- [x] Пошаговая Windows staging-инструкция добавлена в
+  `docs/AGENT_INSTALL.md`; production installer и фактический service account
+  runtime по-прежнему не проверялись.
+- [x] SCM install/start path не расшифровывает DPAPI credential под оператором:
+  загрузка deferred до фактического запуска службы под service account.
 - [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
@@ -188,3 +193,5 @@
 | 2026-08-23 | Сгенерирована Alembic baseline revision `bee81bac70cc` | Включены текущие таблицы и `agent_commands`; migration не применялась, PostgreSQL не подключался |
 | 2026-08-23 | Добавлен agent entrypoint | Protected credential loading и `PyWin32ServiceRuntime` composition; реальные SCM install/start/stop не выполнялись |
 | 2026-08-23 | Добавлен explicit one-shot agent enrollment command | `AGENT_UUID`/token проходят через runtime environment, credential сохраняется защищённо; controller, SCM и migration не запускались |
+| 2026-08-23 | Добавлена Windows staging-инструкция | Зафиксированы controller enrollment, DPAPI/service account порядок, SCM-команды и smoke checks; фактическая Windows-проверка не выполнялась |
+| 2026-08-23 | Исправлен SCM credential lifecycle | `install`/`start` не требуют расшифровки под администратором; credential загружается при `SvcDoRun` под service account |

@@ -69,3 +69,15 @@ def test_service_entrypoint_builds_scm_runtime_after_enrollment() -> None:
     )
 
     assert isinstance(runtime, PyWin32ServiceRuntime)
+
+
+def test_service_entrypoint_defers_credential_load_for_scm_registration() -> None:
+    config = make_config(command_verify_key="public-key-for-test")
+
+    runtime = build_service_runtime(
+        config,
+        credential_store=MemoryCredentialStore(),
+        require_credential=False,
+    )
+
+    assert isinstance(runtime, PyWin32ServiceRuntime)

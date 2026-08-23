@@ -1,5 +1,8 @@
 # Windows-agent deployment boundary
 
+Пошаговая staging-инструкция находится в
+[`AGENT_INSTALL.md`](AGENT_INSTALL.md).
+
 Документ описывает только подготовленный безопасный flow. Реальная Windows
 регистрация службы, запуск от service account и запрос к controller выполняются
 отдельным операторским smoke/integration gate и не считаются пройденными этим
