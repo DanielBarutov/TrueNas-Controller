@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports import PublishJobRepository
 from domain.publish import PublishJob, PublishJobStatus
+from domain.time import ensure_utc
 from repository.models import PublishJobRecord, utc_now
 
 
@@ -42,6 +43,7 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
                 status_reason=job.status_reason,
                 operator_id=job.operator_id,
                 client_confirmation=job.client_confirmation,
+                client_confirmation_at=job.client_confirmation_at,
                 correlation_id=job.correlation_id,
             )
         )
@@ -62,6 +64,7 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
         record.status_reason = job.status_reason
         record.operator_id = job.operator_id
         record.client_confirmation = job.client_confirmation
+        record.client_confirmation_at = job.client_confirmation_at
         if previous_status is not job.status:
             now = utc_now()
             if job.status is PublishJobStatus.PUBLISHING and record.started_at is None:
@@ -88,4 +91,9 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
             status_reason=record.status_reason,
             operator_id=record.operator_id,
             client_confirmation=record.client_confirmation,
+            client_confirmation_at=(
+                None
+                if record.client_confirmation_at is None
+                else ensure_utc(record.client_confirmation_at)
+            ),
         )

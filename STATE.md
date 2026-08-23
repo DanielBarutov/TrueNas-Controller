@@ -16,9 +16,9 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [24 — publish confirmation](/home/daniel/tnas/plans/24-publish-confirmation/01-confirmation-command.md).
-- **Текущая задача:** связать persisted job с operator confirmation и server-side preflight gate.
-- **Следующий разрешённый шаг:** после confirmation gate отдельно согласовать enqueue/apply stage; Redis execution и реальный NAS пока не включать.
+- **Активный план:** [26 — publish outbox](/home/daniel/tnas/plans/26-publish-outbox/01-transactional-outbox-retry.md).
+- **Текущая задача:** устранить commit/queue gap через transactional outbox и relay retry semantics.
+- **Следующий разрешённый шаг:** добавить outbox model/repository и relay tests; Redis execution и реальный NAS пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -49,7 +49,9 @@
 | [21 — Draft command](plans/21-draft-command/01-create-and-enqueue.md) | `closed` | draft use case, idempotency conflict, fresh state read и minimal queue adapter покрыты 5 тестами | presentation draft route |
 | [22 — Publish presentation](plans/22-publish-presentation/01-create-draft-route.md) | `closed` | POST draft route, Basic Auth, 422/409 mapping и safe response покрыты 2 API-тестами | job read model |
 | [23 — Publish read model](plans/23-publish-read-model/01-job-status-query.md) | `closed` | application query, Basic Auth GET, 404 и safe target status покрыты 4 тестами | operator confirmation |
-| [24 — Publish confirmation](plans/24-publish-confirmation/01-confirmation-command.md) | `in_progress` | scope зафиксирован; implementation ещё не начат | persisted preflight gate |
+| [24 — Publish confirmation](plans/24-publish-confirmation/01-confirmation-command.md) | `closed` | persisted preflight, wizard gate, confirmation timestamp и blocked state покрыты 5 тестами | safe dispatch |
+| [25 — Publish dispatch](plans/25-publish-dispatch/01-safe-enqueue-gate.md) | `closed` | status transition, confirmation/preflight gate и queue-after-UoW покрыты 4 тестами | transactional outbox |
+| [26 — Publish outbox](plans/26-publish-outbox/01-transactional-outbox-retry.md) | `in_progress` | gap и scope зафиксированы; implementation ещё не начат | outbox model/repository и relay |
 
 ## Чекап решений
 
@@ -99,6 +101,10 @@
 - [x] Общий набор тестов после presentation draft route: `58 passed` на Python 3.12/uv.
 - [x] GET job read model возвращает per-target statuses/progress без raw mappings и требует Basic Auth.
 - [x] Общий набор тестов после publish read model: `62 passed` на Python 3.12/uv.
+- [x] Persisted preflight повторно вызывает wizard gate, сохраняет target reports и confirmation timestamp без enqueue.
+- [x] Общий набор тестов после confirmation/preflight: `68 passed` на Python 3.12/uv.
+- [x] Dispatch gate переводит только safe job в `publishing`, закрывает UoW до queue call и не запускает broker.
+- [x] Общий набор тестов после dispatch gate: `72 passed` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -128,3 +134,5 @@
 | 2026-08-23 | Добавлен план 22 | Draft/enqueue boundary завершены; начат Basic Auth presentation route для создания draft |
 | 2026-08-23 | Добавлен план 23 | POST draft route завершён; начат безопасный GET job read model |
 | 2026-08-23 | Добавлен план 24 | GET read model завершён; начат persisted operator confirmation/preflight gate |
+| 2026-08-23 | Добавлен план 25 | Confirmation/preflight gate завершён; начат safe dispatch gate перед enqueue |
+| 2026-08-23 | Добавлен план 26 | Dispatch gate завершён; commit/queue gap вынесен в transactional outbox plan |

@@ -1,4 +1,6 @@
 from collections.abc import AsyncIterator
+from dataclasses import replace
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -138,3 +140,38 @@ async def test_publish_target_station_is_unique_per_job(
         async with uow_factory() as uow:
             await uow.publish_targets.add(duplicate)
             await uow.commit()
+
+
+async def test_publish_job_and_target_updates_round_trip(
+    uow_factory: SqlAlchemyUnitOfWorkFactory,
+) -> None:
+    station = make_station()
+    job = make_job()
+    target = make_target(job, station)
+    confirmation_at = datetime(2026, 8, 23, 12, tzinfo=UTC)
+
+    async with uow_factory() as uow:
+        await uow.stations.add(station)
+        await uow.publish_jobs.add(job)
+        await uow.publish_targets.add(target)
+        await uow.commit()
+
+    updated_job = replace(
+        job.transition(PublishJobStatus.PREFLIGHT),
+        client_confirmation=True,
+        client_confirmation_at=confirmation_at,
+    )
+    updated_target = replace(
+        target,
+        preflight_status="pass",
+        preflight_result={"status": "pass"},
+        progress_percent=25,
+    )
+    async with uow_factory() as uow:
+        await uow.publish_jobs.update(updated_job)
+        await uow.publish_targets.update(updated_target)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        assert await uow.publish_jobs.get(job.id) == updated_job
+        assert await uow.publish_targets.list_for_job(job.id) == (updated_target,)

@@ -32,6 +32,10 @@ Dramatiq и не подключать Redis/NAS в этом подшаге.
 ## Статус
 
 - [x] scope зафиксирован;
-- [ ] application command создан;
-- [ ] ключевые tests созданы;
-- [ ] `STATE.md` обновлён.
+- [x] application command создан;
+- [x] ключевые tests созданы;
+- [x] `STATE.md` обновлён.
+
+Подшаг завершён. Следующий шаг — отдельный dispatch gate: только
+`awaiting_confirmation` с явным подтверждением и pass/warning targets может
+перевести job в `publishing` и вызвать queue port.

@@ -60,6 +60,22 @@ class SqlAlchemyPublishTargetRepository(PublishTargetRepository):
         for target in targets:
             await self.add(target)
 
+    async def update(self, target: PublishTarget) -> None:
+        record = await self._session.get(PublishTargetRecord, target.id, with_for_update=True)
+        if record is None or record.job_id != target.job_id:
+            raise ValueError("publish target not found")
+        record.preflight_status = target.preflight_status
+        record.preflight_result = target.preflight_result
+        record.old_version_id = target.old_version_id
+        record.new_version_id = target.new_version_id
+        record.old_mapping = target.old_mapping
+        record.new_mapping = target.new_mapping
+        record.switch_status = target.switch_status
+        record.verify_status = target.verify_status
+        record.error_code = target.error_code
+        record.error_message = target.error_message
+        record.progress_percent = target.progress_percent
+
     @staticmethod
     def _to_domain(record: PublishTargetRecord, station: StationRecord) -> PublishTarget:
         return PublishTarget(

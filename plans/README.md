@@ -62,7 +62,9 @@
 | [21-draft-command](21-draft-command/01-create-and-enqueue.md) | Создание draft, idempotency и queue port | завершён |
 | [22-publish-presentation](22-publish-presentation/01-create-draft-route.md) | Basic Auth route создания publish draft | завершён |
 | [23-publish-read-model](23-publish-read-model/01-job-status-query.md) | GET job read model и target outcomes | завершён |
-| [24-publish-confirmation](24-publish-confirmation/01-confirmation-command.md) | Operator confirmation и persisted preflight gate | в работе |
+| [24-publish-confirmation](24-publish-confirmation/01-confirmation-command.md) | Operator confirmation и persisted preflight gate | завершён |
+| [25-publish-dispatch](25-publish-dispatch/01-safe-enqueue-gate.md) | Safe transition в publishing и enqueue gate | завершён |
+| [26-publish-outbox](26-publish-outbox/01-transactional-outbox-retry.md) | Transactional outbox и relay retry semantics | в работе |
 
 ## Текущий этап
 
@@ -70,8 +72,8 @@
 `stations`/`agents`, agent lifecycle, preflight core/API, wizard gating,
 deterministic fake publish workflow, job/target persistence, Dramatiq
 composition handler и application draft/queue boundary выполнены. Текущий
-шаг — operator confirmation и persisted preflight gate; storage write и
-реальный NAS по-прежнему запрещены.
+шаг — transactional outbox перед worker enqueue; storage write и реальный NAS
+по-прежнему запрещены.
 
 ## Принятые решения
 

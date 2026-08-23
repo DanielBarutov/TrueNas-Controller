@@ -1,6 +1,7 @@
 """Publish job state machine and target results."""
 
 from dataclasses import dataclass, replace
+from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -61,6 +62,7 @@ class PublishJob:
     status_reason: str | None = None
     operator_id: UUID | None = None
     client_confirmation: bool | None = None
+    client_confirmation_at: datetime | None = None
 
     def transition(self, target: PublishJobStatus) -> "PublishJob":
         if target not in ALLOWED_TRANSITIONS[self.status]:

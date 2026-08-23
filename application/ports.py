@@ -7,7 +7,7 @@ from uuid import UUID
 
 from domain.agent import AgentBinding
 from domain.enrollment import EnrollmentToken
-from domain.preflight import ProcessRule
+from domain.preflight import PreflightReport, ProcessRule
 from domain.publish import PublishJob, PublishTarget
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole
@@ -81,6 +81,13 @@ class ProcessSnapshotRepository(Protocol):
         """Return the newest stored snapshot for a stable station ID."""
 
 
+class PreflightReportQuery(Protocol):
+    """Application boundary for a fresh station preflight report."""
+
+    async def execute(self, *, station_id: UUID) -> PreflightReport:
+        """Evaluate one station without mutating publish/storage state."""
+
+
 class PublishJobRepository(Protocol):
     """Persistence boundary for durable publish job state."""
 
@@ -108,6 +115,9 @@ class PublishTargetRepository(Protocol):
 
     async def add_many(self, targets: tuple[PublishTarget, ...]) -> None:
         """Stage all target rows in the current job transaction."""
+
+    async def update(self, target: PublishTarget) -> None:
+        """Stage a result/preflight update for an existing target."""
 
 
 class PublishStorageAdapter(Protocol):
