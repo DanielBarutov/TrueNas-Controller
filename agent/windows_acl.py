@@ -38,5 +38,5 @@ class WindowsCredentialFileSecurity:
                 win32security.DACL_SECURITY_INFORMATION,
                 descriptor,
             )
-        except (OSError, RuntimeError) as exc:
+        except Exception as exc:
             raise WindowsCredentialAclError("credential file ACL setup failed") from exc
