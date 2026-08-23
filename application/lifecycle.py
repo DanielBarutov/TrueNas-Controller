@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from application.ports import UnitOfWorkFactory
 from domain.agent import AgentBinding
+from domain.agent_command import AgentCommand
 from domain.enrollment import EnrollmentToken
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole, StationStatus
@@ -17,6 +18,8 @@ from domain.time import ensure_utc
 
 ENROLLMENT_TOKEN_TTL = timedelta(minutes=10)
 HEARTBEAT_CLOCK_SKEW = timedelta(minutes=5)
+AGENT_COMMAND_LEASE = timedelta(seconds=30)
+AGENT_COMMAND_BATCH_SIZE = 16
 
 
 class EnrollmentRejectedError(ValueError):
@@ -55,6 +58,7 @@ class HeartbeatResult:
 
     station_id: UUID
     received_at: datetime
+    commands: tuple[AgentCommand, ...] = ()
 
 
 def hash_secret(value: str) -> str:
@@ -177,8 +181,14 @@ class ReceiveHeartbeatUseCase:
                 ip_addresses=normalized_ips,
                 mac_addresses=normalized_macs,
             )
+            commands = await uow.agent_commands.claim_for_agent(
+                agent.id,
+                now=accepted_at,
+                lease_for=AGENT_COMMAND_LEASE,
+                limit=AGENT_COMMAND_BATCH_SIZE,
+            )
             await uow.commit()
-        return HeartbeatResult(normalized_snapshot.station_id, accepted_at)
+        return HeartbeatResult(normalized_snapshot.station_id, accepted_at, commands)
 
 
 def _normalize_hostname(value: str | None) -> str | None:

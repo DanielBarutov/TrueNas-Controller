@@ -13,6 +13,7 @@ from application.truenas import (
     TrueNASTargetExtent,
 )
 from domain.agent import AgentBinding
+from domain.agent_command import AgentCommand
 from domain.enrollment import EnrollmentToken
 from domain.outbox import OutboxEvent
 from domain.preflight import PreflightReport, ProcessRule
@@ -63,6 +64,9 @@ class AgentRepository(Protocol):
     async def get_by_credential_hash(self, credential_hash: str) -> AgentBinding | None:
         """Load the binding without exposing the raw credential."""
 
+    async def get_by_agent_uuid(self, agent_uuid: UUID) -> AgentBinding | None:
+        """Load an agent binding for operator command issuance."""
+
     async def record_heartbeat(
         self,
         agent_id: UUID,
@@ -74,6 +78,32 @@ class AgentRepository(Protocol):
         mac_addresses: tuple[str, ...] | None = None,
     ) -> None:
         """Persist snapshot, identity metadata and agent/station freshness state."""
+
+
+class AgentCommandRepository(Protocol):
+    """Durable lease/ack boundary for signed agent commands."""
+
+    async def add(self, command: AgentCommand) -> None:
+        """Stage one signed command for a bound agent."""
+
+    async def claim_for_agent(
+        self,
+        agent_id: UUID,
+        *,
+        now: datetime,
+        lease_for: timedelta,
+        limit: int,
+    ) -> tuple[AgentCommand, ...]:
+        """Lease pending or expired-delivery commands for one heartbeat response."""
+
+    async def acknowledge(
+        self,
+        agent_id: UUID,
+        command_id: UUID,
+        *,
+        now: datetime,
+    ) -> bool:
+        """Acknowledge a command only for its owning agent and active lease."""
 
 
 class ProcessRuleRepository(Protocol):
@@ -248,6 +278,7 @@ class UnitOfWork(Protocol):
     stations: StationRepository
     enrollment_tokens: EnrollmentTokenRepository
     agents: AgentRepository
+    agent_commands: AgentCommandRepository
     process_rules: ProcessRuleRepository
     process_snapshots: ProcessSnapshotRepository
     publish_jobs: PublishJobRepository

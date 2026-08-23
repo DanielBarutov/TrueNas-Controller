@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -11,6 +11,7 @@ from application.publish_commands import (
     PublishJobNotFoundError,
 )
 from application.publish_queries import PublishJobView
+from domain.agent_command import AgentCommand, AgentCommandName
 from domain.preflight import CheckResult, CheckStatus, PreflightReport
 from domain.publish import PublishJob, PublishTarget
 from domain.station import Station, StationRole, StationStatus
@@ -57,6 +58,24 @@ class FakeHeartbeat:
     async def execute(self, *, credential: str, snapshot, **kwargs) -> HeartbeatResult:
         self.credential = credential
         return HeartbeatResult(station_id=snapshot.station_id, received_at=datetime.now(UTC))
+
+
+class FakeIssueAgentCommand:
+    def __init__(self, command: AgentCommand) -> None:
+        self.command = command
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> AgentCommand:
+        self.calls.append(kwargs)
+        return self.command
+
+
+class FakeAcknowledgeAgentCommand:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> None:
+        self.calls.append(kwargs)
 
 
 class FakePreflight:
@@ -210,6 +229,51 @@ def test_agent_lifecycle_routes_use_their_auth_boundaries(monkeypatch) -> None:
     assert client.post("/api/v1/agents/heartbeat", json={}).status_code == 401
     assert heartbeat_response.status_code == 200
     assert heartbeat.credential == "credential-for-test"
+
+
+def test_agent_command_routes_require_their_auth_boundaries(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    agent_uuid = uuid4()
+    command_id = uuid4()
+    command = AgentCommand(
+        id=command_id,
+        agent_id=uuid4(),
+        name=AgentCommandName.REFRESH_PROCESS_SNAPSHOT,
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        signature="signed-command",
+    )
+    issue = FakeIssueAgentCommand(command)
+    acknowledge = FakeAcknowledgeAgentCommand()
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            issue_agent_command=issue,
+            acknowledge_agent_command=acknowledge,
+        )
+    )
+
+    assert (
+        client.post(
+            f"/api/v1/agents/{agent_uuid}/commands",
+            json={"name": "refresh_process_snapshot"},
+        ).status_code
+        == 401
+    )
+    issue_response = client.post(
+        f"/api/v1/agents/{agent_uuid}/commands",
+        json={"name": "refresh_process_snapshot", "ttl_seconds": 60},
+        auth=("admin", TEST_PASSWORD),
+    )
+    ack_response = client.post(
+        f"/api/v1/agents/commands/{command_id}/ack",
+        headers={"Authorization": "Bearer credential-for-test"},
+    )
+
+    assert issue_response.status_code == 201
+    assert issue_response.json()["command_id"] == str(command_id)
+    assert issue.calls[0]["agent_uuid"] == agent_uuid
+    assert ack_response.status_code == 204
+    assert acknowledge.calls[0]["credential"] == "credential-for-test"
 
 
 def test_preflight_route_requires_operator_auth_and_returns_report(monkeypatch) -> None:

@@ -36,6 +36,18 @@ class AgentEnrollResponse(BaseModel):
     server_time: datetime
 
 
+class AgentCommandIssueRequest(BaseModel):
+    name: Literal["refresh_process_snapshot"]
+    ttl_seconds: int = Field(default=300, ge=1, le=900)
+
+
+class AgentCommandIssueResponse(BaseModel):
+    command_id: UUID
+    name: str
+    expires_at: datetime
+    status: str
+
+
 class ProcessPayload(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     pid: int | None = Field(default=None, ge=0)
@@ -61,7 +73,15 @@ class HeartbeatRequest(BaseModel):
     game_version_marker: str | None = Field(default=None, max_length=255)
 
 
+class AgentCommandResponse(BaseModel):
+    command_id: UUID
+    name: str = Field(min_length=1, max_length=64)
+    expires_at: datetime
+    signature: str = Field(min_length=1, max_length=128)
+
+
 class HeartbeatResponse(BaseModel):
     status: str
     station_id: UUID
     received_at: datetime
+    commands: list[AgentCommandResponse] = Field(default_factory=list, max_length=16)

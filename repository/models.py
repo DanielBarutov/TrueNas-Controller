@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from domain.agent_command import AgentCommandStatus
 from domain.outbox import OutboxEventStatus
 from domain.preflight import RuleSeverity
 from domain.publish import PublishJobStatus
@@ -143,6 +144,36 @@ class AgentRecord(Base):
     last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     station: Mapped[StationRecord] = relationship(back_populates="agent")
+    commands: Mapped[list["AgentCommandRecord"]] = relationship(back_populates="agent")
+
+
+class AgentCommandRecord(Base):
+    """Durable signed command waiting for delivery or acknowledgement."""
+
+    __tablename__ = "agent_commands"
+    __table_args__ = (
+        Index("ix_agent_commands_agent_status", "agent_id", "status", "created_at"),
+        Index("ix_agent_commands_lease_until", "lease_until"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    agent_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("agents.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    signature: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=AgentCommandStatus.PENDING.value
+    )
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    agent: Mapped[AgentRecord] = relationship(back_populates="commands")
 
 
 class EnrollmentTokenRecord(Base):

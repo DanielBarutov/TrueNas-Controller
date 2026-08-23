@@ -20,6 +20,7 @@ class AgentConfig:
     agent_version: str
     hostname: str
     credential_path: Path
+    command_verify_key: str | None = None
     heartbeat_interval_seconds: float = 10.0
     drive_letter: str = "D:"
     allow_insecure_http: bool = False
@@ -32,6 +33,7 @@ class AgentConfig:
         agent_version = source.get("AGENT_VERSION", "").strip()
         hostname = source.get("AGENT_HOSTNAME", "").strip()
         credential_path_text = source.get("AGENT_CREDENTIAL_PATH", "").strip()
+        command_verify_key = source.get("AGENT_COMMAND_VERIFY_KEY", "").strip() or None
         allow_insecure = source.get("AGENT_ALLOW_INSECURE_HTTP") == "1"
         if not api_base_url or not station_id_text or not agent_version or not hostname:
             raise AgentConfigError("agent URL, station ID, version and hostname are required")
@@ -48,6 +50,7 @@ class AgentConfig:
             agent_version=agent_version,
             hostname=hostname,
             credential_path=Path(credential_path_text),
+            command_verify_key=command_verify_key,
             allow_insecure_http=allow_insecure,
         )
 

@@ -1,5 +1,7 @@
 """Versioned agent payloads and safe server-command validation."""
 
+from __future__ import annotations
+
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -18,8 +20,15 @@ class HeartbeatTransportError(RuntimeError):
 class HeartbeatTransport(Protocol):
     """Outbound transport used by the agent heartbeat loop."""
 
-    async def send(self, payload: Mapping[str, object], credential: str) -> None:
-        """Send one heartbeat using an agent-only credential."""
+    async def send(
+        self,
+        payload: Mapping[str, object],
+        credential: str,
+    ) -> tuple[ServerCommand, ...]:
+        """Send one heartbeat and return signed commands included in its response."""
+
+    async def acknowledge(self, command_id: UUID, credential: str) -> None:
+        """Acknowledge one successfully executed command."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +110,13 @@ class AgentCommandValidator:
         if not self._signature_verifier(command):
             raise InvalidAgentCommand("agent command signature is invalid")
         return command
+
+
+class AgentCommandReceiver(Protocol):
+    """Local command execution boundary owned by the agent runtime."""
+
+    async def handle(self, command: ServerCommand, *, now: datetime) -> None:
+        """Validate and execute one supported command."""
 
 
 def _utc_isoformat(value: datetime) -> str:

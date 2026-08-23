@@ -5,12 +5,14 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from application.ports import (
+    AgentCommandRepository,
     OutboxRepository,
     PublishJobRepository,
     PublishTargetRepository,
     StationRepository,
     UnitOfWork,
 )
+from repository.agent_commands import SqlAlchemyAgentCommandRepository
 from repository.agents import SqlAlchemyAgentRepository
 from repository.enrollment_tokens import SqlAlchemyEnrollmentTokenRepository
 from repository.outbox import SqlAlchemyOutboxRepository
@@ -30,6 +32,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._stations: StationRepository | None = None
         self._enrollment_tokens: SqlAlchemyEnrollmentTokenRepository | None = None
         self._agents: SqlAlchemyAgentRepository | None = None
+        self._agent_commands: AgentCommandRepository | None = None
         self._process_rules: SqlAlchemyProcessRuleRepository | None = None
         self._process_snapshots: SqlAlchemyProcessSnapshotRepository | None = None
         self._publish_jobs: PublishJobRepository | None = None
@@ -53,6 +56,12 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         if self._agents is None:
             raise RuntimeError("unit of work must be entered before accessing repositories")
         return self._agents
+
+    @property
+    def agent_commands(self) -> AgentCommandRepository:
+        if self._agent_commands is None:
+            raise RuntimeError("unit of work must be entered before accessing repositories")
+        return self._agent_commands
 
     @property
     def process_rules(self) -> SqlAlchemyProcessRuleRepository:
@@ -91,6 +100,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._stations = SqlAlchemyStationRepository(self._session)
         self._enrollment_tokens = SqlAlchemyEnrollmentTokenRepository(self._session)
         self._agents = SqlAlchemyAgentRepository(self._session)
+        self._agent_commands = SqlAlchemyAgentCommandRepository(self._session)
         self._process_rules = SqlAlchemyProcessRuleRepository(self._session)
         self._process_snapshots = SqlAlchemyProcessSnapshotRepository(self._session)
         self._publish_jobs = SqlAlchemyPublishJobRepository(self._session)
@@ -116,6 +126,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             self._stations = None
             self._enrollment_tokens = None
             self._agents = None
+            self._agent_commands = None
             self._process_rules = None
             self._process_snapshots = None
             self._publish_jobs = None

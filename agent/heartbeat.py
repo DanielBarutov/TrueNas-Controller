@@ -3,10 +3,16 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
+from datetime import UTC, datetime
 import random
 
 from agent.backoff import BackoffPolicy
-from agent.protocol import HeartbeatPayloadBuilder, HeartbeatTransport, HeartbeatTransportError
+from agent.protocol import (
+    AgentCommandReceiver,
+    HeartbeatPayloadBuilder,
+    HeartbeatTransport,
+    HeartbeatTransportError,
+)
 from domain.snapshot import ProcessSnapshot
 
 SnapshotSource = Callable[[], ProcessSnapshot]
@@ -27,6 +33,7 @@ class HeartbeatAgent:
         backoff: BackoffPolicy | None = None,
         sleeper: Sleep = asyncio.sleep,
         random_value: Callable[[], float] = random.random,
+        command_receiver: AgentCommandReceiver | None = None,
     ) -> None:
         if not credential:
             raise ValueError("agent credential cannot be empty")
@@ -40,29 +47,45 @@ class HeartbeatAgent:
         self._backoff = backoff or BackoffPolicy()
         self._sleeper = sleeper
         self._random_value = random_value
+        self._command_receiver = command_receiver
 
-    async def send_once(self, snapshot: ProcessSnapshot) -> None:
+    async def send_once(self, snapshot: ProcessSnapshot, *, process_commands: bool = True) -> None:
         """Build and send one heartbeat without retrying a duplicate payload."""
 
         payload = self._payload_builder.build(snapshot)
-        await self._transport.send(payload, self._credential)
+        commands = await self._transport.send(payload, self._credential)
+        if not process_commands or not commands:
+            return
+        if self._command_receiver is None:
+            raise HeartbeatTransportError("agent command receiver is not configured")
+        for command in commands:
+            await self._command_receiver.handle(command, now=datetime.now(UTC))
+            await self._transport.acknowledge(command.command_id, self._credential)
 
-    async def send_with_retry(self, snapshot: ProcessSnapshot) -> None:
+    async def send_with_retry(
+        self,
+        snapshot: ProcessSnapshot,
+        *,
+        process_commands: bool = True,
+    ) -> None:
         """Retry transient transport failures with bounded exponential backoff."""
 
         for attempt in range(self._backoff.max_attempts):
             try:
-                await self.send_once(snapshot)
+                await self.send_once(snapshot, process_commands=process_commands)
                 return
             except HeartbeatTransportError:
                 if attempt == self._backoff.max_attempts - 1:
                     raise
                 await self._sleeper(self._backoff.delay(attempt, self._random_value()))
 
-    async def run_once(self) -> None:
+    async def run_once(self, *, process_commands: bool = True) -> None:
         """Collect and deliver one heartbeat; caller controls the scheduler."""
 
-        await self.send_with_retry(self._snapshot_source())
+        await self.send_with_retry(
+            self._snapshot_source(),
+            process_commands=process_commands,
+        )
 
     async def run_forever(self, stop_event: asyncio.Event) -> None:
         """Run until stopped; failed cycles become the next retry opportunity."""

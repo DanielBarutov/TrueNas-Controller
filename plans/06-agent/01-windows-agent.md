@@ -99,7 +99,9 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] Windows ACL adapter применяется к временно записываемому credential blob
   до `os.replace`; platform factory требует явного plaintext fallback только
   вне Windows для development;
-- [ ] actual server command delivery/signature transport;
+- [x] server command issuance, Ed25519 signature transport, heartbeat lease,
+  local dedupe и acknowledgement boundary;
+- [ ] baseline Alembic migration и production agent public-key wiring;
 - [ ] production installer/service registration и проверка ACL под фактической
   service account;
 - [ ] согласовать фактический `game_version_marker` источник.

@@ -11,7 +11,7 @@ class FakeHeartbeat:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def run_once(self) -> None:
+    async def run_once(self, **kwargs) -> None:
         self.calls += 1
 
 
@@ -28,5 +28,21 @@ async def test_command_handler_refreshes_only_after_validation() -> None:
         ServerCommand(uuid4(), "refresh_process_snapshot", now + timedelta(minutes=1), "sig"),
         now=now,
     )
+
+    assert heartbeat.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_command_handler_deduplicates_replayed_command_id() -> None:
+    now = datetime(2026, 8, 23, 12, tzinfo=UTC)
+    heartbeat = FakeHeartbeat()
+    command = ServerCommand(uuid4(), "refresh_process_snapshot", now + timedelta(minutes=1), "sig")
+    handler = AgentCommandHandler(
+        AgentCommandValidator(lambda candidate: candidate.signature == "sig"),
+        heartbeat,
+    )
+
+    await handler.handle(command, now=now)
+    await handler.handle(command, now=now)
 
     assert heartbeat.calls == 1

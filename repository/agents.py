@@ -62,6 +62,30 @@ class SqlAlchemyAgentRepository:
             last_mac_addresses=tuple(record.last_mac_addresses),
         )
 
+    async def get_by_agent_uuid(self, agent_uuid: UUID) -> AgentBinding | None:
+        statement = (
+            select(AgentRecord, StationRecord)
+            .join(StationRecord, AgentRecord.station_id == StationRecord.id)
+            .where(AgentRecord.agent_uuid == agent_uuid)
+        )
+        row = (await self._session.execute(statement)).one_or_none()
+        if row is None:
+            return None
+        record, station = row
+        return AgentBinding(
+            id=record.id,
+            station_id=station.station_id,
+            agent_uuid=record.agent_uuid,
+            agent_version=record.agent_version,
+            credential_hash=record.credential_hash or "",
+            credential_created_at=record.credential_created_at,
+            revoked_at=record.revoked_at,
+            station_enabled=station.enabled,
+            station_deleted_at=station.deleted_at,
+            last_ip_addresses=tuple(record.last_ip_addresses),
+            last_mac_addresses=tuple(record.last_mac_addresses),
+        )
+
     async def record_heartbeat(
         self,
         agent_id: UUID,

@@ -6,6 +6,14 @@ from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 
+from application.agent_commands import (
+    AcknowledgeAgentCommandUseCase,
+    AgentCommandAcknowledgementRejectedError,
+    AgentCommandAgentNotFoundError,
+    AgentCommandIssueError,
+    AgentCommandUnauthorizedError,
+    IssueAgentCommandUseCase,
+)
 from application.lifecycle import (
     AgentUnauthorizedError,
     CreateStationUseCase,
@@ -26,6 +34,9 @@ from application.publish_queries import GetPublishJobUseCase
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
 from presentation.lifecycle_schemas import (
+    AgentCommandIssueRequest,
+    AgentCommandIssueResponse,
+    AgentCommandResponse,
     AgentEnrollRequest,
     AgentEnrollResponse,
     HeartbeatRequest,
@@ -50,6 +61,8 @@ def create_app(
     evaluate_preflight: EvaluateStationPreflightUseCase | None = None,
     create_publish_job: CreatePublishJobUseCase | None = None,
     get_publish_job: GetPublishJobUseCase | None = None,
+    issue_agent_command: IssueAgentCommandUseCase | None = None,
+    acknowledge_agent_command: AcknowledgeAgentCommandUseCase | None = None,
 ) -> FastAPI:
     """Create the HTTP application from application-layer dependencies."""
 
@@ -167,7 +180,78 @@ def create_app(
                 status="accepted",
                 station_id=result.station_id,
                 received_at=result.received_at,
+                commands=[
+                    AgentCommandResponse(
+                        command_id=command.id,
+                        name=command.name.value,
+                        expires_at=command.expires_at,
+                        signature=command.signature,
+                    )
+                    for command in result.commands
+                ],
             )
+
+    if issue_agent_command is not None:
+
+        @app.post(
+            "/api/v1/agents/{agent_uuid}/commands",
+            response_model=AgentCommandIssueResponse,
+            status_code=status.HTTP_201_CREATED,
+        )
+        async def issue_command(
+            agent_uuid: UUID,
+            payload: AgentCommandIssueRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> AgentCommandIssueResponse:
+            try:
+                command = await issue_agent_command.execute(
+                    agent_uuid=agent_uuid,
+                    name=payload.name,
+                    ttl=timedelta(seconds=payload.ttl_seconds),
+                )
+            except AgentCommandAgentNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            except AgentCommandIssueError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(error),
+                ) from error
+            return AgentCommandIssueResponse(
+                command_id=command.id,
+                name=command.name.value,
+                expires_at=command.expires_at,
+                status=command.status.value,
+            )
+
+    if acknowledge_agent_command is not None:
+
+        @app.post(
+            "/api/v1/agents/commands/{command_id}/ack",
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+        async def acknowledge_command(
+            command_id: UUID,
+            credential: Annotated[str, Depends(require_agent_credential)],
+        ) -> None:
+            try:
+                await acknowledge_agent_command.execute(
+                    credential=credential,
+                    command_id=command_id,
+                )
+            except AgentCommandUnauthorizedError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(error),
+                    headers={"WWW-Authenticate": "Bearer"},
+                ) from error
+            except AgentCommandAcknowledgementRejectedError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
 
     if evaluate_preflight is not None:
 

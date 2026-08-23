@@ -13,12 +13,17 @@ class FakeTransport:
     def __init__(self, failures: int) -> None:
         self.failures = failures
         self.calls: list[tuple[dict[str, object], str]] = []
+        self.acknowledged: list[str] = []
 
-    async def send(self, payload, credential: str) -> None:
+    async def send(self, payload, credential: str) -> tuple:
         self.calls.append((dict(payload), credential))
         if self.failures:
             self.failures -= 1
             raise HeartbeatTransportError("temporary failure")
+        return ()
+
+    async def acknowledge(self, command_id, credential: str) -> None:
+        self.acknowledged.append(str(command_id))
 
 
 @pytest.mark.asyncio

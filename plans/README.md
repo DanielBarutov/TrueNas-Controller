@@ -45,6 +45,7 @@
 | [04-security](04-security/01-security.md) | Угрозы, секреты, авторизация и аудит | готов |
 | [05-api](05-api/01-contract.md) | Контракты собственного API и событий | готов |
 | [06-agent](06-agent/01-windows-agent.md) | Windows-агент, snapshot и enrollment | готов |
+| [06.02-agent-command-delivery](06-agent/02-command-delivery.md) | Подписанные refresh-команды, lease и ack | открыт |
 | [07-truenas-adapter](07-truenas-adapter/01-adapter.md) | Adapter, mock, fixtures и интеграционный gate | готов |
 | [08-workflows](08-workflows/01-publish-workflow.md) | Preflight, publish, switch, verify, rollback | готов |
 | [09-testing](09-testing/01-strategy.md) | Пирамида тестов и критерии доказательности | готов |
