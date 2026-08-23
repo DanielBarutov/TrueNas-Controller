@@ -1,0 +1,131 @@
+# 31. Operator frontend и база знаний
+
+## Цель
+
+Создать отдельный React/Vite/TypeScript frontend для оператора контроллера.
+Frontend должен объяснять смысл полей и опасных опций, показывать актуальное
+состояние станций и содержать встроенную Markdown-базу знаний с инструкциями
+по backend, enrollment и управлению Windows-агентами.
+
+## Входы
+
+- API-контракты из [плана 05](../05-api/01-contract.md);
+- read-only stations, enrollment, heartbeat, preflight и publish routes;
+- правила безопасности из [плана 04](../04-security/01-security.md);
+- инструкции агента из [`docs/AGENT_INSTALL.md`](../../docs/AGENT_INSTALL.md) и
+  [`docs/AGENT_DEPLOYMENT.md`](../../docs/AGENT_DEPLOYMENT.md);
+- Basic Auth с операторским пользователем `admin`.
+
+## Архитектура frontend
+
+```text
+presentation (pages/components/forms)
+        ↓
+application (API client, query/command orchestration)
+        ↓
+domain (types, status labels, UI safety rules)
+        ↓
+infrastructure (fetch, Vite proxy, Markdown content registry)
+```
+
+MVP-структура:
+
+```text
+frontend/
+├── src/
+│   ├── application/       # API client и UI use cases
+│   ├── domain/            # DTO/types/status presentation rules
+│   ├── presentation/      # pages, components, forms
+│   └── content/knowledge/ # allowlisted Markdown documents
+├── package.json
+└── vite.config.ts
+```
+
+Frontend не знает TrueNAS URL, API key, agent credential или private signing
+key. Basic Auth credential живёт только в памяти текущей вкладки и не
+сохраняется в localStorage/cookies в MVP. Vite dev proxy используется для
+локальной same-origin разработки.
+
+## Этапы
+
+### 31.01. Каркас и навигация
+
+- React/Vite/TypeScript project;
+- shell с navigation: overview, stations, knowledge base;
+- login form с объяснением Basic Auth и ошибками 401;
+- API client с единым mapping ошибок;
+- responsive layout для админского ПК.
+
+### 31.02. Станции и агентские операции
+
+- stations table с hostname, role, status, freshness и agent metadata;
+- пояснения к каждому статусу и безопасное различие `offline`/`stale`;
+- создание station/enrollment flow с предупреждением о TTL one-shot token;
+- refresh process snapshot command только через backend API;
+- отображение последнего heartbeat и объяснение, почему browser не видит
+  Windows-процессы напрямую;
+- destructive/unsupported controls не рисовать до появления backend route.
+
+### 31.03. Preflight и publish wizard
+
+- admin/client process checks;
+- exact blocking process/PID и drive checks;
+- multi-select только online/fresh станций;
+- явные пояснения `dry_run`, `idle_only`, `allow_hot_switch`, cleanup;
+- server response остаётся authoritative: UI не может сам разблокировать шаг;
+- partial failure, rollback и recovery-required состояния.
+
+### 31.04. Knowledge base / Markdown reader
+
+- curated registry документов без произвольного чтения файлов из browser;
+- Markdown/GFM rendering с заголовками, таблицами, code blocks и links;
+- поиск по title/description/content;
+- инструкции минимум по разделам:
+  - запуск backend на Windows PowerShell и SQLite/PostgreSQL profile;
+  - создание station и получение one-shot enrollment token;
+  - установка агента на клиентский ПК;
+  - настройка service account и DPAPI credential;
+  - управление агентом с админского ПК;
+  - refresh command, heartbeat и troubleshooting;
+  - безопасный re-enrollment и uninstall;
+- показывать дату/версию документа и предупреждать об устаревших инструкциях.
+
+## UI safety rules
+
+- не хранить API password в localStorage, IndexedDB или build artifacts;
+- не показывать credential/token после исходного шага регистрации;
+- не отображать TrueNAS API key ни в UI, ни в Markdown content;
+- каждое опасное поле имеет краткое объяснение, допустимые значения и
+  последствия;
+- disabled/stale/offline station нельзя выбрать для publish;
+- unknown/stale не трактовать как healthy;
+- UI отображает server errors/correlation ID, но не raw exception/secret;
+- Markdown reader открывает только документы из статического allowlist.
+
+## Проверки
+
+- `npm run build`;
+- API client tests для Basic Auth, 401 и malformed response;
+- knowledge registry test: все документы доступны, secret scan чистый;
+- component/page tests для login, station status, selection gate и Markdown
+  reader;
+- manual visual check на desktop viewport;
+- production build не содержит `BASIC_AUTH_PASSWORD`, TrueNAS API key,
+  `AGENT_COMMAND_SIGNING_PRIVATE_KEY` или agent credential.
+
+## Текущий срез
+
+- [x] создан план frontend и зафиксированы требования к пояснениям,
+  инструкциям и Markdown reader;
+- [x] создан минимальный Vite shell, login, stations read/create и knowledge
+  base reader;
+- [ ] подключить полный stations/preflight/publish workflow;
+- [ ] добавить frontend tests и visual check;
+- [ ] добавить frontend в Compose после появления общего Compose-файла.
+
+## Запреты
+
+- не добавлять реальные секреты в `.env`, Markdown и bundle;
+- не вызывать TrueNAS из browser;
+- не реализовывать frontend-only обход backend safety gate;
+- не показывать fake success для неподдержанных backend операций.

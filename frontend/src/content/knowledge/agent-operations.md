@@ -1,0 +1,39 @@
+# Управление агентами с админского ПК
+
+## Статусы
+
+- `online` — heartbeat свежий;
+- `stale` — heartbeat устарел, состояние Windows нельзя считать актуальным;
+- `offline` — агент не отвечает;
+- `disabled` — станция отключена оператором.
+
+`offline` и `stale` нельзя трактовать как готовность к publish. Сначала
+проверь службу, HTTPS-доступ, часы Windows и credential binding.
+
+## Heartbeat и refresh
+
+Агент отправляет process/drive snapshot примерно раз в 10 секунд. Browser не
+читает процессы напрямую: он показывает данные, сохранённые Controller.
+
+Команда refresh разрешена только в безопасном виде
+`refresh_process_snapshot`. Она подписывается Controller, проверяется агентом,
+не запускает shell/PowerShell и подтверждается после локального refresh.
+
+В MVP команда создаётся через собственный API:
+
+```text
+POST /api/v1/agents/{agent_uuid}/commands
+{
+  "name": "refresh_process_snapshot",
+  "ttl_seconds": 300
+}
+```
+
+## Если агент offline
+
+1. Проверь `Get-Service -Name TrueNasControllerAgent`.
+2. Проверь `AGENT_API_BASE_URL`: это URL Controller, не TrueNAS `/api/docs`.
+3. Убедись, что credential читается той же service account.
+4. Проверь HTTPS и Windows Firewall.
+5. Не удаляй credential и не повторяй enrollment старым token без решения
+   оператора: token одноразовый, а agent UUID связан со station.

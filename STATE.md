@@ -16,9 +16,9 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [30 — TrueNAS LAN integration gate](/home/daniel/tnas/plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md).
-- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` сверены, opt-in runtime boundary создан, read-only smoke check ещё не выполнялся. Параллельно закрывается deployment-подшаг Windows-агента: explicit enrollment CLI готов, production service-account gate ещё открыт.
-- **Следующий разрешённый шаг:** после отдельного явного согласования и внешней runtime-конфигурации API key выполнить только `core.ping`/query; real Redis execution и storage write пока не включать.
+- **Активный план:** [31 — frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
+- **Текущая задача:** собрать операторский React/Vite shell с Basic Auth, пояснениями к статусам/полям, station read/create и allowlisted Markdown reader. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
+- **Следующий разрешённый шаг:** подключить полный stations/preflight/publish workflow к API; real Redis execution, TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -55,7 +55,8 @@
 | [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `closed` | fake task executor и persisted simulated/verified/partial outcomes покрыты 4 тестами | fake acceptance |
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
-| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `in_progress` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
+| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
+| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create и allowlisted Markdown reader созданы; полный workflow и Compose не подключены | stations/preflight/publish API, frontend tests и visual check |
 
 ## Чекап решений
 
@@ -143,6 +144,10 @@
   runtime по-прежнему не проверялись.
 - [x] SCM install/start path не расшифровывает DPAPI credential под оператором:
   загрузка deferred до фактического запуска службы под service account.
+- [x] Plan 31 frontend: React/Vite shell, in-memory Basic Auth login, status
+  explanations, station read/create и Markdown knowledge reader созданы.
+- [x] Frontend build: `npm run build` прошёл; headed visual smoke-check login
+  пройден, backend/API runtime не запускался в рамках frontend build.
 - [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
@@ -195,3 +200,4 @@
 | 2026-08-23 | Добавлен explicit one-shot agent enrollment command | `AGENT_UUID`/token проходят через runtime environment, credential сохраняется защищённо; controller, SCM и migration не запускались |
 | 2026-08-23 | Добавлена Windows staging-инструкция | Зафиксированы controller enrollment, DPAPI/service account порядок, SCM-команды и smoke checks; фактическая Windows-проверка не выполнялась |
 | 2026-08-23 | Исправлен SCM credential lifecycle | `install`/`start` не требуют расшифровки под администратором; credential загружается при `SvcDoRun` под service account |
+| 2026-08-23 | Начат план 31 frontend | Добавлены React/Vite shell, in-memory Basic Auth, station read/create и Markdown knowledge base; полный workflow отложен на следующие подшаги |

@@ -70,6 +70,7 @@
 | [28-fake-acceptance](28-fake-acceptance/01-end-to-end-pipeline.md) | End-to-end fake publish pipeline acceptance | завершён |
 | [29-truenas-read-only](29-truenas-read-only/01-versioned-adapter-contract.md) | Versioned TrueNAS read-only adapter contract | завершён |
 | [30-truenas-lan-gate](30-truenas-lan-gate/01-local-api-docs-and-connection.md) | Проверка версии и локальной схемы NAS перед opt-in LAN smoke check | открыт |
+| [31-frontend](31-frontend/01-operator-ui-and-knowledge-base.md) | Операторский React/Vite UI, пояснения полей и Markdown-база знаний | в работе |
 
 ## Текущий этап
 
