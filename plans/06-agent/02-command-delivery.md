@@ -48,15 +48,15 @@ agent validates Ed25519 → local refresh → POST command ack
 
 - [ ] создать baseline Alembic migration для `agent_commands` вместе с общей
   первой схемой; миграцию только сгенерировать, не применять автоматически;
-- [ ] добавить безопасную передачу/хранение public key в agent runtime config и
-  собрать composition root агента с `Ed25519CommandVerifier`;
+- [x] добавить public key в agent runtime config и собрать composition root
+  агента с `Ed25519CommandVerifier`;
 - [ ] проверить Windows Service runtime под фактической service account;
 - [ ] выполнить отдельный opt-in integration test собственного API и агента;
 - [ ] не подключать TrueNAS, Redis и storage write для проверки этого потока.
 
 ## Проверки текущего среза
 
-- `145 passed, 1 skipped` на Python 3.12/uv;
+- `147 passed, 1 skipped` на Python 3.12/uv;
 - Ruff check/format успешно;
 - реальный Windows SCM, внешний agent network и production DB migration не
   запускались.

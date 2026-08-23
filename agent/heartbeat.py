@@ -87,6 +87,13 @@ class HeartbeatAgent:
             process_commands=process_commands,
         )
 
+    def attach_command_receiver(self, receiver: AgentCommandReceiver) -> None:
+        """Attach the receiver once during composition, before the loop starts."""
+
+        if self._command_receiver is not None:
+            raise RuntimeError("agent command receiver is already attached")
+        self._command_receiver = receiver
+
     async def run_forever(self, stop_event: asyncio.Event) -> None:
         """Run until stopped; failed cycles become the next retry opportunity."""
 

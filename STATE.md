@@ -31,7 +31,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper и signed command delivery boundary созданы; migration, public-key wiring и production registration ещё нет | baseline migration, agent key wiring, service account validation и marker decision |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery и agent runtime composition созданы; migration и production registration ещё нет | baseline migration, service account validation и marker decision |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -132,8 +132,9 @@
 - [x] Windows credential ACL boundary: ACL накладывается на temporary blob до atomic replace; platform factory fail-closed без explicit dev fallback.
 - [x] Общий набор тестов после ACL slice: `136 passed, 1 skipped` на Python 3.12/uv.
 - [x] Signed agent command flow: Ed25519 envelope, operator issue route, heartbeat lease/retry, local dedupe и Bearer acknowledgement route.
-- [x] Agent command public-key config field and external base64 verifier boundary added; runtime composition wiring remains open.
-- [x] Общий набор тестов после command delivery slice: `145 passed, 1 skipped` на Python 3.12/uv.
+- [x] Agent command public-key config field and external base64 verifier boundary added.
+- [x] Agent runtime composition wires public-key verifier, collectors, HTTPS transport and command refresh callback; Windows runtime не запускался.
+- [x] Общий набор тестов после command delivery/runtime slice: `147 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -178,4 +179,5 @@
 | 2026-08-23 | Добавлена граница защищённого credential storage | DPAPI user-scope adapter и fake-protector tests; реальный Windows/SCM runtime не запускался |
 | 2026-08-23 | Добавлена Windows Service boundary | `WindowsServiceHost`, pywin32 SCM adapter и Windows-only dependency; регистрация службы и Windows runtime не запускались |
 | 2026-08-23 | Добавлена Windows credential ACL boundary | pywin32 ACL adapter вызывается до atomic replace; фактическая service account/installer проверка не запускалась |
-| 2026-08-23 | Добавлен plan 06.02 и signed command delivery boundary | Ed25519, lease/retry, local dedupe и ack; baseline migration и agent public-key wiring оставлены production gates |
+| 2026-08-23 | Добавлен plan 06.02 и signed command delivery boundary | Ed25519, lease/retry, local dedupe и ack; baseline migration оставлена production gate |
+| 2026-08-23 | Замкнут agent runtime composition | `AGENT_COMMAND_VERIFY_KEY`, verifier, collectors, HTTPS transport и safe refresh callback собраны без Windows/network runtime |

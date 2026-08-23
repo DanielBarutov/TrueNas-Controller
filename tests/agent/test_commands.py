@@ -21,7 +21,7 @@ async def test_command_handler_refreshes_only_after_validation() -> None:
     heartbeat = FakeHeartbeat()
     handler = AgentCommandHandler(
         AgentCommandValidator(lambda command: command.signature == "sig"),
-        heartbeat,
+        heartbeat.run_once,
     )
 
     await handler.handle(
@@ -39,7 +39,7 @@ async def test_command_handler_deduplicates_replayed_command_id() -> None:
     command = ServerCommand(uuid4(), "refresh_process_snapshot", now + timedelta(minutes=1), "sig")
     handler = AgentCommandHandler(
         AgentCommandValidator(lambda candidate: candidate.signature == "sig"),
-        heartbeat,
+        heartbeat.run_once,
     )
 
     await handler.handle(command, now=now)
