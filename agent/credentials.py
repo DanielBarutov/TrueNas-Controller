@@ -1,5 +1,6 @@
 """Credential storage boundary for the agent-only controller credential."""
 
+from collections.abc import Callable
 import os
 from pathlib import Path
 import tempfile
@@ -27,6 +28,13 @@ class CredentialProtector(Protocol):
 
     def unprotect(self, value: bytes) -> bytes:
         """Unprotect bytes or raise when the blob is invalid/unavailable."""
+
+
+class CredentialFileSecurity(Protocol):
+    """Filesystem security hook applied before an atomic credential replace."""
+
+    def secure(self, path: Path) -> None:
+        """Restrict access to the file or raise without continuing the write."""
 
 
 class CredentialStoreError(RuntimeError):
@@ -86,9 +94,16 @@ class ProtectedCredentialStore:
     inject a deterministic fake protector without pretending to be Windows.
     """
 
-    def __init__(self, path: Path, protector: CredentialProtector) -> None:
+    def __init__(
+        self,
+        path: Path,
+        protector: CredentialProtector,
+        *,
+        file_security: CredentialFileSecurity | None = None,
+    ) -> None:
         self._path = path
         self._protector = protector
+        self._file_security = file_security
 
     def load(self) -> str | None:
         try:
@@ -113,7 +128,8 @@ class ProtectedCredentialStore:
             raise CredentialStoreError("credential protection failed") from exc
         if not isinstance(encrypted, bytes) or not encrypted:
             raise CredentialStoreError("credential protection returned an invalid blob")
-        _write_bytes_atomically(self._path, encrypted)
+        prepare = self._file_security.secure if self._file_security is not None else None
+        _write_bytes_atomically(self._path, encrypted, prepare=prepare)
 
     def clear(self) -> None:
         self._path.unlink(missing_ok=True)
@@ -141,7 +157,12 @@ def _validate_credential(credential: str) -> None:
         raise ValueError("credential must be a non-empty single-line value")
 
 
-def _write_bytes_atomically(path: Path, value: bytes) -> None:
+def _write_bytes_atomically(
+    path: Path,
+    value: bytes,
+    *,
+    prepare: Callable[[Path], None] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     temporary_path = Path(temporary_name)
@@ -154,7 +175,32 @@ def _write_bytes_atomically(path: Path, value: bytes) -> None:
             file.write(value)
             file.flush()
             os.fsync(file.fileno())
+        if prepare is not None:
+            prepare(temporary_path)
         os.replace(temporary_path, path)
     except BaseException:
         temporary_path.unlink(missing_ok=True)
         raise
+
+
+def build_credential_store(
+    path: Path,
+    *,
+    allow_plaintext_fallback: bool = False,
+) -> CredentialStore:
+    """Build the platform store and require explicit plaintext fallback in dev."""
+
+    if os.name != "nt":
+        if allow_plaintext_fallback:
+            return FileCredentialStore(path)
+        raise CredentialStoreError(
+            "protected Windows credential store is unavailable on this platform"
+        )
+    from agent.windows_acl import WindowsCredentialFileSecurity
+    from agent.windows_credentials import DpapiCredentialProtector
+
+    return ProtectedCredentialStore(
+        path,
+        DpapiCredentialProtector(),
+        file_security=WindowsCredentialFileSecurity(),
+    )

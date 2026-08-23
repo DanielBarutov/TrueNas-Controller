@@ -96,7 +96,10 @@ Backend считается authoritative для freshness: агент не мо�
   только явным development fallback;
 - [x] потокобезопасный `WindowsServiceHost` и pywin32 SCM wrapper с graceful
   stop; pywin32 подключается только на Windows;
+- [x] Windows ACL adapter применяется к временно записываемому credential blob
+  до `os.replace`; platform factory требует явного plaintext fallback только
+  вне Windows для development;
 - [ ] actual server command delivery/signature transport;
-- [ ] deployment ACL для каталога credential и production installer/service
-  registration;
+- [ ] production installer/service registration и проверка ACL под фактической
+  service account;
 - [ ] согласовать фактический `game_version_marker` источник.
