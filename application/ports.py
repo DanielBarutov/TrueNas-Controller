@@ -142,6 +142,19 @@ class PublishTaskExecutor(Protocol):
         """Execute one idempotent publish stage without owning persistence setup."""
 
 
+class PublishTaskQueue(Protocol):
+    """Minimal queue boundary for a durable publish task."""
+
+    def enqueue(
+        self,
+        *,
+        job_id: UUID,
+        correlation_id: UUID,
+        idempotency_key: str,
+    ) -> None:
+        """Enqueue only the identifiers needed to reload state in the worker."""
+
+
 class UnitOfWork(Protocol):
     """Transaction boundary for one application command or worker message."""
 

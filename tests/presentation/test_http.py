@@ -4,7 +4,15 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from application.lifecycle import EnrollmentResult, HeartbeatResult, StationRegistration
+from application.publish_commands import (
+    PublishDraftValidationError,
+    PublishIdempotencyConflictError,
+    PublishJobDraft,
+    PublishJobNotFoundError,
+)
+from application.publish_queries import PublishJobView
 from domain.preflight import CheckResult, CheckStatus, PreflightReport
+from domain.publish import PublishJob, PublishTarget
 from domain.station import Station, StationRole, StationStatus
 from presentation.http import create_app
 
@@ -68,6 +76,28 @@ class FakePreflight:
             ),
             evaluated_at=now,
         )
+
+
+class FakePublishDraft:
+    def __init__(self, result: PublishJobDraft | Exception) -> None:
+        self.result = result
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> PublishJobDraft:
+        self.calls.append(kwargs)
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+class FakePublishJobQuery:
+    def __init__(self, result: PublishJobView | Exception) -> None:
+        self.result = result
+
+    async def execute(self, job_id):
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
 
 
 def make_client(stations: list[Station]) -> tuple[TestClient, FakeStationQuery]:
@@ -198,3 +228,153 @@ def test_preflight_route_requires_operator_auth_and_returns_report(monkeypatch) 
     assert authorized.status_code == 200
     assert authorized.json()["status"] == "block"
     assert authorized.json()["can_publish"] is False
+
+
+def test_publish_draft_route_requires_auth_and_returns_safe_summary(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    station_id = uuid4()
+    job = PublishJob(
+        id=uuid4(),
+        idempotency_key="draft-key",
+        correlation_id=uuid4(),
+        label="build-001",
+        game_name="game",
+    )
+    draft = PublishJobDraft(
+        job=job,
+        targets=(PublishTarget(id=uuid4(), job_id=job.id, station_id=station_id),),
+    )
+    use_case = FakePublishDraft(draft)
+    client = TestClient(create_app(FakeStationQuery([]), create_publish_job=use_case))
+    payload = {
+        "label": "build-001",
+        "game_name": "game",
+        "station_ids": [str(station_id)],
+        "idempotency_key": "draft-key",
+        "correlation_id": str(job.correlation_id),
+    }
+
+    assert client.post("/api/v1/publish/jobs", json=payload).status_code == 401
+    response = client.post(
+        "/api/v1/publish/jobs",
+        json=payload,
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "id": str(job.id),
+        "idempotency_key": "draft-key",
+        "correlation_id": str(job.correlation_id),
+        "label": "build-001",
+        "game_name": "game",
+        "status": "draft",
+        "dry_run": True,
+        "allow_hot_switch": False,
+        "station_ids": [str(station_id)],
+    }
+    assert "mapping" not in response.text
+    assert len(use_case.calls) == 1
+
+
+def test_publish_draft_route_maps_application_errors(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    payload = {
+        "label": "build-001",
+        "game_name": "game",
+        "station_ids": [str(uuid4())],
+        "idempotency_key": "draft-key",
+    }
+    validation_client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            create_publish_job=FakePublishDraft(PublishDraftValidationError("bad station")),
+        )
+    )
+    conflict_client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            create_publish_job=FakePublishDraft(PublishIdempotencyConflictError("already used")),
+        )
+    )
+
+    assert (
+        validation_client.post(
+            "/api/v1/publish/jobs", json=payload, auth=("admin", TEST_PASSWORD)
+        ).status_code
+        == 422
+    )
+    assert (
+        conflict_client.post(
+            "/api/v1/publish/jobs", json=payload, auth=("admin", TEST_PASSWORD)
+        ).status_code
+        == 409
+    )
+
+
+def test_publish_job_route_returns_safe_target_status(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    station_id = uuid4()
+    job = PublishJob(
+        id=uuid4(),
+        idempotency_key="query-key",
+        correlation_id=uuid4(),
+        label="build",
+        game_name="game",
+        description="nightly",
+    )
+    target = PublishTarget(
+        id=uuid4(),
+        job_id=job.id,
+        station_id=station_id,
+        preflight_status="passed",
+        switch_status="pending",
+        verify_status="pending",
+        error_code=None,
+        progress_percent=25,
+        old_mapping={"secret": "must-not-leak"},
+    )
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            get_publish_job=FakePublishJobQuery(PublishJobView(job, (target,))),
+        )
+    )
+
+    response = client.get(
+        f"/api/v1/publish/jobs/{job.id}",
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["targets"] == [
+        {
+            "station_id": str(station_id),
+            "selected": True,
+            "preflight_status": "passed",
+            "switch_status": "pending",
+            "verify_status": "pending",
+            "error_code": None,
+            "error_message": None,
+            "progress_percent": 25,
+        }
+    ]
+    assert "must-not-leak" not in response.text
+    assert client.get(f"/api/v1/publish/jobs/{job.id}").status_code == 401
+
+
+def test_publish_job_route_maps_missing_job_to_404(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            get_publish_job=FakePublishJobQuery(PublishJobNotFoundError("not found")),
+        )
+    )
+
+    response = client.get(
+        f"/api/v1/publish/jobs/{uuid4()}",
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 404

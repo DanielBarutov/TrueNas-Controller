@@ -78,8 +78,12 @@ Redis/NAS runtime не запускались.
 ## Статус
 
 - [x] scope и idempotency/transaction invariants зафиксированы;
-- [ ] draft use case создан;
-- [ ] queue Protocol и Dramatiq adapter созданы;
-- [ ] ключевые tests созданы;
-- [ ] Ruff и pytest пройдены;
-- [ ] `STATE.md` обновлён.
+- [x] draft use case создан;
+- [x] queue Protocol и Dramatiq adapter созданы;
+- [x] ключевые tests созданы;
+- [x] Ruff и pytest пройдены;
+- [x] `STATE.md` обновлён.
+
+Подшаг завершён. Следующий шаг — presentation contract для создания draft;
+enqueue остаётся отдельной application-командой и не вызывается HTTP route
+автоматически.

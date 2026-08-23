@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from typing import Annotated
+from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 
@@ -15,6 +16,13 @@ from application.lifecycle import (
 )
 from application.ports import StationListQuery
 from application.preflight import EvaluateStationPreflightUseCase, StationNotFoundError
+from application.publish_commands import (
+    CreatePublishJobUseCase,
+    PublishDraftValidationError,
+    PublishIdempotencyConflictError,
+    PublishJobNotFoundError,
+)
+from application.publish_queries import GetPublishJobUseCase
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
 from presentation.lifecycle_schemas import (
@@ -26,6 +34,11 @@ from presentation.lifecycle_schemas import (
     StationRegistrationResponse,
 )
 from presentation.preflight_schemas import CheckResponse, PreflightRequest, PreflightResponse
+from presentation.publish_schemas import (
+    PublishJobCreateRequest,
+    PublishJobDraftResponse,
+    PublishJobResponse,
+)
 from presentation.schemas import StationResponse
 
 
@@ -35,6 +48,8 @@ def create_app(
     enroll_agent: EnrollAgentUseCase | None = None,
     receive_heartbeat: ReceiveHeartbeatUseCase | None = None,
     evaluate_preflight: EvaluateStationPreflightUseCase | None = None,
+    create_publish_job: CreatePublishJobUseCase | None = None,
+    get_publish_job: GetPublishJobUseCase | None = None,
 ) -> FastAPI:
     """Create the HTTP application from application-layer dependencies."""
 
@@ -138,7 +153,7 @@ def create_app(
                 ) from error
             except HeartbeatRejectedError as error:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=422,
                     detail=str(error),
                 ) from error
             return HeartbeatResponse(
@@ -182,5 +197,58 @@ def create_app(
                     for check in report.checks
                 ],
             )
+
+    if create_publish_job is not None:
+
+        @app.post(
+            "/api/v1/publish/jobs",
+            response_model=PublishJobDraftResponse,
+            status_code=status.HTTP_201_CREATED,
+        )
+        async def create_publish_job_route(
+            payload: PublishJobCreateRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> PublishJobDraftResponse:
+            try:
+                draft = await create_publish_job.execute(
+                    label=payload.label,
+                    game_name=payload.game_name,
+                    description=payload.description,
+                    station_ids=tuple(payload.station_ids),
+                    idempotency_key=payload.idempotency_key,
+                    correlation_id=payload.correlation_id or uuid4(),
+                    dry_run=payload.dry_run,
+                    allow_hot_switch=payload.allow_hot_switch,
+                )
+            except PublishIdempotencyConflictError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
+            except PublishDraftValidationError as error:
+                raise HTTPException(
+                    status_code=422,
+                    detail=str(error),
+                ) from error
+            return PublishJobDraftResponse.from_draft(draft)
+
+    if get_publish_job is not None:
+
+        @app.get(
+            "/api/v1/publish/jobs/{job_id}",
+            response_model=PublishJobResponse,
+        )
+        async def get_publish_job_route(
+            job_id: UUID,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> PublishJobResponse:
+            try:
+                view = await get_publish_job.execute(job_id)
+            except PublishJobNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            return PublishJobResponse.from_view(view)
 
     return app

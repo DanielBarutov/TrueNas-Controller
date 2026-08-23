@@ -6,6 +6,8 @@ from uuid import UUID
 
 import dramatiq
 
+from application.ports import PublishTaskQueue
+
 
 @dataclass(frozen=True, slots=True)
 class PublishTaskPayload:
@@ -26,6 +28,22 @@ class PublishTaskPayload:
 
 PublishTaskHandler = Callable[[PublishTaskPayload], None]
 PublishTaskHandlerFactory = Callable[[], PublishTaskHandler]
+
+
+class DramatiqPublishTaskQueue(PublishTaskQueue):
+    """Queue adapter that serializes only the worker's minimal task payload."""
+
+    def __init__(self, actor: dramatiq.Actor) -> None:
+        self._actor = actor
+
+    def enqueue(
+        self,
+        *,
+        job_id: UUID,
+        correlation_id: UUID,
+        idempotency_key: str,
+    ) -> None:
+        self._actor.send(str(job_id), str(correlation_id), idempotency_key)
 
 
 def build_publish_actor(
