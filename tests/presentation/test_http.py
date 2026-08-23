@@ -54,7 +54,7 @@ class FakeHeartbeat:
     def __init__(self) -> None:
         self.credential: str | None = None
 
-    async def execute(self, *, credential: str, snapshot) -> HeartbeatResult:
+    async def execute(self, *, credential: str, snapshot, **kwargs) -> HeartbeatResult:
         self.credential = credential
         return HeartbeatResult(station_id=snapshot.station_id, received_at=datetime.now(UTC))
 

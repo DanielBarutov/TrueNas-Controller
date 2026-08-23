@@ -1,6 +1,7 @@
 """Pydantic request/response schemas for agent lifecycle endpoints."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -48,8 +49,12 @@ class DrivePayload(BaseModel):
 
 
 class HeartbeatRequest(BaseModel):
+    protocol_version: Literal["1"] = "1"
     station_id: UUID
     captured_at: datetime
+    hostname: str | None = Field(default=None, min_length=1, max_length=255)
+    ip_addresses: list[str] | None = Field(default=None, max_length=16)
+    mac_addresses: list[str] | None = Field(default=None, max_length=16)
     agent_version: str = Field(min_length=1, max_length=64)
     processes: list[ProcessPayload] = Field(default_factory=list, max_length=512)
     drives: list[DrivePayload] = Field(default_factory=list, max_length=32)

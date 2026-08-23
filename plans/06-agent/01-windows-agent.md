@@ -89,6 +89,8 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] scheduler wiring через `AgentService`, command handler и local refresh
   execution boundary;
 - [x] one-shot enrollment coordinator и atomic file credential-store fallback;
+- [x] server heartbeat contract `protocol_version=1` с валидацией и сохранением
+  hostname/IP/MAC metadata в station/agent binding;
 - [ ] actual server command delivery/signature transport;
 - [ ] Windows ACL/DPAPI credential store и реальный Service wrapper;
 - [ ] согласовать фактический `game_version_marker` источник.

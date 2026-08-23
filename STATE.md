@@ -123,7 +123,8 @@
 - [x] Windows-agent local collectors: process/drive/snapshot core и ключевые tests; network/service runtime не запускались.
 - [x] Windows-agent heartbeat slice: versioned payload, HTTPS transport, bounded retry и safe command validator; внешний network не запускался.
 - [x] Windows-agent lifecycle slice: fail-closed config, atomic credential fallback, one-shot enrollment coordinator, command handler и graceful service boundary; native Windows integration не запускалась.
-- [x] Общий набор тестов после agent lifecycle slice: `122 passed, 1 skipped` на Python 3.12/uv.
+- [x] Server-agent heartbeat contract: protocol `1`, hostname/IP/MAC validation and persistence; migrations не менялись.
+- [x] Общий набор тестов после agent/server contract slice: `125 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -164,3 +165,4 @@
 | 2026-08-23 | Подготовлен безопасный agent slice | Добавлены local process/drive/snapshot collectors; внешний NAS, heartbeat network и Windows Service не запускались |
 | 2026-08-23 | Продолжен план 06 | Добавлены versioned heartbeat payload, HTTPS transport, bounded retry и safe refresh command validator; внешний network не запускался |
 | 2026-08-23 | Продолжен план 06 | Добавлены fail-closed config, credential store boundary, one-shot enrollment coordinator и graceful service lifecycle; native Windows integration не запускалась |
+| 2026-08-23 | Замкнут heartbeat metadata contract | protocol `1`, hostname/IP/MAC validation и persistence добавлены без миграций; внешний agent/network не запускался |

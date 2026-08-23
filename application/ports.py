@@ -68,8 +68,12 @@ class AgentRepository(Protocol):
         agent_id: UUID,
         snapshot: ProcessSnapshot,
         received_at: datetime,
+        *,
+        hostname: str | None = None,
+        ip_addresses: tuple[str, ...] | None = None,
+        mac_addresses: tuple[str, ...] | None = None,
     ) -> None:
-        """Persist snapshot and update the agent/station freshness state."""
+        """Persist snapshot, identity metadata and agent/station freshness state."""
 
 
 class ProcessRuleRepository(Protocol):

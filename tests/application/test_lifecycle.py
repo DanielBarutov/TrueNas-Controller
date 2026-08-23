@@ -19,7 +19,13 @@ from application.lifecycle import (
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from domain.station import StationRole
 from repository.database import create_engine, create_session_factory
-from repository.models import AgentRecord, Base, EnrollmentTokenRecord, ProcessSnapshotRecord
+from repository.models import (
+    AgentRecord,
+    Base,
+    EnrollmentTokenRecord,
+    ProcessSnapshotRecord,
+    StationRecord,
+)
 from repository.uow import SqlAlchemyUnitOfWorkFactory
 
 
@@ -100,6 +106,9 @@ async def test_heartbeat_updates_station_and_snapshot(
     result = await ReceiveHeartbeatUseCase(factory).execute(
         credential=enrollment.credential,
         snapshot=snapshot,
+        hostname="CLIENT-01-renamed",
+        ip_addresses=("192.0.2.10",),
+        mac_addresses=("00:11:22:33:44:55",),
         received_at=now + timedelta(seconds=1),
     )
 
@@ -107,12 +116,17 @@ async def test_heartbeat_updates_station_and_snapshot(
     async with create_session_factory(engine)() as session:
         stored_snapshot = await session.scalar(select(ProcessSnapshotRecord))
         stored_agent = await session.scalar(select(AgentRecord))
+        station = await session.scalar(select(StationRecord))
     assert stored_snapshot is not None
     assert stored_snapshot.processes == [
         {"name": "game.exe", "pid": 42, "path": "D:\\Games\\game.exe"}
     ]
     assert stored_snapshot.game_version_marker == "build-001"
     assert stored_agent is not None and stored_agent.status == "online"
+    assert stored_agent.last_ip_addresses == ["192.0.2.10"]
+    assert stored_agent.last_mac_addresses == ["00:11:22:33:44:55"]
+
+    assert station is not None and station.hostname == "CLIENT-01-renamed"
 
 
 async def test_heartbeat_rejects_wrong_binding_and_stale_timestamp(

@@ -144,6 +144,13 @@ def create_app(
                 result = await receive_heartbeat.execute(
                     credential=credential,
                     snapshot=snapshot,
+                    hostname=payload.hostname,
+                    ip_addresses=tuple(payload.ip_addresses)
+                    if payload.ip_addresses is not None
+                    else None,
+                    mac_addresses=tuple(payload.mac_addresses)
+                    if payload.mac_addresses is not None
+                    else None,
                 )
             except AgentUnauthorizedError as error:
                 raise HTTPException(

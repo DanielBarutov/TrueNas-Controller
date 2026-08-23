@@ -3,6 +3,8 @@
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 import hashlib
+import ipaddress
+import re
 import secrets
 from uuid import UUID, uuid4
 
@@ -149,10 +151,16 @@ class ReceiveHeartbeatUseCase:
         *,
         credential: str,
         snapshot: ProcessSnapshot,
+        hostname: str | None = None,
+        ip_addresses: tuple[str, ...] | None = None,
+        mac_addresses: tuple[str, ...] | None = None,
         received_at: datetime | None = None,
     ) -> HeartbeatResult:
         accepted_at = ensure_utc(received_at or datetime.now(UTC))
         normalized_snapshot = replace(snapshot, captured_at=ensure_utc(snapshot.captured_at))
+        normalized_hostname = _normalize_hostname(hostname)
+        normalized_ips = _normalize_ip_addresses(ip_addresses)
+        normalized_macs = _normalize_mac_addresses(mac_addresses)
         if abs(accepted_at - normalized_snapshot.captured_at) > HEARTBEAT_CLOCK_SKEW:
             raise HeartbeatRejectedError("heartbeat timestamp is outside the allowed clock skew")
         async with self._uow_factory() as uow:
@@ -161,6 +169,54 @@ class ReceiveHeartbeatUseCase:
                 raise AgentUnauthorizedError("agent credential or station binding is invalid")
             if agent.station_id != normalized_snapshot.station_id:
                 raise AgentUnauthorizedError("agent is bound to another station")
-            await uow.agents.record_heartbeat(agent.id, normalized_snapshot, accepted_at)
+            await uow.agents.record_heartbeat(
+                agent.id,
+                normalized_snapshot,
+                accepted_at,
+                hostname=normalized_hostname,
+                ip_addresses=normalized_ips,
+                mac_addresses=normalized_macs,
+            )
             await uow.commit()
         return HeartbeatResult(normalized_snapshot.station_id, accepted_at)
+
+
+def _normalize_hostname(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized or len(normalized) > 255:
+        raise HeartbeatRejectedError("agent hostname is invalid")
+    return normalized
+
+
+def _normalize_ip_addresses(values: tuple[str, ...] | None) -> tuple[str, ...] | None:
+    if values is None:
+        return None
+    normalized: list[str] = []
+    for value in values:
+        candidate = value.strip()
+        try:
+            ipaddress.ip_address(candidate)
+        except ValueError as exc:
+            raise HeartbeatRejectedError("agent IP address is invalid") from exc
+        if candidate not in normalized:
+            normalized.append(candidate)
+    if len(normalized) > 16:
+        raise HeartbeatRejectedError("too many agent IP addresses")
+    return tuple(normalized)
+
+
+def _normalize_mac_addresses(values: tuple[str, ...] | None) -> tuple[str, ...] | None:
+    if values is None:
+        return None
+    normalized: list[str] = []
+    for value in values:
+        candidate = value.strip().upper()
+        if re.fullmatch(r"[0-9A-F]{2}([:-][0-9A-F]{2}){5}", candidate) is None:
+            raise HeartbeatRejectedError("agent MAC address is invalid")
+        if candidate not in normalized:
+            normalized.append(candidate)
+    if len(normalized) > 16:
+        raise HeartbeatRejectedError("too many agent MAC addresses")
+    return tuple(normalized)

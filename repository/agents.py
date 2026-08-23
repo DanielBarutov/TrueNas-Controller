@@ -67,6 +67,10 @@ class SqlAlchemyAgentRepository:
         agent_id: UUID,
         snapshot: ProcessSnapshot,
         received_at: datetime,
+        *,
+        hostname: str | None = None,
+        ip_addresses: tuple[str, ...] | None = None,
+        mac_addresses: tuple[str, ...] | None = None,
     ) -> None:
         statement = (
             select(AgentRecord, StationRecord)
@@ -87,6 +91,12 @@ class SqlAlchemyAgentRepository:
         agent.last_heartbeat_at = received_at
         agent.last_process_snapshot_at = snapshot.captured_at
         agent.last_drive_snapshot_at = snapshot.captured_at
+        if hostname is not None:
+            station.hostname = hostname
+        if ip_addresses is not None:
+            agent.last_ip_addresses = list(ip_addresses)
+        if mac_addresses is not None:
+            agent.last_mac_addresses = list(mac_addresses)
         agent.status = "online"
         if station.enabled and station.deleted_at is None:
             station.state = "online"
