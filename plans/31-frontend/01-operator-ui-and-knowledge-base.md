@@ -82,9 +82,11 @@ key. Basic Auth credential живёт только в памяти текуще�
   use cases и Basic Auth;
 - frontend wizard выполняет draft, server-side preflight, operator
   confirmation и outbox dispatch;
+- после dispatch frontend читает GET job read model с polling и показывает
+  общий/target progress;
 - блокирующие и unknown reports не превращаются в ready на стороне browser;
-- dispatch показывает только accepted/persisted state, а не fake completion
-  TrueNAS workflow.
+- dispatch показывает только accepted/persisted state; completed, partial
+  failure, failed и recovery_required берутся только из backend read model.
 
 ### 31.04. Knowledge base / Markdown reader
 
@@ -147,7 +149,8 @@ key. Basic Auth credential живёт только в памяти текуще�
   switch пояснения, server preflight, явное подтверждение и dispatch;
 - [x] backend presentation routes prepare/dispatch добавлены и покрыты
   HTTP-контрактными тестами;
-- [ ] подключить read model прогресса worker и partial failure/recovery UI;
+- [x] подключён GET publish job read model: polling, target progress,
+  terminal states и recovery_required UI;
 - [ ] добавить frontend tests и расширить visual check на авторизованные
   экраны через backend/mock contract;
 - [ ] добавить frontend в Compose после появления общего Compose-файла.

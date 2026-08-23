@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ControllerApi } from "../../application/api/client";
-import type { PreflightCheck, PreflightReport, PublishDispatchResponse, PublishGate, PublishJobDraft, PublishPrepareResponse } from "../../domain/publish";
+import type { PreflightCheck, PreflightReport, PublishDispatchResponse, PublishGate, PublishJobDraft, PublishJobReadModel, PublishPrepareResponse, PublishTargetReadModel } from "../../domain/publish";
+import { publishStatusLabel } from "../../domain/publish";
 import type { Station } from "../../domain/station";
 import { HelpHint, InfoNote, SectionHeading, StatusBadge } from "../components/ui";
 
@@ -225,7 +226,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
         />
       )}
       {step === 4 && accepted && (
-        <AcceptedStep accepted={accepted} onReset={reset} />
+        <JobProgressStep api={api} accepted={accepted} stations={stations} onReset={reset} />
       )}
     </div>
   );
@@ -394,17 +395,61 @@ function ConfirmationStep({
   );
 }
 
-function AcceptedStep({ accepted, onReset }: { accepted: PublishDispatchResponse; onReset: () => void }) {
+function JobProgressStep({ api, accepted, stations, onReset }: { api: ControllerApi; accepted: PublishDispatchResponse; stations: Station[]; onReset: () => void }) {
+  const [job, setJob] = useState<PublishJobReadModel | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
+
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      setJob(await api.getPublishJob(accepted.job_id));
+      setReadError(null);
+    } catch (caught) {
+      setReadError(caught instanceof Error ? caught.message : "Read model пока недоступен.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 3000);
+    return () => window.clearInterval(interval);
+  }, [api, accepted.job_id]);
+
+  const status = job?.status ?? accepted.status;
+  const progress = job ? overallProgress(job.targets) : 0;
+  const terminal = status === "completed" || status === "partial_failure" || status === "failed";
+  const recoveryRequired = Boolean(job?.targets.some((target) => target.error_code === "recovery_required"));
+
   return (
-    <section className="publish-wizard accepted-panel">
-      <div className="accepted-icon"><Check aria-hidden size={28} /></div>
-      <p className="eyebrow">04 / ACCEPTED</p>
-      <h2>Job принят в outbox path</h2>
-      <p className="muted">Состояние сохранено как {accepted.status}. Фактическое выполнение worker и TrueNAS нужно отслеживать отдельным read model.</p>
+    <section className="publish-wizard">
+      <SectionHeading eyebrow="04 / JOB READ MODEL" title={terminal ? publishStatusLabel[status] : "Job выполняется"} description={terminal ? "Финальное состояние получено от backend read model." : "После accepted UI регулярно читает только собственный Controller API."} action={<button className="secondary-button" type="button" onClick={refresh} disabled={refreshing}><RefreshCw aria-hidden size={15} /> {refreshing ? "Обновляем…" : "Обновить"}</button>} />
+      <div className={"job-status-panel job-status-" + status}><div className="job-status-icon">{terminal ? <Check aria-hidden size={24} /> : <RefreshCw aria-hidden size={24} className="spin-icon" />}</div><div><strong>{publishStatusLabel[status]}</strong><p>{job ? "Backend подтвердил текущее состояние job." : "Dispatch принят; ждём первый ответ read model."}</p></div><span className="job-status-percent">{progress}%</span></div>
+      {readError && <p className="error-message">Read model: {readError}</p>}
+      {recoveryRequired && <div className="recovery-banner"><CircleAlert aria-hidden size={19} /><span><strong>Требуется восстановление</strong><small>Один или несколько target получили recovery_required. Не повторяйте publish вслепую; сначала разберите error и mapping state на backend.</small></span></div>}
+      <div className="progress-track"><span style={{ width: progress + "%" }} /></div>
+      {job && <div className="target-progress-list">{job.targets.map((target) => <TargetProgress key={target.station_id} target={target} stationName={findStationName(stations, target.station_id)} />)}</div>}
+      <InfoNote><LockKeyhole aria-hidden size={16} /> Accepted не означает completed. Только финальный status read model подтверждает результат worker.</InfoNote>
       <div className="accepted-id"><span>Job ID</span><code>{accepted.job_id}</code></div>
       <div className="wizard-actions"><button className="secondary-button" type="button" onClick={onReset}><RefreshCw aria-hidden size={15} /> Создать ещё один draft</button></div>
     </section>
   );
+}
+
+function TargetProgress({ target, stationName }: { target: PublishTargetReadModel; stationName: string }) {
+  const phase = target.verify_status ?? target.switch_status ?? target.preflight_status ?? "pending";
+  const hasError = Boolean(target.error_code || target.error_message);
+  return <article className={hasError ? "target-progress target-error" : "target-progress"}><div className="target-progress-heading"><div><strong>{stationName}</strong><small>{target.station_id}</small></div><span>{target.progress_percent}%</span></div><div className="target-progress-track"><span style={{ width: target.progress_percent + "%" }} /></div><div className="target-progress-meta"><span>Phase: {phase}</span>{target.error_code && <b>{target.error_code}</b>}</div>{target.error_message && <p>{target.error_message}</p>}</article>;
+}
+
+function overallProgress(targets: PublishTargetReadModel[]) {
+  const selected = targets.filter((target) => target.selected);
+  if (selected.length === 0) {
+    return 0;
+  }
+  return Math.round(selected.reduce((sum, target) => sum + target.progress_percent, 0) / selected.length);
 }
 
 function WizardProgress({ current }: { current: WizardStep }) {

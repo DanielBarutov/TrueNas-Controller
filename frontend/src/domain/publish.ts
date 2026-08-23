@@ -61,6 +61,30 @@ export interface PublishDispatchResponse {
   accepted: boolean;
 }
 
+export interface PublishTargetReadModel {
+  station_id: string;
+  selected: boolean;
+  preflight_status: string | null;
+  switch_status: string | null;
+  verify_status: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  progress_percent: number;
+}
+
+export interface PublishJobReadModel {
+  id: string;
+  idempotency_key: string;
+  correlation_id: string;
+  label: string;
+  game_name: string;
+  description: string | null;
+  status: PublishJobStatus;
+  dry_run: boolean;
+  allow_hot_switch: boolean;
+  targets: PublishTargetReadModel[];
+}
+
 export const checkStatusLabel: Record<CheckStatus, string> = {
   pass: "PASS",
   block: "BLOCK",

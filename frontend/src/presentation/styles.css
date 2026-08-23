@@ -176,6 +176,34 @@ textarea:focus { border-color: #8ea4ff; box-shadow: 0 0 0 3px #718bff22; }
 .accepted-id { display: grid; gap: 6px; margin-top: 18px; border: 1px solid #2f5360; border-radius: 10px; padding: 10px 13px; color: #829ab2; font-size: 11px; text-align: left; }
 .accepted-id code { color: #a9d5db; }
 .accepted-panel .wizard-actions { justify-content: center; }
+.job-status-panel { display: flex; align-items: center; gap: 13px; border: 1px solid #405475; border-radius: 15px; padding: 17px 19px; background: #14233a; }
+.job-status-panel.job-status-completed { border-color: #3d7568; background: #15352f; }
+.job-status-panel.job-status-partial_failure { border-color: #80662d; background: #3c311a; }
+.job-status-panel.job-status-failed { border-color: #75434e; background: #351f2a; }
+.job-status-icon { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border: 1px solid #748bd6; border-radius: 12px; color: #aebeff; }
+.job-status-completed .job-status-icon { border-color: #70d5b4; color: #72e0bb; }
+.job-status-partial_failure .job-status-icon { border-color: #d8ad54; color: #f2cb73; }
+.job-status-failed .job-status-icon { border-color: #d1707d; color: #ff9eaa; }
+.job-status-panel > div:nth-child(2) { display: grid; gap: 4px; min-width: 0; }
+.job-status-panel p { margin: 0; color: #a9b7cd; font-size: 12px; }
+.job-status-percent { margin-left: auto; color: #dce6ff; font-size: 20px; font-weight: 800; }
+.spin-icon { animation: spin 1.4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress-track, .target-progress-track { overflow: hidden; height: 8px; border-radius: 999px; background: #1b2a42; }
+.progress-track span, .target-progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #829bff, #6fe0b8); transition: width .3s ease; }
+.target-progress-list { display: grid; gap: 10px; }
+.target-progress { border: 1px solid #30435f; border-radius: 13px; padding: 15px; background: #111d30cc; }
+.target-progress.target-error { border-color: #75434e; background: #351f2a99; }
+.target-progress-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.target-progress-heading div { display: grid; gap: 3px; }
+.target-progress-heading small { overflow-wrap: anywhere; font-size: 10px; }
+.target-progress-heading > span { color: #aebeff; font-size: 13px; font-weight: 800; }
+.target-progress-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; color: #8291a9; font-size: 11px; }
+.target-progress-meta b { color: #ff9eaa; font-weight: 700; }
+.target-progress p { margin: 9px 0 0; color: #ffbdc5; font-size: 12px; line-height: 1.45; }
+.recovery-banner { display: flex; align-items: flex-start; gap: 10px; border: 1px solid #80662d; border-radius: 13px; padding: 13px 15px; background: #3c311a; color: #f2cb73; }
+.recovery-banner > span { display: grid; gap: 4px; }
+.recovery-banner small { color: #f0d79e; line-height: 1.45; }
 .search-field span, .filter-field span { display: inline-flex; align-items: center; gap: 6px; }
 .secure-badge { display: inline-flex; align-items: center; gap: 5px; }
 .status-badge .lucide { margin-left: -1px; }

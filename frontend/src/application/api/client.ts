@@ -2,6 +2,7 @@ import type { Station, StationRole } from "../../domain/station";
 import type {
   PreflightReport,
   PublishDispatchResponse,
+  PublishJobReadModel,
   PublishJobDraft,
   PublishPrepareResponse,
 } from "../../domain/publish";
@@ -84,6 +85,10 @@ export class ControllerApi {
     return this.request(`/api/v1/publish/jobs/${jobId}/dispatch`, {
       method: "POST",
     });
+  }
+
+  async getPublishJob(jobId: string): Promise<PublishJobReadModel> {
+    return this.request(`/api/v1/publish/jobs/${jobId}`);
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
