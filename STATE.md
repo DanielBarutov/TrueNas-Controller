@@ -31,7 +31,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery и agent runtime composition созданы; migration и production registration ещё нет | baseline migration, service account validation и marker decision |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и baseline migration созданы; apply/production registration ещё нет | migration review/apply gate, service account validation и marker decision |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -81,7 +81,7 @@
 - [x] Repository/UoW тесты: `10 passed` всего.
 - [x] Реальный PostgreSQL и NAS не подключались.
 - [x] Read-only API создаётся через composition root; Basic Auth fail-closed проверен.
-- [x] Alembic config подключён, revision не создавалась и миграции не применялись.
+- [x] Alembic config подключён; baseline revision `bee81bac70cc` сгенерирована, миграции не применялись.
 - [x] Общий набор тестов: `14 passed`.
 - [x] Agent lifecycle: one-shot enrollment, credential hash, binding и heartbeat проверены.
 - [x] Process preflight: block/warning/unknown, drive threshold и station binding проверены.
@@ -123,7 +123,7 @@
 - [x] Windows-agent local collectors: process/drive/snapshot core и ключевые tests; network/service runtime не запускались.
 - [x] Windows-agent heartbeat slice: versioned payload, HTTPS transport, bounded retry и safe command validator; внешний network не запускался.
 - [x] Windows-agent lifecycle slice: fail-closed config, atomic credential fallback, one-shot enrollment coordinator, command handler и graceful service boundary; native Windows integration не запускалась.
-- [x] Server-agent heartbeat contract: protocol `1`, hostname/IP/MAC validation and persistence; migrations не менялись.
+- [x] Server-agent heartbeat contract: protocol `1`, hostname/IP/MAC validation and persistence; baseline migration сгенерирована, apply не выполнялся.
 - [x] Общий набор тестов после agent/server contract slice: `125 passed, 1 skipped` на Python 3.12/uv.
 - [x] Protected credential boundary: `CredentialProtector` через `Protocol`, atomic protected-byte store и DPAPI user-scope adapter; plaintext fallback не используется автоматически.
 - [x] Общий набор тестов после protected credential slice: `131 passed, 1 skipped` на Python 3.12/uv.
@@ -181,3 +181,4 @@
 | 2026-08-23 | Добавлена Windows credential ACL boundary | pywin32 ACL adapter вызывается до atomic replace; фактическая service account/installer проверка не запускалась |
 | 2026-08-23 | Добавлен plan 06.02 и signed command delivery boundary | Ed25519, lease/retry, local dedupe и ack; baseline migration оставлена production gate |
 | 2026-08-23 | Замкнут agent runtime composition | `AGENT_COMMAND_VERIFY_KEY`, verifier, collectors, HTTPS transport и safe refresh callback собраны без Windows/network runtime |
+| 2026-08-23 | Сгенерирована Alembic baseline revision `bee81bac70cc` | Включены текущие таблицы и `agent_commands`; migration не применялась, PostgreSQL не подключался |

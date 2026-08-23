@@ -46,8 +46,8 @@ agent validates Ed25519 → local refresh → POST command ack
 
 ## Production gates
 
-- [ ] создать baseline Alembic migration для `agent_commands` вместе с общей
-  первой схемой; миграцию только сгенерировать, не применять автоматически;
+- [x] сгенерировать baseline Alembic migration для `agent_commands` вместе с
+  общей первой схемой; migration только создана, не применена автоматически;
 - [x] добавить public key в agent runtime config и собрать composition root
   агента с `Ed25519CommandVerifier`;
 - [ ] проверить Windows Service runtime под фактической service account;

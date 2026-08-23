@@ -102,7 +102,7 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] server command issuance, Ed25519 signature transport, heartbeat lease,
   local dedupe и acknowledgement boundary;
 - [x] public-key config и agent runtime composition с `Ed25519CommandVerifier`;
-- [ ] baseline Alembic migration;
+- [x] baseline Alembic migration сгенерирована, но не применена;
 - [ ] production installer/service registration и проверка ACL под фактической
   service account;
 - [ ] согласовать фактический `game_version_marker` источник.
