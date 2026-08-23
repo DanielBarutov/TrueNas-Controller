@@ -65,7 +65,9 @@
 | [24-publish-confirmation](24-publish-confirmation/01-confirmation-command.md) | Operator confirmation и persisted preflight gate | завершён |
 | [25-publish-dispatch](25-publish-dispatch/01-safe-enqueue-gate.md) | Safe transition в publishing и enqueue gate | завершён |
 | [26-publish-outbox](26-publish-outbox/01-transactional-outbox-retry.md) | Transactional outbox и relay retry semantics | завершён |
-| [27-fake-worker-executor](27-fake-worker-executor/01-persisted-workflow-results.md) | Fake workflow results в persisted job/targets | в работе |
+| [27-fake-worker-executor](27-fake-worker-executor/01-persisted-workflow-results.md) | Fake workflow results в persisted job/targets | завершён |
+| [28-fake-acceptance](28-fake-acceptance/01-end-to-end-pipeline.md) | End-to-end fake publish pipeline acceptance | завершён |
+| [29-truenas-read-only](29-truenas-read-only/01-versioned-adapter-contract.md) | Versioned TrueNAS read-only adapter contract | в работе |
 
 ## Текущий этап
 
@@ -73,8 +75,8 @@
 `stations`/`agents`, agent lifecycle, preflight core/API, wizard gating,
 deterministic fake publish workflow, job/target persistence, Dramatiq
 composition handler и application draft/queue boundary выполнены. Текущий
-шаг — fake worker executor с persisted results; storage write и реальный NAS
-по-прежнему запрещены.
+шаг — versioned TrueNAS read-only adapter contract; storage write и реальный
+NAS по-прежнему запрещены.
 
 ## Принятые решения
 

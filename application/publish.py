@@ -41,12 +41,14 @@ class FakePublishWorkflow:
             raise PublishPreconditionError("at least one station is required")
         if not confirmed:
             raise PublishPreconditionError("explicit confirmation is required")
-        if job.status is not PublishJobStatus.DRAFT:
-            raise PublishPreconditionError("job must start in draft")
-
-        current = job.transition(PublishJobStatus.PREFLIGHT)
-        current = current.transition(PublishJobStatus.AWAITING_CONFIRMATION)
-        current = current.transition(PublishJobStatus.PUBLISHING)
+        if job.status is PublishJobStatus.DRAFT:
+            current = job.transition(PublishJobStatus.PREFLIGHT)
+            current = current.transition(PublishJobStatus.AWAITING_CONFIRMATION)
+            current = current.transition(PublishJobStatus.PUBLISHING)
+        elif job.status is PublishJobStatus.PUBLISHING:
+            current = job
+        else:
+            raise PublishPreconditionError("job must be draft or publishing")
         master_mapping = f"master:{job.id}"
         if not job.dry_run:
             master_mapping = await self._adapter.create_master(job.id, job.label)

@@ -36,6 +36,11 @@ integration proof.
 ## Статус
 
 - [x] scope зафиксирован;
-- [ ] executor и persistence mapper созданы;
-- [ ] ключевые tests созданы;
-- [ ] `STATE.md` обновлён.
+- [x] executor и persistence mapper созданы;
+- [x] ключевые tests созданы;
+- [x] `STATE.md` обновлён.
+
+Подшаг завершён. Fake executor повторно загружает persistence state через
+handler, не держит UoW во время fake storage workflow и сохраняет verified/
+partial/simulated outcomes. Следующий шаг — end-to-end acceptance одного
+полного fake pipeline.

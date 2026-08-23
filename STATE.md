@@ -16,9 +16,9 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [27 — fake worker executor](/home/daniel/tnas/plans/27-fake-worker-executor/01-persisted-workflow-results.md).
-- **Текущая задача:** подключить deterministic fake workflow к persisted job/target results через worker executor.
-- **Следующий разрешённый шаг:** добавить executor/mapper tests; real Redis execution и реальный NAS пока не включать.
+- **Активный план:** [29 — TrueNAS read-only adapter](/home/daniel/tnas/plans/29-truenas-read-only/01-versioned-adapter-contract.md).
+- **Текущая задача:** подготовить versioned read-only adapter Protocol и fixtures по официальной документации.
+- **Следующий разрешённый шаг:** реализовать transport/registry contract tests; real Redis execution и реальный NAS пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -52,7 +52,9 @@
 | [24 — Publish confirmation](plans/24-publish-confirmation/01-confirmation-command.md) | `closed` | persisted preflight, wizard gate, confirmation timestamp и blocked state покрыты 5 тестами | safe dispatch |
 | [25 — Publish dispatch](plans/25-publish-dispatch/01-safe-enqueue-gate.md) | `closed` | status transition, confirmation/preflight gate и queue-after-UoW покрыты 4 тестами | transactional outbox |
 | [26 — Publish outbox](plans/26-publish-outbox/01-transactional-outbox-retry.md) | `closed` | atomic dispatch event, lease/recovery, relay delivery, retry и terminal failure покрыты 6 тестами | fake worker executor |
-| [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `in_progress` | scope зафиксирован; implementation ещё не начат | executor/mapper |
+| [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `closed` | fake task executor и persisted simulated/verified/partial outcomes покрыты 4 тестами | fake acceptance |
+| [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
+| [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `in_progress` | scope и integration gate зафиксированы; implementation ещё не начат | transport/registry fixtures |
 
 ## Чекап решений
 
@@ -108,6 +110,10 @@
 - [x] Общий набор тестов после dispatch gate: `72 passed` на Python 3.12/uv.
 - [x] Transactional outbox атомарно фиксирует dispatch event; relay использует lease, retry/backoff и secret-free payload.
 - [x] Общий набор тестов после outbox/relay: `78 passed` на Python 3.12/uv.
+- [x] Fake worker executor сохраняет dry-run/apply/partial outcomes и не создаёт новые fake objects для terminal duplicate delivery.
+- [x] Общий набор тестов после fake executor: `82 passed` на Python 3.12/uv.
+- [x] End-to-end fake acceptance прошёл create→preflight→dispatch→relay→worker→verified и duplicate delivery.
+- [x] Общий набор тестов после fake acceptance: `83 passed` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -140,3 +146,5 @@
 | 2026-08-23 | Добавлен план 25 | Confirmation/preflight gate завершён; начат safe dispatch gate перед enqueue |
 | 2026-08-23 | Добавлен план 26 | Dispatch gate завершён; commit/queue gap вынесен в transactional outbox plan |
 | 2026-08-23 | Добавлен план 27 | Outbox/relay завершены; начат fake worker executor с persisted results |
+| 2026-08-23 | Добавлен план 28 | Fake executor завершён; начат end-to-end acceptance полного pipeline |
+| 2026-08-23 | Добавлен план 29 | End-to-end fake pipeline завершён; начат versioned TrueNAS read-only adapter contract |
