@@ -49,6 +49,11 @@ class TrueNASReadOnlyAdapter(TrueNASReadOnlyClient):
         records = await self._query("query_target_extents")
         return tuple(self._map_target_extent(record) for record in records)
 
+    async def close(self) -> None:
+        """Close the injected transport without exposing infrastructure details."""
+
+        await self._transport.close()
+
     async def _query(self, operation: str) -> tuple[Mapping[str, object], ...]:
         result = await self._transport.request(self._registry.resolve(operation), [])
         if not isinstance(result, Sequence) or isinstance(result, (str, bytes)):

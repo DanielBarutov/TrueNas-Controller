@@ -183,6 +183,9 @@ class TrueNASJsonRpcTransport(Protocol):
     async def request(self, method: str, params: object | None = None) -> object:
         """Send one request without exposing credentials to the application."""
 
+    async def close(self) -> None:
+        """Release the external connection without logging its credentials."""
+
 
 class TrueNASReadOnlyClient(Protocol):
     """Read-only TrueNAS metadata port for application use cases."""
@@ -204,6 +207,9 @@ class TrueNASReadOnlyClient(Protocol):
 
     async def query_target_extents(self) -> tuple[TrueNASTargetExtent, ...]:
         """Read target-to-extent attachment metadata."""
+
+    async def close(self) -> None:
+        """Release the adapter connection at the end of a smoke/use session."""
 
 
 class PublishTaskExecutor(Protocol):

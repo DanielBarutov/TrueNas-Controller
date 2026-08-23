@@ -17,6 +17,7 @@ class TrueNASMethodRegistry:
 
     _METHODS_BY_VERSION: ClassVar[dict[str, dict[str, str]]] = {
         "25.10": {
+            "authenticate": "auth.login_with_api_key",
             "ping": "core.ping",
             "query_datasets": "pool.dataset.query",
             "query_snapshots": "pool.snapshot.query",

@@ -17,7 +17,7 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [30 — TrueNAS LAN integration gate](/home/daniel/tnas/plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md).
-- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` уже сверены, read-only smoke check ещё не выполнялся.
+- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` сверены, opt-in runtime boundary создан, read-only smoke check ещё не выполнялся.
 - **Следующий разрешённый шаг:** после отдельного явного согласования и внешней runtime-конфигурации API key выполнить только `core.ping`/query; real Redis execution и storage write пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
@@ -55,7 +55,7 @@
 | [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `closed` | fake task executor и persisted simulated/verified/partial outcomes покрыты 4 тестами | fake acceptance |
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
-| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `in_progress` | версия `25.10.5` и live docs подтверждены; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
+| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `in_progress` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
 
 ## Чекап решений
 
@@ -119,6 +119,7 @@
 - [x] Ruff check/format после adapter slice: passed.
 - [x] Общий набор тестов после read-only adapter: `93 passed` на Python 3.12/uv.
 - [x] Live docs gate: `/api/docs/current/` подтвердил `TrueNAS API v25.10.5 (current)` и read-only method allow-list; без API key и JSON-RPC calls.
+- [x] Opt-in TrueNAS runtime boundary: `TRUENAS_WS_URL`/`TRUENAS_API_KEY` не имеют defaults, auth redacted, smoke test skipped by default.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -155,3 +156,4 @@
 | 2026-08-23 | Добавлен план 29 | End-to-end fake pipeline завершён; начат versioned TrueNAS read-only adapter contract |
 | 2026-08-23 | Завершён план 29 и добавлен план 30 | Read-only adapter contract/fixtures прошли `93 passed`; LAN integration оставлен отдельным opt-in gate |
 | 2026-08-23 | Обновлён план 30 | Live docs endpoint подтвердил TrueNAS API v25.10.5 и read-only methods; smoke check/API key остаются отдельным согласованием |
+| 2026-08-23 | Продолжен план 30 | Добавлены opt-in WebSocket factory, API-key auth boundary и smoke test без запуска по умолчанию |

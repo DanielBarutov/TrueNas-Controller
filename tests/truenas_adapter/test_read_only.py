@@ -29,6 +29,9 @@ class FixtureTransport:
         }[method]
         return self.responses[operation]
 
+    async def close(self) -> None:
+        pass
+
 
 @pytest.fixture
 def fixture_responses() -> dict[str, Any]:

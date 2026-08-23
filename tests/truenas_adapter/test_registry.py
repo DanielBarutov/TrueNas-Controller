@@ -10,6 +10,7 @@ from truenas_adapter.registry import (
 def test_registry_resolves_only_verified_read_methods() -> None:
     registry = TrueNASMethodRegistry("25.10.5")
 
+    assert registry.resolve("authenticate") == "auth.login_with_api_key"
     assert registry.resolve("ping") == "core.ping"
     assert registry.resolve("query_datasets") == "pool.dataset.query"
     assert registry.resolve("query_target_extents") == "iscsi.targetextent.query"

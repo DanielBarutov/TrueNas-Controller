@@ -36,6 +36,7 @@
 | Метод | Назначение | Статус |
 |---|---|---|
 | `core.ping` | минимальная проверка вызова API | `docs-verified` — [документ](https://api.truenas.com/v25.10/api_methods_core.ping.html) |
+| `auth.login_with_api_key` | аутентификация backend WebSocket-сессии API key | `docs-verified`; ключ передаётся только из runtime secret — [документ](https://api.truenas.com/v25.10/api_methods_auth.login_with_api_key.html) |
 
 ### Read-only storage discovery
 

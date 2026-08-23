@@ -12,6 +12,7 @@ dependencies = [
     "redis>=5,<7",
     "sqlalchemy[asyncio]>=2.0.36,<3",
     "uvicorn[standard]>=0.34,<1",
+    "websockets>=17,<18",
 ]
 
 [dependency-groups]
@@ -57,3 +58,6 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: opt-in checks against an operator-supplied external service",
+]

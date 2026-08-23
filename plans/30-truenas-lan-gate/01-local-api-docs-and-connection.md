@@ -21,6 +21,17 @@ runtime-подключением. Этот план не разрешает writ
   переноса API key в application/domain/presentation;
 - добавить integration tests, которые запускаются только при opt-in env flag.
 
+## Реализованный opt-in boundary
+
+- `TrueNASRuntimeConfig` принимает только полный `ws://`/`wss://` URL,
+  `TRUENAS_VERSION` и `TRUENAS_API_KEY` из внешней среды;
+- `auth.login_with_api_key` выполняется через adapter boundary и не попадает в
+  application DTO, логи или ошибки;
+- `websockets` connection factory отключает неявный proxy и переводит
+  library-specific close errors в transport reconnect errors;
+- `tests/truenas_adapter/test_integration.py` пропускается по умолчанию и
+  запускается только с `RUN_TRUENAS_SMOKE=1`.
+
 ## Запрещено до отдельного согласования
 
 - snapshot create/clone/destroy/delete;
@@ -34,6 +45,7 @@ runtime-подключением. Этот план не разрешает writ
 - [x] оператор сообщил фактическую версию NAS: `25.10.5`;
 - [x] live `/api/docs/current/` конкретного NAS отдал документацию `TrueNAS API v25.10.5 (current)`; endpoint не сохранён в репозитории;
 - [x] registry подтверждён для этой API family и read-only methods;
+- [x] opt-in runtime config, API-key auth boundary и skipped-by-default smoke test созданы;
 - [ ] отдельное явное согласование на LAN read-only smoke check получено;
 - [ ] integration run выполнен с redacted output;
 - [ ] результат и расхождения занесены в `STATE.md`.
