@@ -17,7 +17,7 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [30 — TrueNAS LAN integration gate](/home/daniel/tnas/plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md).
-- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` сверены, opt-in runtime boundary создан, read-only smoke check ещё не выполнялся.
+- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` сверены, opt-in runtime boundary создан, read-only smoke check ещё не выполнялся. Параллельно подготовлен безопасный local collector slice Windows-агента.
 - **Следующий разрешённый шаг:** после отдельного явного согласования и внешней runtime-конфигурации API key выполнить только `core.ping`/query; real Redis execution и storage write пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
@@ -31,7 +31,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | план написан; runtime-кода нет | mock `psutil` и enrollment |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | local process/drive/snapshot collectors созданы; network/service runtime ещё нет | heartbeat/reconnect и enrollment client |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -120,6 +120,8 @@
 - [x] Общий набор тестов после read-only adapter: `93 passed` на Python 3.12/uv.
 - [x] Live docs gate: `/api/docs/current/` подтвердил `TrueNAS API v25.10.5 (current)` и read-only method allow-list; без API key и JSON-RPC calls.
 - [x] Opt-in TrueNAS runtime boundary: `TRUENAS_WS_URL`/`TRUENAS_API_KEY` не имеют defaults, auth redacted, smoke test skipped by default.
+- [x] Windows-agent local collectors: process/drive/snapshot core и ключевые tests; network/service runtime не запускались.
+- [x] Общий набор тестов после agent collector slice: `102 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -157,3 +159,4 @@
 | 2026-08-23 | Завершён план 29 и добавлен план 30 | Read-only adapter contract/fixtures прошли `93 passed`; LAN integration оставлен отдельным opt-in gate |
 | 2026-08-23 | Обновлён план 30 | Live docs endpoint подтвердил TrueNAS API v25.10.5 и read-only methods; smoke check/API key остаются отдельным согласованием |
 | 2026-08-23 | Продолжен план 30 | Добавлены opt-in WebSocket factory, API-key auth boundary и smoke test без запуска по умолчанию |
+| 2026-08-23 | Подготовлен безопасный agent slice | Добавлены local process/drive/snapshot collectors; внешний NAS, heartbeat network и Windows Service не запускались |

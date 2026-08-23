@@ -1,0 +1,1 @@
+"""Windows-agent collector tests."""

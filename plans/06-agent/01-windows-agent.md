@@ -69,3 +69,17 @@ Backend считается authoritative для freshness: агент не мо�
 - unknown command rejection;
 - service lifecycle через mock wrapper;
 - compatibility test для разных agent versions.
+
+## Текущий прогресс реализации
+
+- [x] process collector на `psutil.process_iter()` с нормализацией и безопасным
+  пропуском недоступных/исчезнувших процессов;
+- [x] drive collector для `D:` с present/free bytes и fail-closed missing/denied
+  результатом;
+- [x] snapshot composer с UTC timestamp, station ID, agent version и optional
+  marker reader;
+- [x] ключевые collector tests: normal, denied/disappeared process, drive
+  missing/invalid letter и marker failure;
+- [ ] heartbeat HTTP client, reconnect/backoff и server refresh command;
+- [ ] enrollment credential storage и Windows Service wrapper;
+- [ ] согласовать фактический `game_version_marker` источник.
