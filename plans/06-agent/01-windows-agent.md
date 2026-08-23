@@ -80,6 +80,12 @@ Backend считается authoritative для freshness: агент не мо�
   marker reader;
 - [x] ключевые collector tests: normal, denied/disappeared process, drive
   missing/invalid letter и marker failure;
-- [ ] heartbeat HTTP client, reconnect/backoff и server refresh command;
+- [x] versioned heartbeat payload и HTTPS transport с Bearer credential,
+  TLS-only default и redacted status errors;
+- [x] bounded exponential backoff с jitter и retry contract tests;
+- [x] command validator принимает только подписанный unexpired
+  `refresh_process_snapshot`, без shell/PowerShell execution;
+- [x] heartbeat HTTP client transport и reconnect/backoff boundary;
+- [ ] scheduler wiring, command delivery и local refresh execution;
 - [ ] enrollment credential storage и Windows Service wrapper;
 - [ ] согласовать фактический `game_version_marker` источник.
