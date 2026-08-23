@@ -4,9 +4,16 @@ from types import TracebackType
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from application.ports import StationRepository, UnitOfWork
+from application.ports import (
+    PublishJobRepository,
+    PublishTargetRepository,
+    StationRepository,
+    UnitOfWork,
+)
 from repository.agents import SqlAlchemyAgentRepository
 from repository.enrollment_tokens import SqlAlchemyEnrollmentTokenRepository
+from repository.publish_jobs import SqlAlchemyPublishJobRepository
+from repository.publish_targets import SqlAlchemyPublishTargetRepository
 from repository.rules import SqlAlchemyProcessRuleRepository
 from repository.snapshots import SqlAlchemyProcessSnapshotRepository
 from repository.stations import SqlAlchemyStationRepository
@@ -23,6 +30,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._agents: SqlAlchemyAgentRepository | None = None
         self._process_rules: SqlAlchemyProcessRuleRepository | None = None
         self._process_snapshots: SqlAlchemyProcessSnapshotRepository | None = None
+        self._publish_jobs: PublishJobRepository | None = None
+        self._publish_targets: PublishTargetRepository | None = None
 
     @property
     def stations(self) -> StationRepository:
@@ -54,6 +63,18 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             raise RuntimeError("unit of work must be entered before accessing repositories")
         return self._process_snapshots
 
+    @property
+    def publish_jobs(self) -> PublishJobRepository:
+        if self._publish_jobs is None:
+            raise RuntimeError("unit of work must be entered before accessing repositories")
+        return self._publish_jobs
+
+    @property
+    def publish_targets(self) -> PublishTargetRepository:
+        if self._publish_targets is None:
+            raise RuntimeError("unit of work must be entered before accessing repositories")
+        return self._publish_targets
+
     async def __aenter__(self) -> "SqlAlchemyUnitOfWork":
         if self._session is not None:
             raise RuntimeError("unit of work cannot be entered twice")
@@ -63,6 +84,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._agents = SqlAlchemyAgentRepository(self._session)
         self._process_rules = SqlAlchemyProcessRuleRepository(self._session)
         self._process_snapshots = SqlAlchemyProcessSnapshotRepository(self._session)
+        self._publish_jobs = SqlAlchemyPublishJobRepository(self._session)
+        self._publish_targets = SqlAlchemyPublishTargetRepository(self._session)
         return self
 
     async def __aexit__(
@@ -85,6 +108,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             self._agents = None
             self._process_rules = None
             self._process_snapshots = None
+            self._publish_jobs = None
+            self._publish_targets = None
 
     async def commit(self) -> None:
         await self._require_session().commit()

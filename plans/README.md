@@ -57,15 +57,17 @@
 | [16-preflight-core](16-preflight-core/01-process-rules-evaluator.md) | Process rules и preflight evaluator | завершён |
 | [17-preflight-api](17-preflight-api/01-rules-snapshot-query.md) | Rules persistence, latest snapshot и preflight API | завершён |
 | [18-wizard-gating](18-wizard-gating/01-confirmation-selection-gate.md) | Human confirmation и selection safety gate | завершён |
-| [19-mock-publish](19-mock-publish/01-dramatiq-fake-workflow.md) | Draft publish job, fake workflow и Dramatiq boundary | в работе |
+| [19-mock-publish](19-mock-publish/01-dramatiq-fake-workflow.md) | Draft publish job, fake workflow и Dramatiq boundary | завершён |
+| [20-publish-persistence](20-publish-persistence/01-job-target-uow.md) | `publish_jobs`/`publish_targets`, repositories и worker composition | завершён |
+| [21-draft-command](21-draft-command/01-create-and-enqueue.md) | Создание draft, idempotency и queue port | в работе |
 
 ## Текущий этап
 
 **Этап 2 — каркас и read-only backend.** Bootstrap и persistence-подшаг для
-`stations`/`agents`, agent lifecycle, preflight core/API, wizard gating и
-deterministic fake publish workflow выполнены. Следующий шаг — job/target
-persistence и Dramatiq composition handler; storage write и реальный NAS
-по-прежнему запрещены.
+`stations`/`agents`, agent lifecycle, preflight core/API, wizard gating,
+deterministic fake publish workflow, job/target persistence и Dramatiq
+composition handler выполнены. Текущий шаг — application draft command и
+queue port; storage write и реальный NAS по-прежнему запрещены.
 
 ## Принятые решения
 

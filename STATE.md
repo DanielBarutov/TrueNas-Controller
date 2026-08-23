@@ -16,9 +16,9 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [19 — mock publish](/home/daniel/tnas/plans/19-mock-publish/01-dramatiq-fake-workflow.md).
-- **Текущая задача:** закрепить fake publish proof и перейти к publish job/target persistence.
-- **Следующий разрешённый шаг:** добавить `publish_jobs`/`publish_targets` models и Dramatiq composition handler; Redis execution и реальный NAS пока не включать.
+- **Активный план:** [21 — draft command](/home/daniel/tnas/plans/21-draft-command/01-create-and-enqueue.md).
+- **Текущая задача:** создать draft job через application use case и подготовить безопасный queue port.
+- **Следующий разрешённый шаг:** после проверки draft/enqueue boundary добавить presentation contract/HTTP route; Redis execution и реальный NAS пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -44,7 +44,9 @@
 | [16 — Preflight core](plans/16-preflight-core/01-process-rules-evaluator.md) | `closed` | evaluator, process/drive/freshness checks и 7 domain-тестов созданы | применяется планом 17 |
 | [17 — Preflight API](plans/17-preflight-api/01-rules-snapshot-query.md) | `closed` | process rules, latest snapshot query, application preflight и API smoke созданы | применяется wizard планом 18 |
 | [18 — Wizard gating](plans/18-wizard-gating/01-confirmation-selection-gate.md) | `closed` | admin/client gate, confirmation и selection invariants покрыты 4 domain-тестами | применяется mock publish планом 19 |
-| [19 — Mock publish](plans/19-mock-publish/01-dramatiq-fake-workflow.md) | `in_progress` | uv dependencies, job state machine, fake adapter/workflow и actor boundary покрыты 10 тестами | publish job/target persistence |
+| [19 — Mock publish](plans/19-mock-publish/01-dramatiq-fake-workflow.md) | `closed` | uv dependencies, job state machine, fake adapter/workflow и actor boundary покрыты 10 тестами | publish persistence |
+| [20 — Publish persistence](plans/20-publish-persistence/01-job-target-uow.md) | `closed` | `publish_jobs`/`publish_targets`, stable station mapping, constraints, rollback и worker reload покрыты 8 тестами | draft command/enqueue |
+| [21 — Draft command](plans/21-draft-command/01-create-and-enqueue.md) | `in_progress` | scope зафиксирован; implementation ещё не начат | create draft use case и queue Protocol |
 
 ## Чекап решений
 
@@ -84,6 +86,9 @@
 - [x] Fake publish проверяет dry-run, idempotent master/clone, partial failure и unknown read-back.
 - [x] Dramatiq actor получает только IDs/idempotency/correlation и создаёт fresh handler per message.
 - [x] Общий набор тестов после fake publish: `43 passed` на Python 3.12/uv.
+- [x] `publish_jobs`/`publish_targets` repositories проверяют stable station IDs, unique constraints и atomic rollback.
+- [x] Dramatiq composition handler перечитывает job/targets в свежем UoW и отклоняет mismatched payload.
+- [x] Общий набор тестов после publish persistence: `51 passed` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -109,3 +114,4 @@
 | 2026-08-23 | Добавлен план 17 | Process rules persistence, latest snapshot query и preflight API; publish не запускался |
 | 2026-08-23 | Добавлен план 18 | Реализован preflight wizard safety gate; worker/NAS не запускались |
 | 2026-08-23 | Добавлен план 19 | Добавлены Dramatiq dependencies, publish state machine, fake workflow и actor boundary |
+| 2026-08-23 | Добавлены планы 20–21 | Job/target persistence и worker composition завершены; начат application draft command и queue port |

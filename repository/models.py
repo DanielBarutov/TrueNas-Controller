@@ -12,13 +12,18 @@ from sqlalchemy import (
     Enum as SqlEnum,
     ForeignKey,
     Index,
+    Integer,
     MetaData,
     String,
+    UniqueConstraint,
     Uuid,
+    false,
+    true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from domain.preflight import RuleSeverity
+from domain.publish import PublishJobStatus
 from domain.station import StationRole, StationStatus
 
 NAMING_CONVENTION = {
@@ -98,6 +103,7 @@ class StationRecord(Base):
     process_snapshots: Mapped[list["ProcessSnapshotRecord"]] = relationship(
         back_populates="station"
     )
+    publish_targets: Mapped[list["PublishTargetRecord"]] = relationship(back_populates="station")
 
 
 class AgentRecord(Base):
@@ -201,3 +207,84 @@ class ProcessRuleRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
+
+
+class PublishJobRecord(Base):
+    """Durable publish command and its state-machine position."""
+
+    __tablename__ = "publish_jobs"
+    __table_args__ = (Index("ix_publish_jobs_status_created", "status", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    idempotency_key: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    game_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    dry_run: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    allow_hot_switch: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    step: Mapped[str] = mapped_column(String(64), nullable=False, default="draft")
+    status: Mapped[PublishJobStatus] = mapped_column(
+        enum_column(PublishJobStatus), nullable=False, default=PublishJobStatus.DRAFT
+    )
+    status_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    operator_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    master_version_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    client_confirmation: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    client_confirmation_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    correlation_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+
+    targets: Mapped[list["PublishTargetRecord"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
+    )
+
+
+class PublishTargetRecord(Base):
+    """Durable selection and per-station result for one publish job."""
+
+    __tablename__ = "publish_targets"
+    __table_args__ = (
+        UniqueConstraint("job_id", "station_id", name="uq_publish_targets_job_station"),
+        Index("ix_publish_targets_job_switch", "job_id", "switch_status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("publish_jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    station_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("stations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    selected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deselected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    preflight_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    preflight_result: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    old_version_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    new_version_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    old_mapping: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    new_mapping: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
+    switch_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    verify_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    progress_percent: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    job: Mapped[PublishJobRecord] = relationship(back_populates="targets")
+    station: Mapped[StationRecord] = relationship(back_populates="publish_targets")

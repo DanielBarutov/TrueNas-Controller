@@ -8,6 +8,7 @@ from uuid import UUID
 from domain.agent import AgentBinding
 from domain.enrollment import EnrollmentToken
 from domain.preflight import ProcessRule
+from domain.publish import PublishJob, PublishTarget
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole
 
@@ -80,6 +81,35 @@ class ProcessSnapshotRepository(Protocol):
         """Return the newest stored snapshot for a stable station ID."""
 
 
+class PublishJobRepository(Protocol):
+    """Persistence boundary for durable publish job state."""
+
+    async def get(self, job_id: UUID) -> PublishJob | None:
+        """Return one job by its durable identifier."""
+
+    async def get_by_idempotency_key(self, idempotency_key: str) -> PublishJob | None:
+        """Return the job previously created with an idempotency key."""
+
+    async def add(self, job: PublishJob) -> None:
+        """Stage a new draft job."""
+
+    async def update(self, job: PublishJob) -> None:
+        """Stage a state or metadata update for an existing job."""
+
+
+class PublishTargetRepository(Protocol):
+    """Persistence boundary for the materialized station selection."""
+
+    async def list_for_job(self, job_id: UUID) -> tuple[PublishTarget, ...]:
+        """Return targets using stable station identifiers."""
+
+    async def add(self, target: PublishTarget) -> None:
+        """Stage one selected or deselected target."""
+
+    async def add_many(self, targets: tuple[PublishTarget, ...]) -> None:
+        """Stage all target rows in the current job transaction."""
+
+
 class PublishStorageAdapter(Protocol):
     """High-level storage port implemented by fake/TrueNAS adapters."""
 
@@ -99,6 +129,19 @@ class PublishStorageAdapter(Protocol):
         """Verify mapping independently after switch."""
 
 
+class PublishTaskExecutor(Protocol):
+    """Next-stage executor invoked after durable worker state is loaded."""
+
+    async def execute(
+        self,
+        job: PublishJob,
+        targets: tuple[PublishTarget, ...],
+        *,
+        correlation_id: UUID,
+    ) -> None:
+        """Execute one idempotent publish stage without owning persistence setup."""
+
+
 class UnitOfWork(Protocol):
     """Transaction boundary for one application command or worker message."""
 
@@ -107,6 +150,8 @@ class UnitOfWork(Protocol):
     agents: AgentRepository
     process_rules: ProcessRuleRepository
     process_snapshots: ProcessSnapshotRepository
+    publish_jobs: PublishJobRepository
+    publish_targets: PublishTargetRepository
 
     async def __aenter__(self) -> Self:
         """Open the unit of work and its repositories."""
