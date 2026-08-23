@@ -1,12 +1,13 @@
 """Ports owned by the application layer."""
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol, Self
 from uuid import UUID
 
 from domain.agent import AgentBinding
 from domain.enrollment import EnrollmentToken
+from domain.outbox import OutboxEvent
 from domain.preflight import PreflightReport, ProcessRule
 from domain.publish import PublishJob, PublishTarget
 from domain.snapshot import ProcessSnapshot
@@ -120,6 +121,36 @@ class PublishTargetRepository(Protocol):
         """Stage a result/preflight update for an existing target."""
 
 
+class OutboxRepository(Protocol):
+    """Persistence boundary for transactionally staged external events."""
+
+    async def add(self, event: OutboxEvent) -> None:
+        """Stage one event in the current domain transaction."""
+
+    async def claim_pending(
+        self,
+        *,
+        limit: int,
+        worker_id: str,
+        now: datetime,
+        lease_for: timedelta,
+    ) -> tuple[OutboxEvent, ...]:
+        """Lease pending events for one relay instance."""
+
+    async def mark_dispatched(self, event_id: UUID, dispatched_at: datetime) -> None:
+        """Mark one successfully handed-off event."""
+
+    async def mark_failed(
+        self,
+        event_id: UUID,
+        *,
+        error: str,
+        retry_at: datetime,
+        max_attempts: int,
+    ) -> None:
+        """Record a failed attempt and schedule retry or terminal failure."""
+
+
 class PublishStorageAdapter(Protocol):
     """High-level storage port implemented by fake/TrueNAS adapters."""
 
@@ -175,6 +206,7 @@ class UnitOfWork(Protocol):
     process_snapshots: ProcessSnapshotRepository
     publish_jobs: PublishJobRepository
     publish_targets: PublishTargetRepository
+    outbox_events: OutboxRepository
 
     async def __aenter__(self) -> Self:
         """Open the unit of work and its repositories."""

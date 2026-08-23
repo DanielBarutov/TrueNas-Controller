@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from domain.outbox import OutboxEventStatus
 from domain.preflight import RuleSeverity
 from domain.publish import PublishJobStatus
 from domain.station import StationRole, StationStatus
@@ -288,3 +289,33 @@ class PublishTargetRecord(Base):
 
     job: Mapped[PublishJobRecord] = relationship(back_populates="targets")
     station: Mapped[StationRecord] = relationship(back_populates="publish_targets")
+
+
+class OutboxEventRecord(Base):
+    """Transactional event waiting for a separate delivery attempt."""
+
+    __tablename__ = "outbox_events"
+    __table_args__ = (Index("ix_outbox_events_pending", "status", "available_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    aggregate_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("publish_jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    correlation_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    status: Mapped[OutboxEventStatus] = mapped_column(
+        enum_column(OutboxEventStatus), nullable=False, default=OutboxEventStatus.PENDING
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

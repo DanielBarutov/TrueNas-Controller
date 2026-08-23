@@ -1,10 +1,11 @@
 """Safe transition from confirmed preflight into the worker queue."""
 
 from dataclasses import dataclass, replace
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from application.ports import PublishTaskQueue, UnitOfWorkFactory
+from application.ports import UnitOfWorkFactory
 from application.publish_commands import PublishJobNotFoundError
+from domain.outbox import OutboxEvent
 from domain.preflight import CheckStatus
 from domain.publish import PublishJob, PublishJobStatus, PublishTarget
 
@@ -21,11 +22,10 @@ class PublishDispatchResult:
 
 
 class DispatchPublishJobUseCase:
-    """Commit publishing state, then enqueue only a minimal task payload."""
+    """Commit publishing state and its minimal task event atomically."""
 
-    def __init__(self, uow_factory: UnitOfWorkFactory, queue: PublishTaskQueue) -> None:
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
-        self._queue = queue
 
     async def execute(self, *, job_id: UUID) -> PublishDispatchResult:
         async with self._uow_factory() as uow:
@@ -36,13 +36,21 @@ class DispatchPublishJobUseCase:
             self._validate(job, targets)
             updated_job = replace(job.transition(PublishJobStatus.PUBLISHING), status_reason=None)
             await uow.publish_jobs.update(updated_job)
+            await uow.outbox_events.add(
+                OutboxEvent(
+                    id=uuid4(),
+                    aggregate_id=updated_job.id,
+                    event_type="publish.dispatch",
+                    payload={
+                        "job_id": str(updated_job.id),
+                        "correlation_id": str(updated_job.correlation_id),
+                        "idempotency_key": updated_job.idempotency_key,
+                    },
+                    correlation_id=updated_job.correlation_id,
+                )
+            )
             await uow.commit()
 
-        self._queue.enqueue(
-            job_id=updated_job.id,
-            correlation_id=updated_job.correlation_id,
-            idempotency_key=updated_job.idempotency_key,
-        )
         return PublishDispatchResult(updated_job)
 
     @staticmethod

@@ -16,9 +16,9 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [26 — publish outbox](/home/daniel/tnas/plans/26-publish-outbox/01-transactional-outbox-retry.md).
-- **Текущая задача:** устранить commit/queue gap через transactional outbox и relay retry semantics.
-- **Следующий разрешённый шаг:** добавить outbox model/repository и relay tests; Redis execution и реальный NAS пока не включать.
+- **Активный план:** [27 — fake worker executor](/home/daniel/tnas/plans/27-fake-worker-executor/01-persisted-workflow-results.md).
+- **Текущая задача:** подключить deterministic fake workflow к persisted job/target results через worker executor.
+- **Следующий разрешённый шаг:** добавить executor/mapper tests; real Redis execution и реальный NAS пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -51,7 +51,8 @@
 | [23 — Publish read model](plans/23-publish-read-model/01-job-status-query.md) | `closed` | application query, Basic Auth GET, 404 и safe target status покрыты 4 тестами | operator confirmation |
 | [24 — Publish confirmation](plans/24-publish-confirmation/01-confirmation-command.md) | `closed` | persisted preflight, wizard gate, confirmation timestamp и blocked state покрыты 5 тестами | safe dispatch |
 | [25 — Publish dispatch](plans/25-publish-dispatch/01-safe-enqueue-gate.md) | `closed` | status transition, confirmation/preflight gate и queue-after-UoW покрыты 4 тестами | transactional outbox |
-| [26 — Publish outbox](plans/26-publish-outbox/01-transactional-outbox-retry.md) | `in_progress` | gap и scope зафиксированы; implementation ещё не начат | outbox model/repository и relay |
+| [26 — Publish outbox](plans/26-publish-outbox/01-transactional-outbox-retry.md) | `closed` | atomic dispatch event, lease/recovery, relay delivery, retry и terminal failure покрыты 6 тестами | fake worker executor |
+| [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `in_progress` | scope зафиксирован; implementation ещё не начат | executor/mapper |
 
 ## Чекап решений
 
@@ -105,6 +106,8 @@
 - [x] Общий набор тестов после confirmation/preflight: `68 passed` на Python 3.12/uv.
 - [x] Dispatch gate переводит только safe job в `publishing`, закрывает UoW до queue call и не запускает broker.
 - [x] Общий набор тестов после dispatch gate: `72 passed` на Python 3.12/uv.
+- [x] Transactional outbox атомарно фиксирует dispatch event; relay использует lease, retry/backoff и secret-free payload.
+- [x] Общий набор тестов после outbox/relay: `78 passed` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -136,3 +139,4 @@
 | 2026-08-23 | Добавлен план 24 | GET read model завершён; начат persisted operator confirmation/preflight gate |
 | 2026-08-23 | Добавлен план 25 | Confirmation/preflight gate завершён; начат safe dispatch gate перед enqueue |
 | 2026-08-23 | Добавлен план 26 | Dispatch gate завершён; commit/queue gap вынесен в transactional outbox plan |
+| 2026-08-23 | Добавлен план 27 | Outbox/relay завершены; начат fake worker executor с persisted results |

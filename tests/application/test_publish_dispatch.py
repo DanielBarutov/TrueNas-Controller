@@ -10,6 +10,7 @@ class Store:
     def __init__(self, job: PublishJob, target: PublishTarget) -> None:
         self.job = job
         self.targets = [target]
+        self.events = []
         self.closed = False
 
     def factory(self) -> "FakeUow":
@@ -36,10 +37,19 @@ class FakeTargets:
         return tuple(target for target in self._store.targets if target.job_id == job_id)
 
 
+class FakeOutbox:
+    def __init__(self, store: Store) -> None:
+        self._store = store
+
+    async def add(self, event) -> None:
+        self._store.events.append(event)
+
+
 class FakeUow:
     def __init__(self, store: Store) -> None:
         self.publish_jobs = FakeJobs(store)
         self.publish_targets = FakeTargets(store)
+        self.outbox_events = FakeOutbox(store)
         self._store = store
 
     async def __aenter__(self) -> "FakeUow":
@@ -50,22 +60,6 @@ class FakeUow:
 
     async def commit(self) -> None:
         return None
-
-
-class FakeQueue:
-    def __init__(self, store: Store) -> None:
-        self._store = store
-        self.calls: list[tuple[UUID, UUID, str]] = []
-
-    def enqueue(
-        self,
-        *,
-        job_id: UUID,
-        correlation_id: UUID,
-        idempotency_key: str,
-    ) -> None:
-        assert self._store.closed is True
-        self.calls.append((job_id, correlation_id, idempotency_key))
 
 
 def make_store(
@@ -94,12 +88,18 @@ def make_store(
 
 async def test_dispatch_commits_publishing_before_queue_call() -> None:
     store = make_store()
-    queue = FakeQueue(store)
 
-    result = await DispatchPublishJobUseCase(store.factory, queue).execute(job_id=store.job.id)
+    result = await DispatchPublishJobUseCase(store.factory).execute(job_id=store.job.id)
 
     assert result.job.status is PublishJobStatus.PUBLISHING
-    assert queue.calls == [(store.job.id, store.job.correlation_id, "dispatch-key")]
+    assert store.closed is True
+    assert len(store.events) == 1
+    assert store.events[0].event_type == "publish.dispatch"
+    assert store.events[0].payload == {
+        "job_id": str(store.job.id),
+        "correlation_id": str(store.job.correlation_id),
+        "idempotency_key": "dispatch-key",
+    }
 
 
 @pytest.mark.parametrize(
@@ -136,9 +136,8 @@ async def test_dispatch_rejects_unsafe_job(
         confirmation=confirmation,
         preflight_status=preflight_status,
     )
-    queue = FakeQueue(store)
 
     with pytest.raises(PublishDispatchStateError, match=message):
-        await DispatchPublishJobUseCase(store.factory, queue).execute(job_id=store.job.id)
+        await DispatchPublishJobUseCase(store.factory).execute(job_id=store.job.id)
 
-    assert queue.calls == []
+    assert store.events == []

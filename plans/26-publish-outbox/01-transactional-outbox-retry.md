@@ -35,7 +35,12 @@
 ## Статус
 
 - [x] gap и scope зафиксированы;
-- [ ] outbox model/repository созданы;
-- [ ] relay и retry policy созданы;
-- [ ] ключевые tests созданы;
-- [ ] `STATE.md` обновлён.
+- [x] outbox model/repository созданы;
+- [x] relay и retry policy созданы;
+- [x] ключевые tests созданы;
+- [x] `STATE.md` обновлён.
+
+Подшаг завершён. Dispatch теперь пишет job state и minimal outbox event одной
+транзакцией; relay держит lease, отправляет queue payload вне DB transaction и
+фиксирует retry/terminal failure. Следующий шаг — fake worker executor и
+persisted target outcomes.

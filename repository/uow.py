@@ -5,6 +5,7 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from application.ports import (
+    OutboxRepository,
     PublishJobRepository,
     PublishTargetRepository,
     StationRepository,
@@ -12,6 +13,7 @@ from application.ports import (
 )
 from repository.agents import SqlAlchemyAgentRepository
 from repository.enrollment_tokens import SqlAlchemyEnrollmentTokenRepository
+from repository.outbox import SqlAlchemyOutboxRepository
 from repository.publish_jobs import SqlAlchemyPublishJobRepository
 from repository.publish_targets import SqlAlchemyPublishTargetRepository
 from repository.rules import SqlAlchemyProcessRuleRepository
@@ -32,6 +34,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._process_snapshots: SqlAlchemyProcessSnapshotRepository | None = None
         self._publish_jobs: PublishJobRepository | None = None
         self._publish_targets: PublishTargetRepository | None = None
+        self._outbox_events: OutboxRepository | None = None
 
     @property
     def stations(self) -> StationRepository:
@@ -75,6 +78,12 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             raise RuntimeError("unit of work must be entered before accessing repositories")
         return self._publish_targets
 
+    @property
+    def outbox_events(self) -> OutboxRepository:
+        if self._outbox_events is None:
+            raise RuntimeError("unit of work must be entered before accessing repositories")
+        return self._outbox_events
+
     async def __aenter__(self) -> "SqlAlchemyUnitOfWork":
         if self._session is not None:
             raise RuntimeError("unit of work cannot be entered twice")
@@ -86,6 +95,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._process_snapshots = SqlAlchemyProcessSnapshotRepository(self._session)
         self._publish_jobs = SqlAlchemyPublishJobRepository(self._session)
         self._publish_targets = SqlAlchemyPublishTargetRepository(self._session)
+        self._outbox_events = SqlAlchemyOutboxRepository(self._session)
         return self
 
     async def __aexit__(
@@ -110,6 +120,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             self._process_snapshots = None
             self._publish_jobs = None
             self._publish_targets = None
+            self._outbox_events = None
 
     async def commit(self) -> None:
         await self._require_session().commit()
