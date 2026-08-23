@@ -21,9 +21,9 @@
 ### Этап 2. Каркас и read-only backend
 
 **Текущий этап.** Bootstrap-каркас, SQLAlchemy models/UoW, read-only API,
-station lifecycle, preflight core/API и wizard gate выполнены по планам 12–18.
-Следующий подшаг — draft publish job и deterministic fake workflow через
-Dramatiq/Redis boundary без реального TrueNAS.
+station lifecycle, preflight core/API, wizard gate и deterministic fake
+workflow выполнены по планам 12–19. Следующий подшаг — publish job/target
+persistence и Dramatiq composition handler без реального TrueNAS.
 
 Создать Python package layout по `PROJECT_RULES.md`, repository structure, Compose, `.env.example`, health, stations CRUD/soft delete, process rules, enrollment records, heartbeat intake, dashboard read-model. TrueNAS отсутствует или read-only mock.
 

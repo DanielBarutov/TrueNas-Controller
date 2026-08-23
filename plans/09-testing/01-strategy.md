@@ -98,6 +98,15 @@ Component/page tests для:
 
 Ruff и pytest-конфигурация фиксируются в корневом `pyproject.toml`. Для импортов используется Ruff isort с `known-first-party` для слоёв приложения. Минимальные проверки перед завершением изменения: `ruff check` и `ruff format --check` на затронутых Python-файлах.
 
-## Команды будут зафиксированы позже
+## Команды проекта
 
-До создания runtime-кода выбрать и записать в README команды `uv run pytest`, frontend test/build, lint/typecheck, Compose health и отдельный integration profile. Не считать отсутствие этих команд на пустом checkout ошибкой реализации.
+```bash
+uv sync --dev
+uv run pytest -q
+uv run ruff check .
+uv run ruff format --check .
+```
+
+Frontend test/build, Compose health и отдельный TrueNAS integration profile
+будут добавлены вместе с соответствующими runtime-слоями. Fake tests запускаются
+обычно; реальные NAS write/integration tests остаются отдельным explicit profile.

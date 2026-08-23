@@ -80,6 +80,25 @@ class ProcessSnapshotRepository(Protocol):
         """Return the newest stored snapshot for a stable station ID."""
 
 
+class PublishStorageAdapter(Protocol):
+    """High-level storage port implemented by fake/TrueNAS adapters."""
+
+    async def create_master(self, job_id: UUID, label: str) -> str:
+        """Create or return the idempotent master object reference."""
+
+    async def create_clone(self, master_mapping: str, station_id: UUID) -> str:
+        """Create or return one writable clone for the station."""
+
+    async def read_mapping(self, station_id: UUID) -> str | None:
+        """Read current station mapping."""
+
+    async def switch_mapping(self, station_id: UUID, clone_mapping: str) -> None:
+        """Switch mapping for one station."""
+
+    async def verify_mapping(self, station_id: UUID, clone_mapping: str) -> bool:
+        """Verify mapping independently after switch."""
+
+
 class UnitOfWork(Protocol):
     """Transaction boundary for one application command or worker message."""
 
