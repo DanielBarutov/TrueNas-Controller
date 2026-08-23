@@ -86,6 +86,9 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] command validator принимает только подписанный unexpired
   `refresh_process_snapshot`, без shell/PowerShell execution;
 - [x] heartbeat HTTP client transport и reconnect/backoff boundary;
-- [ ] scheduler wiring, command delivery и local refresh execution;
-- [ ] enrollment credential storage и Windows Service wrapper;
+- [x] scheduler wiring через `AgentService`, command handler и local refresh
+  execution boundary;
+- [x] one-shot enrollment coordinator и atomic file credential-store fallback;
+- [ ] actual server command delivery/signature transport;
+- [ ] Windows ACL/DPAPI credential store и реальный Service wrapper;
 - [ ] согласовать фактический `game_version_marker` источник.

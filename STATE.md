@@ -31,7 +31,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | collectors, versioned heartbeat payload, HTTPS transport, retry и command validator созданы; service/enrollment runtime ещё нет | credential storage, scheduler wiring и enrollment client |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator и service boundary созданы; Windows ACL/DPAPI, command delivery и native wrapper ещё нет | native credential/service integration и marker decision |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -122,7 +122,8 @@
 - [x] Opt-in TrueNAS runtime boundary: `TRUENAS_WS_URL`/`TRUENAS_API_KEY` не имеют defaults, auth redacted, smoke test skipped by default.
 - [x] Windows-agent local collectors: process/drive/snapshot core и ключевые tests; network/service runtime не запускались.
 - [x] Windows-agent heartbeat slice: versioned payload, HTTPS transport, bounded retry и safe command validator; внешний network не запускался.
-- [x] Общий набор тестов после agent heartbeat slice: `114 passed, 1 skipped` на Python 3.12/uv.
+- [x] Windows-agent lifecycle slice: fail-closed config, atomic credential fallback, one-shot enrollment coordinator, command handler и graceful service boundary; native Windows integration не запускалась.
+- [x] Общий набор тестов после agent lifecycle slice: `122 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -162,3 +163,4 @@
 | 2026-08-23 | Продолжен план 30 | Добавлены opt-in WebSocket factory, API-key auth boundary и smoke test без запуска по умолчанию |
 | 2026-08-23 | Подготовлен безопасный agent slice | Добавлены local process/drive/snapshot collectors; внешний NAS, heartbeat network и Windows Service не запускались |
 | 2026-08-23 | Продолжен план 06 | Добавлены versioned heartbeat payload, HTTPS transport, bounded retry и safe refresh command validator; внешний network не запускался |
+| 2026-08-23 | Продолжен план 06 | Добавлены fail-closed config, credential store boundary, one-shot enrollment coordinator и graceful service lifecycle; native Windows integration не запускалась |
