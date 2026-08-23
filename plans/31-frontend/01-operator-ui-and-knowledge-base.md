@@ -35,7 +35,7 @@ frontend/
 ├── src/
 │   ├── application/       # API client и UI use cases
 │   ├── domain/            # DTO/types/status presentation rules
-│   ├── presentation/      # pages, components, forms
+│   ├── presentation/      # pages, reusable components, forms
 │   └── content/knowledge/ # allowlisted Markdown documents
 ├── package.json
 └── vite.config.ts
@@ -90,6 +90,15 @@ key. Basic Auth credential живёт только в памяти текуще�
   - безопасный re-enrollment и uninstall;
 - показывать дату/версию документа и предупреждать об устаревших инструкциях.
 
+### 31.05. Design system и reusable UI
+
+- использовать lucide-react для единообразных и доступных иконок;
+- выносить повторяемые элементы в presentation UI-компоненты:
+  StatusBadge, MetricCard, SectionHeading, HelpHint, InfoNote;
+- сохранять единый визуальный язык для интерактивных состояний, статусов и
+  пояснений полей;
+- не заменять иконки декоративными emoji или текстовыми символами.
+
 ## UI safety rules
 
 - не хранить API password в localStorage, IndexedDB или build artifacts;
@@ -119,8 +128,13 @@ key. Basic Auth credential живёт только в памяти текуще�
   инструкциям и Markdown reader;
 - [x] создан минимальный Vite shell, login, stations read/create и knowledge
   base reader;
+- [x] подключён lucide-react, добавлен переиспользуемый UI-слой для метрик,
+  статусов, заголовков и подсказок;
+- [x] npm run build прошёл; headed visual smoke-check login пройден без
+  browser errors;
 - [ ] подключить полный stations/preflight/publish workflow;
-- [ ] добавить frontend tests и visual check;
+- [ ] добавить frontend tests и расширить visual check на авторизованные
+  экраны через backend/mock contract;
 - [ ] добавить frontend в Compose после появления общего Compose-файла.
 
 ## Запреты

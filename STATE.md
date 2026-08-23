@@ -146,6 +146,13 @@
   загрузка deferred до фактического запуска службы под service account.
 - [x] Plan 31 frontend: React/Vite shell, in-memory Basic Auth login, status
   explanations, station read/create и Markdown knowledge reader созданы.
+- [x] Frontend design layer: подключён lucide-react; повторяемые
+  StatusBadge, MetricCard, SectionHeading, HelpHint и InfoNote вынесены в
+  presentation/components/ui.tsx; декоративные текстовые иконки заменены на
+  Lucide.
+- [x] Frontend production build и visual smoke-check login подтверждены:
+  npm run build прошёл, headed browser check не показал ошибок; backend/API
+  runtime в этой проверке не запускался.
 - [x] Frontend build: `npm run build` прошёл; headed visual smoke-check login
   пройден, backend/API runtime не запускался в рамках frontend build.
 - [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
@@ -201,3 +208,4 @@
 | 2026-08-23 | Добавлена Windows staging-инструкция | Зафиксированы controller enrollment, DPAPI/service account порядок, SCM-команды и smoke checks; фактическая Windows-проверка не выполнялась |
 | 2026-08-23 | Исправлен SCM credential lifecycle | `install`/`start` не требуют расшифровки под администратором; credential загружается при `SvcDoRun` под service account |
 | 2026-08-23 | Начат план 31 frontend | Добавлены React/Vite shell, in-memory Basic Auth, station read/create и Markdown knowledge base; полный workflow отложен на следующие подшаги |
+| 2026-08-23 | Продолжен план 31 frontend | Подключён lucide-react, добавлены reusable UI-компоненты и подтверждены production build/visual login smoke-check |
