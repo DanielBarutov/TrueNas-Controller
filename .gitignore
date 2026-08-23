@@ -1,0 +1,67 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Python packaging/build artifacts
+build/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+share/python-wheels/
+MANIFEST
+
+# Virtual environments and local Python tooling
+.venv/
+venv/
+env/
+ENV/
+.uv/
+
+# Test, type-checking and linter caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.pyright/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# IDE/editor files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+secrets/
+
+# Local application data and logs
+data/
+tmp/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# Frontend/dependency caches for the planned UI
+node_modules/
+.vite/
+
+# OS-generated files
+.DS_Store
+Thumbs.db

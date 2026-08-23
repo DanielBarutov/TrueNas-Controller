@@ -63,7 +63,7 @@
 - [x] Правила записаны в `PROJECT_RULES.md`.
 - [x] Правила добавлены в основную инструкцию `CODEX.md`.
 - [x] Ruff baseline добавлен в `pyproject.toml`.
-- [ ] Создан Python package layout.
-- [ ] Созданы application/domain Protocol ports.
-- [ ] Создан repository UoW и проверены transaction boundaries.
-- [ ] Созданы первые ключевые tests.
+- [x] Создан Python package layout.
+- [x] Созданы application/domain Protocol ports.
+- [x] Создан repository UoW и проверены transaction boundaries.
+- [x] Созданы первые ключевые tests.

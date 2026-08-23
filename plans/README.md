@@ -50,10 +50,20 @@
 | [09-testing](09-testing/01-strategy.md) | Пирамида тестов и критерии доказательности | готов |
 | [10-implementation-roadmap](10-implementation-roadmap/01-roadmap.md) | Последовательность реализации | готов |
 | [11-project-rules](11-project-rules/01-development-rules.md) | Правила чистой архитектуры, SOLID, UoW, Protocol, тестов и Ruff | готов |
+| [12-read-only-backend](12-read-only-backend/01-bootstrap.md) | Bootstrap каркаса read-only backend | завершён |
+| [13-persistence](13-persistence/01-models-uow.md) | SQLAlchemy models, repository и concrete UoW | завершён |
+| [14-read-only-api](14-read-only-api/01-health-stations-auth.md) | Health, stations read API и Basic Auth | завершён |
+| [15-agent-lifecycle](15-agent-lifecycle/01-registry-enrollment-heartbeat.md) | Station registry, enrollment и heartbeat | завершён |
+| [16-preflight-core](16-preflight-core/01-process-rules-evaluator.md) | Process rules и preflight evaluator | завершён |
+| [17-preflight-api](17-preflight-api/01-rules-snapshot-query.md) | Rules persistence, latest snapshot и preflight API | завершён |
+| [18-wizard-gating](18-wizard-gating/01-confirmation-selection-gate.md) | Human confirmation и selection safety gate | завершён |
 
 ## Текущий этап
 
-**Этап 0 — проектирование.** В этой итерации создаётся только документация в `plans/`. Следующий разрешённый этап — подготовка структуры репозитория и read-only backend после отдельной проверки плана, моделей и тестов.
+**Этап 2 — каркас и read-only backend.** Bootstrap и persistence-подшаг для
+`stations`/`agents`, agent lifecycle, preflight core/API и wizard gating
+выполнены. Следующий шаг — draft publish job и deterministic fake workflow на
+Dramatiq/Redis boundary; storage write и реальный NAS по-прежнему запрещены.
 
 ## Принятые решения
 

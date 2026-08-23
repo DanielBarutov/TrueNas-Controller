@@ -1,0 +1,186 @@
+"""FastAPI application factory and read-only routes."""
+
+from datetime import timedelta
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, HTTPException, Query, status
+
+from application.lifecycle import (
+    AgentUnauthorizedError,
+    CreateStationUseCase,
+    EnrollAgentUseCase,
+    EnrollmentRejectedError,
+    HeartbeatRejectedError,
+    ReceiveHeartbeatUseCase,
+)
+from application.ports import StationListQuery
+from application.preflight import EvaluateStationPreflightUseCase, StationNotFoundError
+from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
+from presentation.auth import require_agent_credential, require_basic_auth
+from presentation.lifecycle_schemas import (
+    AgentEnrollRequest,
+    AgentEnrollResponse,
+    HeartbeatRequest,
+    HeartbeatResponse,
+    StationCreateRequest,
+    StationRegistrationResponse,
+)
+from presentation.preflight_schemas import CheckResponse, PreflightRequest, PreflightResponse
+from presentation.schemas import StationResponse
+
+
+def create_app(
+    station_query: StationListQuery,
+    station_registry: CreateStationUseCase | None = None,
+    enroll_agent: EnrollAgentUseCase | None = None,
+    receive_heartbeat: ReceiveHeartbeatUseCase | None = None,
+    evaluate_preflight: EvaluateStationPreflightUseCase | None = None,
+) -> FastAPI:
+    """Create the HTTP application from application-layer dependencies."""
+
+    app = FastAPI(title="Game Update Controller")
+
+    @app.get("/health", dependencies=[Depends(require_basic_auth)])
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/api/v1/stations", response_model=list[StationResponse])
+    async def list_stations(
+        include_disabled: bool = Query(default=False),
+        _: Annotated[str, Depends(require_basic_auth)] = "",
+    ) -> list[StationResponse]:
+        stations = await station_query.execute(include_disabled=include_disabled)
+        return [StationResponse.from_domain(station) for station in stations]
+
+    if station_registry is not None:
+
+        @app.post(
+            "/api/v1/stations",
+            response_model=StationRegistrationResponse,
+            status_code=status.HTTP_201_CREATED,
+        )
+        async def create_station(
+            payload: StationCreateRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> StationRegistrationResponse:
+            result = await station_registry.execute(
+                display_name=payload.display_name,
+                hostname=payload.hostname,
+                role=payload.role,
+            )
+            return StationRegistrationResponse(
+                **StationResponse.from_domain(result.station).model_dump(),
+                enrollment_token=result.enrollment_token,
+                enrollment_expires_at=result.enrollment_expires_at,
+            )
+
+    if enroll_agent is not None:
+
+        @app.post("/api/v1/agents/enroll", response_model=AgentEnrollResponse)
+        async def enroll(
+            payload: AgentEnrollRequest,
+        ) -> AgentEnrollResponse:
+            try:
+                result = await enroll_agent.execute(
+                    enrollment_token=payload.enrollment_token,
+                    agent_uuid=payload.agent_uuid,
+                    hostname=payload.hostname,
+                    agent_version=payload.agent_version,
+                    ip_addresses=tuple(payload.ip_addresses),
+                    mac_addresses=tuple(payload.mac_addresses),
+                )
+            except EnrollmentRejectedError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
+            return AgentEnrollResponse(
+                station_id=result.station_id,
+                credential=result.credential,
+                server_time=result.server_time,
+            )
+
+    if receive_heartbeat is not None:
+
+        @app.post("/api/v1/agents/heartbeat", response_model=HeartbeatResponse)
+        async def heartbeat(
+            payload: HeartbeatRequest,
+            credential: Annotated[str, Depends(require_agent_credential)],
+        ) -> HeartbeatResponse:
+            snapshot = ProcessSnapshot(
+                station_id=payload.station_id,
+                captured_at=payload.captured_at,
+                agent_version=payload.agent_version,
+                processes=tuple(
+                    ProcessInfo(name=item.name, pid=item.pid, path=item.path)
+                    for item in payload.processes
+                ),
+                drives=tuple(
+                    DriveInfo(
+                        letter=item.letter,
+                        present=item.present,
+                        free_bytes=item.free_bytes,
+                    )
+                    for item in payload.drives
+                ),
+                game_version_marker=payload.game_version_marker,
+            )
+            try:
+                result = await receive_heartbeat.execute(
+                    credential=credential,
+                    snapshot=snapshot,
+                )
+            except AgentUnauthorizedError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(error),
+                    headers={"WWW-Authenticate": "Bearer"},
+                ) from error
+            except HeartbeatRejectedError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(error),
+                ) from error
+            return HeartbeatResponse(
+                status="accepted",
+                station_id=result.station_id,
+                received_at=result.received_at,
+            )
+
+    if evaluate_preflight is not None:
+
+        @app.post("/api/v1/preflight", response_model=PreflightResponse)
+        async def preflight(
+            payload: PreflightRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> PreflightResponse:
+            try:
+                report = await evaluate_preflight.execute(
+                    station_id=payload.station_id,
+                    max_snapshot_age=timedelta(seconds=payload.max_snapshot_age_seconds),
+                    required_drive_letter=payload.required_drive_letter,
+                    min_free_bytes=payload.min_free_bytes,
+                )
+            except StationNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            return PreflightResponse(
+                station_id=report.station_id,
+                status=report.status,
+                can_publish=report.can_publish,
+                evaluated_at=report.evaluated_at,
+                checks=[
+                    CheckResponse(
+                        status=check.status,
+                        code=check.code,
+                        message=check.message,
+                        observed_at=check.observed_at,
+                        source_snapshot_id=check.source_snapshot_id,
+                    )
+                    for check in report.checks
+                ],
+            )
+
+    return app
