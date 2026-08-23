@@ -94,6 +94,9 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] `CredentialProtector` через `Protocol`, atomic protected-byte store и
   Windows DPAPI adapter с user-scope по умолчанию; plaintext store остаётся
   только явным development fallback;
+- [x] потокобезопасный `WindowsServiceHost` и pywin32 SCM wrapper с graceful
+  stop; pywin32 подключается только на Windows;
 - [ ] actual server command delivery/signature transport;
-- [ ] deployment ACL для каталога credential и реальный Windows Service wrapper;
+- [ ] deployment ACL для каталога credential и production installer/service
+  registration;
 - [ ] согласовать фактический `game_version_marker` источник.
