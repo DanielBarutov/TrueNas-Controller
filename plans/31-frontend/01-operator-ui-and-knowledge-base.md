@@ -97,6 +97,7 @@ key. Basic Auth credential живёт только в памяти текуще�
 - поиск по title/description/content;
 - инструкции минимум по разделам:
   - запуск backend на Windows PowerShell и SQLite/PostgreSQL profile;
+  - запуск полного локального контура через Docker Compose;
   - создание station и получение one-shot enrollment token;
   - установка агента на клиентский ПК;
   - настройка service account и DPAPI credential;
@@ -153,9 +154,12 @@ key. Basic Auth credential живёт только в памяти текуще�
   HTTP-контрактными тестами;
 - [x] подключён GET publish job read model: polling, target progress,
   terminal states и recovery_required UI;
-- [ ] добавить frontend tests и расширить visual check на авторизованные
-  экраны через backend/mock contract;
-- [ ] добавить frontend в Compose после появления общего Compose-файла.
+- [x] добавить ключевые frontend tests для API Basic Auth/error mapping,
+  station selection и allowlisted knowledge registry;
+- [x] добавить frontend в локальный Compose вместе с PostgreSQL и Redis;
+- [x] расширить visual check на авторизованные экраны через временный SQLite
+  backend contract: overview, stations, publish wizard и knowledge base;
+  runtime Compose отдельно не запускался.
 
 ## Запреты
 

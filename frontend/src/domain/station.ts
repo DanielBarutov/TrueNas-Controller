@@ -25,3 +25,7 @@ export const statusDescription: Record<StationStatus, string> = {
   offline: "Агент не отвечает; выбор станции для publish заблокирован.",
   disabled: "Станция отключена оператором и не должна использоваться.",
 };
+
+export function isStationSelectableForPublish(station: Station): boolean {
+  return station.role === "client" && station.status === "online";
+}

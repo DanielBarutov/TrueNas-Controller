@@ -20,9 +20,10 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8000
 
 ## База данных
 
-Текущий локальный профиль использует SQLite `local.db`, поэтому отдельный
-пароль базы данных не нужен. PostgreSQL и Redis Compose-профиль будут добавлены
-отдельным deployment-планом. Для production не использовать SQLite.
+Локальный ручной запуск использует SQLite `local.db`, поэтому отдельный пароль
+базы данных не нужен. Для PostgreSQL и Redis используй общий Docker Compose
+профиль из инструкции «Запуск через Docker Compose». Для production не
+использовать SQLite.
 
 `213.108.6.24/api/docs` — это документация TrueNAS, а не адрес Controller API.
 Frontend обращается к собственному backend через `/api`.

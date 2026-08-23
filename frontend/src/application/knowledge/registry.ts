@@ -1,6 +1,7 @@
 import agentInstall from "../../content/knowledge/agent-install.md?raw";
 import agentOperations from "../../content/knowledge/agent-operations.md?raw";
 import backendStart from "../../content/knowledge/backend-start.md?raw";
+import composeStart from "../../content/knowledge/compose-start.md?raw";
 
 export interface KnowledgeDocument {
   id: string;
@@ -15,6 +16,12 @@ export const knowledgeDocuments: KnowledgeDocument[] = [
     title: "Запуск backend на Windows",
     description: "PowerShell, SQLite и Basic Auth для локальной проверки.",
     content: backendStart,
+  },
+  {
+    id: "compose-start",
+    title: "Запуск через Docker Compose",
+    description: "PostgreSQL, Redis, backend и frontend в локальном профиле.",
+    content: composeStart,
   },
   {
     id: "agent-install",

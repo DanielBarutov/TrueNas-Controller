@@ -21,9 +21,15 @@ npm run build
 npm run preview
 ```
 
+Ключевые frontend-проверки:
+
+```powershell
+npm run test
+```
+
 Пароль Basic Auth вводится на login-экране и хранится только в памяти вкладки.
 Frontend не содержит TrueNAS API key, agent credential или private signing key.
 
-Первый срез включает overview, station list/create и встроенную Markdown-базу
-знаний. Полный preflight/publish workflow будет подключаться следующими
-подшагами плана 31.
+Срез включает overview, station list/create, publish wizard и встроенную
+Markdown-базу знаний. Frontend не выполняет storage-операции и не проверяет
+версию игры: это подтверждает оператор, а backend остаётся источником истины.

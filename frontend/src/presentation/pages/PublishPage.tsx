@@ -20,7 +20,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ControllerApi } from "../../application/api/client";
 import type { PreflightCheck, PreflightReport, PublishDispatchResponse, PublishGate, PublishJobDraft, PublishJobReadModel, PublishPrepareResponse, PublishTargetReadModel } from "../../domain/publish";
 import { publishStatusLabel } from "../../domain/publish";
-import type { Station } from "../../domain/station";
+import { isStationSelectableForPublish, type Station } from "../../domain/station";
 import { HelpHint, InfoNote, SectionHeading, StatusBadge } from "../components/ui";
 
 type WizardStep = 1 | 2 | 3 | 4;
@@ -463,7 +463,7 @@ function WizardProgress({ current }: { current: WizardStep }) {
 }
 
 function StationChoice({ station, selected, onToggle }: { station: Station; selected: boolean; onToggle: (stationId: string) => void }) {
-  const disabled = station.status !== "online";
+  const disabled = !isStationSelectableForPublish(station);
   return <button className={selected ? "station-choice selected" : "station-choice"} type="button" disabled={disabled} onClick={() => onToggle(station.station_id)}><span className="choice-icon">{selected ? <Check aria-hidden size={15} /> : <Server aria-hidden size={15} />}</span><span className="choice-copy"><strong>{station.display_name}</strong><small>{station.hostname}</small></span><StatusBadge status={station.status} /></button>;
 }
 
