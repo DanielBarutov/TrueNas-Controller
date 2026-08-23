@@ -134,7 +134,8 @@
 - [x] Signed agent command flow: Ed25519 envelope, operator issue route, heartbeat lease/retry, local dedupe и Bearer acknowledgement route.
 - [x] Agent command public-key config field and external base64 verifier boundary added.
 - [x] Agent runtime composition wires public-key verifier, collectors, HTTPS transport and command refresh callback; Windows runtime не запускался.
-- [x] Общий набор тестов после command delivery/runtime slice: `147 passed, 1 skipped` на Python 3.12/uv.
+- [x] Agent entrypoint loads enrolled credential and builds `PyWin32ServiceRuntime`; SCM commands не запускались.
+- [x] Общий набор тестов после command delivery/runtime slice: `149 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -182,3 +183,4 @@
 | 2026-08-23 | Добавлен plan 06.02 и signed command delivery boundary | Ed25519, lease/retry, local dedupe и ack; baseline migration оставлена production gate |
 | 2026-08-23 | Замкнут agent runtime composition | `AGENT_COMMAND_VERIFY_KEY`, verifier, collectors, HTTPS transport и safe refresh callback собраны без Windows/network runtime |
 | 2026-08-23 | Сгенерирована Alembic baseline revision `bee81bac70cc` | Включены текущие таблицы и `agent_commands`; migration не применялась, PostgreSQL не подключался |
+| 2026-08-23 | Добавлен agent entrypoint | Protected credential loading и `PyWin32ServiceRuntime` composition; реальные SCM install/start/stop не выполнялись |

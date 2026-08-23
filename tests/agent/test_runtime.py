@@ -6,8 +6,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import pytest
 
 from agent.config import AgentConfig, AgentConfigError
+from agent.credentials import MemoryCredentialStore
+from agent.entrypoint import build_service_runtime
 from agent.runtime import build_agent_service
 from agent.service import AgentService
+from agent.windows_service import PyWin32ServiceRuntime
 
 
 class FakeTransport:
@@ -45,3 +48,24 @@ def test_agent_runtime_wires_verifier_and_local_components() -> None:
     )
 
     assert isinstance(service, AgentService)
+
+
+def test_service_entrypoint_requires_enrollment_credential() -> None:
+    config = make_config(command_verify_key="public-key-for-test")
+
+    with pytest.raises(AgentConfigError, match="credential is missing"):
+        build_service_runtime(config, credential_store=MemoryCredentialStore())
+
+
+def test_service_entrypoint_builds_scm_runtime_after_enrollment() -> None:
+    public_key = Ed25519PrivateKey.generate().public_key().public_bytes_raw()
+    encoded_key = base64.urlsafe_b64encode(public_key).rstrip(b"=").decode("ascii")
+    store = MemoryCredentialStore()
+    store.save("credential-for-test")
+
+    runtime = build_service_runtime(
+        make_config(command_verify_key=encoded_key),
+        credential_store=store,
+    )
+
+    assert isinstance(runtime, PyWin32ServiceRuntime)
