@@ -15,6 +15,8 @@ from application.agent_commands import (
 from application.lifecycle import CreateStationUseCase, EnrollAgentUseCase, ReceiveHeartbeatUseCase
 from application.preflight import EvaluateStationPreflightUseCase
 from application.publish_commands import CreatePublishJobUseCase
+from application.publish_confirmation import PreparePublishJobUseCase
+from application.publish_dispatch import DispatchPublishJobUseCase
 from application.publish_queries import GetPublishJobUseCase
 from application.stations import ListStationsUseCase
 from presentation.http import create_app
@@ -32,14 +34,17 @@ def build_app(database_url: str | None = None) -> FastAPI:
     session_factory = create_session_factory(engine)
     uow_factory = SqlAlchemyUnitOfWorkFactory(session_factory)
     command_signer = _command_signer_from_env()
+    preflight = EvaluateStationPreflightUseCase(uow_factory)
     return create_app(
         ListStationsUseCase(uow_factory),
         station_registry=CreateStationUseCase(uow_factory),
         enroll_agent=EnrollAgentUseCase(uow_factory),
         receive_heartbeat=ReceiveHeartbeatUseCase(uow_factory),
-        evaluate_preflight=EvaluateStationPreflightUseCase(uow_factory),
+        evaluate_preflight=preflight,
         create_publish_job=CreatePublishJobUseCase(uow_factory),
         get_publish_job=GetPublishJobUseCase(uow_factory),
+        prepare_publish_job=PreparePublishJobUseCase(uow_factory, preflight),
+        dispatch_publish_job=DispatchPublishJobUseCase(uow_factory),
         issue_agent_command=(
             IssueAgentCommandUseCase(uow_factory, command_signer)
             if command_signer is not None

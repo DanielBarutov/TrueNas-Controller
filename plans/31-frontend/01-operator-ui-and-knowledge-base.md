@@ -36,6 +36,7 @@ frontend/
 │   ├── application/       # API client и UI use cases
 │   ├── domain/            # DTO/types/status presentation rules
 │   ├── presentation/      # pages, reusable components, forms
+│   │   └── pages/          # publish wizard и экранные композиции
 │   └── content/knowledge/ # allowlisted Markdown documents
 ├── package.json
 └── vite.config.ts
@@ -74,6 +75,16 @@ key. Basic Auth credential живёт только в памяти текуще�
 - явные пояснения `dry_run`, `idle_only`, `allow_hot_switch`, cleanup;
 - server response остаётся authoritative: UI не может сам разблокировать шаг;
 - partial failure, rollback и recovery-required состояния.
+
+Фактически реализованный безопасный срез:
+
+- backend routes prepare и dispatch используют существующие application
+  use cases и Basic Auth;
+- frontend wizard выполняет draft, server-side preflight, operator
+  confirmation и outbox dispatch;
+- блокирующие и unknown reports не превращаются в ready на стороне browser;
+- dispatch показывает только accepted/persisted state, а не fake completion
+  TrueNAS workflow.
 
 ### 31.04. Knowledge base / Markdown reader
 
@@ -132,7 +143,11 @@ key. Basic Auth credential живёт только в памяти текуще�
   статусов, заголовков и подсказок;
 - [x] npm run build прошёл; headed visual smoke-check login пройден без
   browser errors;
-- [ ] подключить полный stations/preflight/publish workflow;
+- [x] добавлен publish wizard: выбор только online stations, dry_run/hot
+  switch пояснения, server preflight, явное подтверждение и dispatch;
+- [x] backend presentation routes prepare/dispatch добавлены и покрыты
+  HTTP-контрактными тестами;
+- [ ] подключить read model прогресса worker и partial failure/recovery UI;
 - [ ] добавить frontend tests и расширить visual check на авторизованные
   экраны через backend/mock contract;
 - [ ] добавить frontend в Compose после появления общего Compose-файла.

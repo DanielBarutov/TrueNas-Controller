@@ -5,8 +5,11 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from application.publish_commands import PublishJobDraft
+from application.publish_confirmation import PublishPreflightResult
 from application.publish_queries import PublishJobView
+from domain.preflight import PreflightReport
 from domain.publish import PublishJobStatus
+from presentation.preflight_schemas import CheckResponse, PreflightResponse
 
 
 class PublishJobCreateRequest(BaseModel):
@@ -20,6 +23,13 @@ class PublishJobCreateRequest(BaseModel):
     correlation_id: UUID | None = None
     dry_run: bool = True
     allow_hot_switch: bool = False
+
+
+class PublishPrepareRequest(BaseModel):
+    """Operator input for the server-side preflight and confirmation gate."""
+
+    admin_station_id: UUID
+    confirmation: bool | None = None
 
 
 class PublishJobDraftResponse(BaseModel):
@@ -48,6 +58,71 @@ class PublishJobDraftResponse(BaseModel):
             allow_hot_switch=draft.job.allow_hot_switch,
             station_ids=[target.station_id for target in draft.targets],
         )
+
+
+class PublishGateResponse(BaseModel):
+    """Explainable, secret-free wizard gate result."""
+
+    status: str
+    can_advance: bool
+    selected_station_ids: list[UUID]
+    reasons: list[str]
+
+
+class PublishPrepareResponse(BaseModel):
+    """Fresh reports and persisted job state returned by prepare."""
+
+    job_id: UUID
+    status: PublishJobStatus
+    client_confirmation: bool | None
+    gate: PublishGateResponse
+    admin_report: PreflightResponse
+    client_reports: list[PreflightResponse]
+
+    @classmethod
+    def from_result(cls, result: PublishPreflightResult) -> "PublishPrepareResponse":
+        return cls(
+            job_id=result.job.id,
+            status=result.job.status,
+            client_confirmation=result.job.client_confirmation,
+            gate=PublishGateResponse(
+                status=result.gate.status,
+                can_advance=result.gate.can_advance,
+                selected_station_ids=list(result.gate.selected_station_ids),
+                reasons=list(result.gate.reasons),
+            ),
+            admin_report=_preflight_response(result.admin_report),
+            client_reports=[
+                _preflight_response(report) for report in result.client_reports.values()
+            ],
+        )
+
+
+class PublishDispatchResponse(BaseModel):
+    """Safe acknowledgement that the job entered the outbox-backed queue path."""
+
+    job_id: UUID
+    status: PublishJobStatus
+    accepted: bool = True
+
+
+def _preflight_response(report: PreflightReport) -> PreflightResponse:
+    return PreflightResponse(
+        station_id=report.station_id,
+        status=report.status,
+        can_publish=report.can_publish,
+        evaluated_at=report.evaluated_at,
+        checks=[
+            CheckResponse(
+                status=check.status,
+                code=check.code,
+                message=check.message,
+                observed_at=check.observed_at,
+                source_snapshot_id=check.source_snapshot_id,
+            )
+            for check in report.checks
+        ],
+    )
 
 
 class PublishTargetStatusResponse(BaseModel):

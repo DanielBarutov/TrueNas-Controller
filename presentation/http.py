@@ -30,6 +30,11 @@ from application.publish_commands import (
     PublishIdempotencyConflictError,
     PublishJobNotFoundError,
 )
+from application.publish_confirmation import (
+    PreparePublishJobUseCase,
+    PublishConfirmationStateError,
+)
+from application.publish_dispatch import DispatchPublishJobUseCase, PublishDispatchStateError
 from application.publish_queries import GetPublishJobUseCase
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
@@ -46,9 +51,12 @@ from presentation.lifecycle_schemas import (
 )
 from presentation.preflight_schemas import CheckResponse, PreflightRequest, PreflightResponse
 from presentation.publish_schemas import (
+    PublishDispatchResponse,
     PublishJobCreateRequest,
     PublishJobDraftResponse,
     PublishJobResponse,
+    PublishPrepareRequest,
+    PublishPrepareResponse,
 )
 from presentation.schemas import StationResponse
 
@@ -61,6 +69,8 @@ def create_app(
     evaluate_preflight: EvaluateStationPreflightUseCase | None = None,
     create_publish_job: CreatePublishJobUseCase | None = None,
     get_publish_job: GetPublishJobUseCase | None = None,
+    prepare_publish_job: PreparePublishJobUseCase | None = None,
+    dispatch_publish_job: DispatchPublishJobUseCase | None = None,
     issue_agent_command: IssueAgentCommandUseCase | None = None,
     acknowledge_agent_command: AcknowledgeAgentCommandUseCase | None = None,
 ) -> FastAPI:
@@ -341,5 +351,61 @@ def create_app(
                     detail=str(error),
                 ) from error
             return PublishJobResponse.from_view(view)
+
+    if prepare_publish_job is not None:
+
+        @app.post(
+            "/api/v1/publish/jobs/{job_id}/prepare",
+            response_model=PublishPrepareResponse,
+        )
+        async def prepare_publish_job_route(
+            job_id: UUID,
+            payload: PublishPrepareRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> PublishPrepareResponse:
+            try:
+                result = await prepare_publish_job.execute(
+                    job_id=job_id,
+                    admin_station_id=payload.admin_station_id,
+                    confirmation=payload.confirmation,
+                )
+            except PublishJobNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            except PublishConfirmationStateError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
+            return PublishPrepareResponse.from_result(result)
+
+    if dispatch_publish_job is not None:
+
+        @app.post(
+            "/api/v1/publish/jobs/{job_id}/dispatch",
+            response_model=PublishDispatchResponse,
+        )
+        async def dispatch_publish_job_route(
+            job_id: UUID,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> PublishDispatchResponse:
+            try:
+                result = await dispatch_publish_job.execute(job_id=job_id)
+            except PublishJobNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            except PublishDispatchStateError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
+            return PublishDispatchResponse(
+                job_id=result.job.id,
+                status=result.job.status,
+            )
 
     return app

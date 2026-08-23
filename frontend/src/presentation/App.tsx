@@ -11,6 +11,7 @@ import {
   LogOut,
   MonitorCog,
   RefreshCw,
+  Rocket,
   Search,
   ShieldCheck,
 } from "lucide-react";
@@ -25,9 +26,10 @@ import {
   type StationStatus,
 } from "../domain/station";
 import { HelpHint, InfoNote, MetricCard, SectionHeading, StatusBadge } from "./components/ui";
+import { PublishPage } from "./pages/PublishPage";
 import "./styles.css";
 
-type Screen = "overview" | "stations" | "knowledge";
+type Screen = "overview" | "stations" | "publish" | "knowledge";
 
 export function App() {
   const [credentials, setCredentials] = useState<Credentials | null>(null);
@@ -115,6 +117,7 @@ function ControllerShell({ credentials, onLogout }: { credentials: Credentials; 
         <nav>
           <NavButton active={screen === "overview"} onClick={() => setScreen("overview")} icon={LayoutDashboard} label="Обзор" caption="Контроль системы" />
           <NavButton active={screen === "stations"} onClick={() => setScreen("stations")} icon={MonitorCog} label="Станции и агенты" caption="Heartbeat и enrollment" />
+          <NavButton active={screen === "publish"} onClick={() => setScreen("publish")} icon={Rocket} label="Publish wizard" caption="Preflight и dispatch" />
           <NavButton active={screen === "knowledge"} onClick={() => setScreen("knowledge")} icon={BookOpen} label="База знаний" caption="Инструкции оператора" />
         </nav>
         <div className="sidebar-footer">
@@ -123,16 +126,17 @@ function ControllerShell({ credentials, onLogout }: { credentials: Credentials; 
         </div>
       </aside>
       <main className="content">
-        <div className="topbar"><span className="topbar-context">OPERATOR CONSOLE <b>/</b> {screen === "overview" ? "OVERVIEW" : screen === "stations" ? "STATIONS" : "KNOWLEDGE"}</span><span className="operator-chip"><span className="avatar">A</span> admin <span className="online-dot" /></span></div>
-        {screen === "overview" && <OverviewPage api={api} onOpenStations={() => setScreen("stations")} onOpenKnowledge={() => setScreen("knowledge")} />}
+        <div className="topbar"><span className="topbar-context">OPERATOR CONSOLE <b>/</b> {screen === "overview" ? "OVERVIEW" : screen === "stations" ? "STATIONS" : screen === "publish" ? "PUBLISH" : "KNOWLEDGE"}</span><span className="operator-chip"><span className="avatar">A</span> admin <span className="online-dot" /></span></div>
+        {screen === "overview" && <OverviewPage api={api} onOpenStations={() => setScreen("stations")} onOpenPublish={() => setScreen("publish")} onOpenKnowledge={() => setScreen("knowledge")} />}
         {screen === "stations" && <StationsPage api={api} />}
+        {screen === "publish" && <PublishPage api={api} />}
         {screen === "knowledge" && <KnowledgePage />}
       </main>
     </div>
   );
 }
 
-function OverviewPage({ api, onOpenStations, onOpenKnowledge }: { api: ControllerApi; onOpenStations: () => void; onOpenKnowledge: () => void }) {
+function OverviewPage({ api, onOpenStations, onOpenPublish, onOpenKnowledge }: { api: ControllerApi; onOpenStations: () => void; onOpenPublish: () => void; onOpenKnowledge: () => void }) {
   const [health, setHealth] = useState("Не проверено");
   const [stations, setStations] = useState<Station[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -166,8 +170,9 @@ function OverviewPage({ api, onOpenStations, onOpenKnowledge }: { api: Controlle
         <Metric label="Безопасный режим" value="DRY-RUN" hint="Опасные операции требуют preflight и подтверждения." accent="amber" icon={ShieldCheck} />
       </div>
       <InfoNote>Публикация обновлений пока не выполняется из UI: сначала проверяются backend, агент и preflight-политики.</InfoNote>
-      <section className="info-grid">
+      <section className="info-grid info-grid-three">
         <InfoCard title="Следующий шаг" text="Откройте раздел «Станции и агенты», создайте station и используйте одноразовый enrollment token." action="Открыть станции" onClick={onOpenStations} />
+        <InfoCard title="Готовы к publish?" text="Запустите server-side preflight, подтвердите gate и передайте job в outbox-backed worker path." action="Открыть publish wizard" onClick={onOpenPublish} />
         <InfoCard title="Нужна инструкция?" text="В базе знаний собраны запуск backend, установка агента и управление refresh-командами." action="Открыть базу знаний" onClick={onOpenKnowledge} />
       </section>
     </PageHeader>

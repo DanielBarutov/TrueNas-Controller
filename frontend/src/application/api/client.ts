@@ -1,4 +1,10 @@
 import type { Station, StationRole } from "../../domain/station";
+import type {
+  PreflightReport,
+  PublishDispatchResponse,
+  PublishJobDraft,
+  PublishPrepareResponse,
+} from "../../domain/publish";
 
 export interface Credentials {
   username: string;
@@ -34,6 +40,49 @@ export class ControllerApi {
     return this.request("/api/v1/stations", {
       method: "POST",
       body: JSON.stringify(input),
+    });
+  }
+
+  async preflight(input: {
+    station_id: string;
+    max_snapshot_age_seconds?: number;
+    required_drive_letter?: string;
+    min_free_bytes?: number;
+  }): Promise<PreflightReport> {
+    return this.request("/api/v1/preflight", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async createPublishJob(input: {
+    label: string;
+    game_name: string;
+    description?: string;
+    station_ids: string[];
+    idempotency_key: string;
+    dry_run: boolean;
+    allow_hot_switch: boolean;
+  }): Promise<PublishJobDraft> {
+    return this.request("/api/v1/publish/jobs", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async preparePublishJob(
+    jobId: string,
+    input: { admin_station_id: string; confirmation: boolean | null },
+  ): Promise<PublishPrepareResponse> {
+    return this.request(`/api/v1/publish/jobs/${jobId}/prepare`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async dispatchPublishJob(jobId: string): Promise<PublishDispatchResponse> {
+    return this.request(`/api/v1/publish/jobs/${jobId}/dispatch`, {
+      method: "POST",
     });
   }
 

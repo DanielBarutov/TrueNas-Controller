@@ -150,6 +150,11 @@
   StatusBadge, MetricCard, SectionHeading, HelpHint и InfoNote вынесены в
   presentation/components/ui.tsx; декоративные текстовые иконки заменены на
   Lucide.
+- [x] Publish wizard slice: добавлены backend prepare/dispatch routes и
+  frontend flow draft → server preflight → operator confirmation → outbox
+  dispatch; offline/stale stations disabled, unknown/block не обходятся UI.
+- [x] Общий набор проверок после publish presentation/frontend slice:
+  156 passed, 1 skipped; Ruff check/format и frontend npm run build прошли.
 - [x] Frontend production build и visual smoke-check login подтверждены:
   npm run build прошёл, headed browser check не показал ошибок; backend/API
   runtime в этой проверке не запускался.
@@ -209,3 +214,4 @@
 | 2026-08-23 | Исправлен SCM credential lifecycle | `install`/`start` не требуют расшифровки под администратором; credential загружается при `SvcDoRun` под service account |
 | 2026-08-23 | Начат план 31 frontend | Добавлены React/Vite shell, in-memory Basic Auth, station read/create и Markdown knowledge base; полный workflow отложен на следующие подшаги |
 | 2026-08-23 | Продолжен план 31 frontend | Подключён lucide-react, добавлены reusable UI-компоненты и подтверждены production build/visual login smoke-check |
+| 2026-08-23 | Продолжен plan 31 publish slice | Замкнуты prepare/dispatch HTTP-контракты и frontend wizard; worker/TrueNAS completion не симулируется |

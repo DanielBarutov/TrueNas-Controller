@@ -10,11 +10,14 @@ from application.publish_commands import (
     PublishJobDraft,
     PublishJobNotFoundError,
 )
+from application.publish_confirmation import PublishPreflightResult
+from application.publish_dispatch import PublishDispatchResult
 from application.publish_queries import PublishJobView
 from domain.agent_command import AgentCommand, AgentCommandName
 from domain.preflight import CheckResult, CheckStatus, PreflightReport
-from domain.publish import PublishJob, PublishTarget
+from domain.publish import PublishJob, PublishJobStatus, PublishTarget
 from domain.station import Station, StationRole, StationStatus
+from domain.wizard import WizardGateResult, WizardGateStatus
 from presentation.http import create_app
 
 TEST_PASSWORD = "unit-test-password"
@@ -114,6 +117,30 @@ class FakePublishJobQuery:
         self.result = result
 
     async def execute(self, job_id):
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+class FakePublishPrepare:
+    def __init__(self, result: PublishPreflightResult | Exception) -> None:
+        self.result = result
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> PublishPreflightResult:
+        self.calls.append(kwargs)
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+class FakePublishDispatch:
+    def __init__(self, result: PublishDispatchResult | Exception) -> None:
+        self.result = result
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> PublishDispatchResult:
+        self.calls.append(kwargs)
         if isinstance(self.result, Exception):
             raise self.result
         return self.result
@@ -442,3 +469,116 @@ def test_publish_job_route_maps_missing_job_to_404(monkeypatch) -> None:
     )
 
     assert response.status_code == 404
+
+
+def test_publish_prepare_route_returns_server_gate_and_reports(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    admin_station_id = uuid4()
+    client_station_id = uuid4()
+    now = datetime.now(UTC)
+    report = PreflightReport(
+        station_id=client_station_id,
+        status=CheckStatus.PASS,
+        checks=(
+            CheckResult(
+                status=CheckStatus.PASS,
+                code="snapshot_fresh",
+                message="agent snapshot is fresh",
+                observed_at=now,
+            ),
+        ),
+        evaluated_at=now,
+    )
+    job = PublishJob(
+        id=uuid4(),
+        idempotency_key="prepare-key",
+        correlation_id=uuid4(),
+        label="build",
+        game_name="game",
+        status=PublishJobStatus.AWAITING_CONFIRMATION,
+        client_confirmation=True,
+    )
+    result = PublishPreflightResult(
+        job=job,
+        gate=WizardGateResult(
+            status=WizardGateStatus.READY,
+            selected_station_ids=(client_station_id,),
+            reasons=(),
+        ),
+        admin_report=PreflightReport(
+            station_id=admin_station_id,
+            status=CheckStatus.PASS,
+            checks=report.checks,
+            evaluated_at=now,
+        ),
+        client_reports={client_station_id: report},
+    )
+    prepare = FakePublishPrepare(result)
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            prepare_publish_job=prepare,
+        )
+    )
+
+    assert (
+        client.post(
+            f"/api/v1/publish/jobs/{job.id}/prepare",
+            json={"admin_station_id": str(admin_station_id), "confirmation": True},
+        ).status_code
+        == 401
+    )
+    response = client.post(
+        f"/api/v1/publish/jobs/{job.id}/prepare",
+        json={"admin_station_id": str(admin_station_id), "confirmation": True},
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["gate"] == {
+        "status": "ready",
+        "can_advance": True,
+        "selected_station_ids": [str(client_station_id)],
+        "reasons": [],
+    }
+    assert response.json()["admin_report"]["can_publish"] is True
+    assert response.json()["client_reports"][0]["station_id"] == str(client_station_id)
+    assert prepare.calls == [
+        {
+            "job_id": job.id,
+            "admin_station_id": admin_station_id,
+            "confirmation": True,
+        }
+    ]
+
+
+def test_publish_dispatch_route_returns_publishing_status(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    job = PublishJob(
+        id=uuid4(),
+        idempotency_key="dispatch-route-key",
+        correlation_id=uuid4(),
+        label="build",
+        game_name="game",
+        status=PublishJobStatus.PUBLISHING,
+    )
+    dispatch = FakePublishDispatch(PublishDispatchResult(job=job))
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            dispatch_publish_job=dispatch,
+        )
+    )
+
+    response = client.post(
+        f"/api/v1/publish/jobs/{job.id}/dispatch",
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "job_id": str(job.id),
+        "status": "publishing",
+        "accepted": True,
+    }
+    assert dispatch.calls == [{"job_id": job.id}]
