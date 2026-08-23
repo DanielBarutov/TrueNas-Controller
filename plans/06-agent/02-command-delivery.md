@@ -50,15 +50,16 @@ agent validates Ed25519 → local refresh → POST command ack
   общей первой схемой; migration только создана, не применена автоматически;
 - [x] добавить public key в agent runtime config и собрать composition root
   агента с `Ed25519CommandVerifier`;
-- [x] добавить entrypoint, который загружает enrolled credential и собирает
-  `PyWin32ServiceRuntime` без выполнения SCM-команд в Linux/CI;
+- [x] добавить entrypoint с explicit one-shot `enroll`, который загружает
+  protected credential, и SCM runtime composition без выполнения SCM-команд в
+  Linux/CI;
 - [ ] проверить Windows Service runtime под фактической service account;
 - [ ] выполнить отдельный opt-in integration test собственного API и агента;
 - [ ] не подключать TrueNAS, Redis и storage write для проверки этого потока.
 
 ## Проверки текущего среза
 
-- `149 passed, 1 skipped` на Python 3.12/uv;
+- `153 passed, 1 skipped` на Python 3.12/uv;
 - Ruff check/format успешно;
 - реальный Windows SCM, внешний agent network и production DB migration не
   запускались.

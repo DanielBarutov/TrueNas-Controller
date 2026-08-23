@@ -17,7 +17,7 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [30 — TrueNAS LAN integration gate](/home/daniel/tnas/plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md).
-- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` сверены, opt-in runtime boundary создан, read-only smoke check ещё не выполнялся. Параллельно подготовлен безопасный local collector slice Windows-агента.
+- **Текущая задача:** завершить docs gate; версия `25.10.5` и live `/api/docs/current/` сверены, opt-in runtime boundary создан, read-only smoke check ещё не выполнялся. Параллельно закрывается deployment-подшаг Windows-агента: explicit enrollment CLI готов, production service-account gate ещё открыт.
 - **Следующий разрешённый шаг:** после отдельного явного согласования и внешней runtime-конфигурации API key выполнить только `core.ping`/query; real Redis execution и storage write пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
@@ -31,7 +31,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и baseline migration созданы; apply/production registration ещё нет | migration review/apply gate, service account validation и marker decision |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и baseline migration созданы; apply/production registration ещё нет | migration review/apply gate, service account validation и marker decision |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -135,7 +135,10 @@
 - [x] Agent command public-key config field and external base64 verifier boundary added.
 - [x] Agent runtime composition wires public-key verifier, collectors, HTTPS transport and command refresh callback; Windows runtime не запускался.
 - [x] Agent entrypoint loads enrolled credential and builds `PyWin32ServiceRuntime`; SCM commands не запускались.
-- [x] Общий набор тестов после command delivery/runtime slice: `149 passed, 1 skipped` на Python 3.12/uv.
+- [x] Explicit one-shot enrollment command проверяет `AGENT_UUID`/token, использует
+  injected Protocol boundaries и не выводит credential/token; deployment notes
+  добавлены в `docs/AGENT_DEPLOYMENT.md`.
+- [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -184,3 +187,4 @@
 | 2026-08-23 | Замкнут agent runtime composition | `AGENT_COMMAND_VERIFY_KEY`, verifier, collectors, HTTPS transport и safe refresh callback собраны без Windows/network runtime |
 | 2026-08-23 | Сгенерирована Alembic baseline revision `bee81bac70cc` | Включены текущие таблицы и `agent_commands`; migration не применялась, PostgreSQL не подключался |
 | 2026-08-23 | Добавлен agent entrypoint | Protected credential loading и `PyWin32ServiceRuntime` composition; реальные SCM install/start/stop не выполнялись |
+| 2026-08-23 | Добавлен explicit one-shot agent enrollment command | `AGENT_UUID`/token проходят через runtime environment, credential сохраняется защищённо; controller, SCM и migration не запускались |

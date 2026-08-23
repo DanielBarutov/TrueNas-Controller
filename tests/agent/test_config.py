@@ -7,6 +7,7 @@ from agent.config import AgentConfig, AgentConfigError
 
 def test_agent_config_requires_safe_runtime_values() -> None:
     station_id = uuid4()
+    agent_uuid = uuid4()
     config = AgentConfig.from_env(
         {
             "AGENT_API_BASE_URL": "https://controller.example",
@@ -14,6 +15,7 @@ def test_agent_config_requires_safe_runtime_values() -> None:
             "AGENT_VERSION": "0.1.0",
             "AGENT_HOSTNAME": "CLIENT-01",
             "AGENT_CREDENTIAL_PATH": "C:\\ProgramData\\controller\\credential",
+            "AGENT_UUID": str(agent_uuid),
             "AGENT_COMMAND_VERIFY_KEY": "public-key-for-test",
         }
     )
@@ -22,6 +24,7 @@ def test_agent_config_requires_safe_runtime_values() -> None:
     assert config.heartbeat_url == "https://controller.example/api/v1/agents/heartbeat"
     assert config.enrollment_url == "https://controller.example/api/v1/agents/enroll"
     assert config.command_verify_key == "public-key-for-test"
+    assert config.agent_uuid == agent_uuid
 
 
 def test_agent_config_rejects_missing_or_insecure_defaults() -> None:
@@ -35,5 +38,19 @@ def test_agent_config_rejects_missing_or_insecure_defaults() -> None:
                 "AGENT_VERSION": "0.1.0",
                 "AGENT_HOSTNAME": "CLIENT-01",
                 "AGENT_CREDENTIAL_PATH": "credential",
+            }
+        )
+
+
+def test_agent_config_rejects_invalid_agent_uuid() -> None:
+    with pytest.raises(AgentConfigError, match="AGENT_UUID"):
+        AgentConfig.from_env(
+            {
+                "AGENT_API_BASE_URL": "https://controller.example",
+                "AGENT_STATION_ID": str(uuid4()),
+                "AGENT_VERSION": "0.1.0",
+                "AGENT_HOSTNAME": "CLIENT-01",
+                "AGENT_CREDENTIAL_PATH": "credential",
+                "AGENT_UUID": "not-a-uuid",
             }
         )

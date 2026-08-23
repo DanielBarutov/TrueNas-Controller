@@ -24,6 +24,7 @@ class AgentConfig:
     heartbeat_interval_seconds: float = 10.0
     drive_letter: str = "D:"
     allow_insecure_http: bool = False
+    agent_uuid: UUID | None = None
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "AgentConfig":
@@ -33,6 +34,7 @@ class AgentConfig:
         agent_version = source.get("AGENT_VERSION", "").strip()
         hostname = source.get("AGENT_HOSTNAME", "").strip()
         credential_path_text = source.get("AGENT_CREDENTIAL_PATH", "").strip()
+        agent_uuid_text = source.get("AGENT_UUID", "").strip()
         command_verify_key = source.get("AGENT_COMMAND_VERIFY_KEY", "").strip() or None
         allow_insecure = source.get("AGENT_ALLOW_INSECURE_HTTP") == "1"
         if not api_base_url or not station_id_text or not agent_version or not hostname:
@@ -43,6 +45,10 @@ class AgentConfig:
             station_id = UUID(station_id_text)
         except ValueError as exc:
             raise AgentConfigError("AGENT_STATION_ID must be a UUID") from exc
+        try:
+            agent_uuid = UUID(agent_uuid_text) if agent_uuid_text else None
+        except ValueError as exc:
+            raise AgentConfigError("AGENT_UUID must be a UUID") from exc
         _validate_api_url(api_base_url, allow_insecure_http=allow_insecure)
         return cls(
             api_base_url=api_base_url,
@@ -50,6 +56,7 @@ class AgentConfig:
             agent_version=agent_version,
             hostname=hostname,
             credential_path=Path(credential_path_text),
+            agent_uuid=agent_uuid,
             command_verify_key=command_verify_key,
             allow_insecure_http=allow_insecure,
         )
