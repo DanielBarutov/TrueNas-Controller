@@ -5,6 +5,13 @@ from datetime import datetime, timedelta
 from typing import Protocol, Self
 from uuid import UUID
 
+from application.truenas import (
+    TrueNASDataset,
+    TrueNASExtent,
+    TrueNASSnapshot,
+    TrueNASTarget,
+    TrueNASTargetExtent,
+)
 from domain.agent import AgentBinding
 from domain.enrollment import EnrollmentToken
 from domain.outbox import OutboxEvent
@@ -168,6 +175,35 @@ class PublishStorageAdapter(Protocol):
 
     async def verify_mapping(self, station_id: UUID, clone_mapping: str) -> bool:
         """Verify mapping independently after switch."""
+
+
+class TrueNASJsonRpcTransport(Protocol):
+    """Minimal JSON-RPC transport used by the read-only TrueNAS adapter."""
+
+    async def request(self, method: str, params: object | None = None) -> object:
+        """Send one request without exposing credentials to the application."""
+
+
+class TrueNASReadOnlyClient(Protocol):
+    """Read-only TrueNAS metadata port for application use cases."""
+
+    async def ping(self) -> None:
+        """Verify that the configured TrueNAS API responds."""
+
+    async def query_datasets(self) -> tuple[TrueNASDataset, ...]:
+        """Read dataset and zvol metadata."""
+
+    async def query_snapshots(self) -> tuple[TrueNASSnapshot, ...]:
+        """Read snapshot metadata."""
+
+    async def query_targets(self) -> tuple[TrueNASTarget, ...]:
+        """Read iSCSI target metadata."""
+
+    async def query_extents(self) -> tuple[TrueNASExtent, ...]:
+        """Read iSCSI extent metadata."""
+
+    async def query_target_extents(self) -> tuple[TrueNASTargetExtent, ...]:
+        """Read target-to-extent attachment metadata."""
 
 
 class PublishTaskExecutor(Protocol):

@@ -1,0 +1,49 @@
+{
+  "version": "25.10",
+  "responses": {
+    "ping": true,
+    "query_datasets": [
+      {
+        "id": "tank/games",
+        "name": "tank/games",
+        "path": "/mnt/tank/games",
+        "type": "FILESYSTEM"
+      },
+      {
+        "id": "tank/iscsi/game-zvol",
+        "name": "tank/iscsi/game-zvol",
+        "path": "/dev/zvol/tank/iscsi/game-zvol",
+        "type": "VOLUME"
+      }
+    ],
+    "query_snapshots": [
+      {
+        "id": "tank/iscsi/game-zvol@build-2026-08-23",
+        "name": "tank/iscsi/game-zvol@build-2026-08-23",
+        "dataset": "tank/iscsi/game-zvol"
+      }
+    ],
+    "query_targets": [
+      {
+        "id": 7,
+        "name": "game-target",
+        "alias": "game-target-alias"
+      }
+    ],
+    "query_extents": [
+      {
+        "id": 11,
+        "name": "game-extent",
+        "path": "/dev/zvol/tank/iscsi/game-zvol",
+        "type": "DISK"
+      }
+    ],
+    "query_target_extents": [
+      {
+        "target": 7,
+        "extent": 11,
+        "lunid": 0
+      }
+    ]
+  }
+}

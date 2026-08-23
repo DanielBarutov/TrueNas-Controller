@@ -67,16 +67,18 @@
 | [26-publish-outbox](26-publish-outbox/01-transactional-outbox-retry.md) | Transactional outbox и relay retry semantics | завершён |
 | [27-fake-worker-executor](27-fake-worker-executor/01-persisted-workflow-results.md) | Fake workflow results в persisted job/targets | завершён |
 | [28-fake-acceptance](28-fake-acceptance/01-end-to-end-pipeline.md) | End-to-end fake publish pipeline acceptance | завершён |
-| [29-truenas-read-only](29-truenas-read-only/01-versioned-adapter-contract.md) | Versioned TrueNAS read-only adapter contract | в работе |
+| [29-truenas-read-only](29-truenas-read-only/01-versioned-adapter-contract.md) | Versioned TrueNAS read-only adapter contract | завершён |
+| [30-truenas-lan-gate](30-truenas-lan-gate/01-local-api-docs-and-connection.md) | Проверка версии и локальной схемы NAS перед opt-in LAN smoke check | открыт |
 
 ## Текущий этап
 
 **Этап 2 — каркас и read-only backend.** Bootstrap и persistence-подшаг для
 `stations`/`agents`, agent lifecycle, preflight core/API, wizard gating,
 deterministic fake publish workflow, job/target persistence, Dramatiq
-composition handler и application draft/queue boundary выполнены. Текущий
-шаг — versioned TrueNAS read-only adapter contract; storage write и реальный
-NAS по-прежнему запрещены.
+composition handler и application draft/queue boundary выполнены. Versioned
+TrueNAS read-only adapter contract завершён; следующий gate — проверка
+конкретного локального `/api/docs/`, storage write и реальный NAS по-прежнему
+запрещены.
 
 ## Принятые решения
 

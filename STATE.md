@@ -16,9 +16,9 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [29 — TrueNAS read-only adapter](/home/daniel/tnas/plans/29-truenas-read-only/01-versioned-adapter-contract.md).
-- **Текущая задача:** подготовить versioned read-only adapter Protocol и fixtures по официальной документации.
-- **Следующий разрешённый шаг:** реализовать transport/registry contract tests; real Redis execution и реальный NAS пока не включать.
+- **Активный план:** [30 — TrueNAS LAN integration gate](/home/daniel/tnas/plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md).
+- **Текущая задача:** ожидать фактическую версию/локальную схему NAS для opt-in read-only smoke check; до этого использовать только fixtures.
+- **Следующий разрешённый шаг:** после явного согласования сверить локальный `/api/docs/` с registry; real Redis execution и storage write пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -54,7 +54,8 @@
 | [26 — Publish outbox](plans/26-publish-outbox/01-transactional-outbox-retry.md) | `closed` | atomic dispatch event, lease/recovery, relay delivery, retry и terminal failure покрыты 6 тестами | fake worker executor |
 | [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `closed` | fake task executor и persisted simulated/verified/partial outcomes покрыты 4 тестами | fake acceptance |
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
-| [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `in_progress` | scope и integration gate зафиксированы; implementation ещё не начат | transport/registry fixtures |
+| [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
+| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | scope и запреты зафиксированы; входы от оператора не получены | фактическая версия и локальный `/api/docs/` |
 
 ## Чекап решений
 
@@ -114,6 +115,9 @@
 - [x] Общий набор тестов после fake executor: `82 passed` на Python 3.12/uv.
 - [x] End-to-end fake acceptance прошёл create→preflight→dispatch→relay→worker→verified и duplicate delivery.
 - [x] Общий набор тестов после fake acceptance: `83 passed` на Python 3.12/uv.
+- [x] Versioned TrueNAS read-only adapter: DTO, Protocol, JSON-RPC transport, registry, fixture и mapper contract tests.
+- [x] Ruff check/format после adapter slice: passed.
+- [x] Общий набор тестов после read-only adapter: `93 passed` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 
 ## Решение, которое требует объяснения
@@ -148,3 +152,4 @@
 | 2026-08-23 | Добавлен план 27 | Outbox/relay завершены; начат fake worker executor с persisted results |
 | 2026-08-23 | Добавлен план 28 | Fake executor завершён; начат end-to-end acceptance полного pipeline |
 | 2026-08-23 | Добавлен план 29 | End-to-end fake pipeline завершён; начат versioned TrueNAS read-only adapter contract |
+| 2026-08-23 | Завершён план 29 и добавлен план 30 | Read-only adapter contract/fixtures прошли `93 passed`; LAN integration оставлен отдельным opt-in gate |

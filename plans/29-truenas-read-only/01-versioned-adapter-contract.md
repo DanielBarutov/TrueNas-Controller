@@ -30,10 +30,28 @@ TrueNAS JSON-RPC 2.0 over WebSocket adapter, не подключаясь к ре
 connection и API key не используются; сначала проверяются только публичные
 официальные docs и локальные fixtures.
 
+## Реализовано
+
+- application DTO и Protocol для read-only metadata без storage write-портов;
+- JSON-RPC 2.0 transport с correlation по request ID, timeout mapping,
+  reconnect budget и redacted remote errors;
+- registry для API family `25.10`, разрешающий только `core.ping` и query
+  methods для dataset/snapshot/iSCSI metadata;
+- fixture `truenas_adapter/fixtures/25.10/read_only.json` без секретов и
+  зависимости от реального NAS;
+- adapter mapper с отказом на malformed shape и false ping.
+
+## Проверки
+
+- `uv run ruff check .` — passed;
+- `uv run ruff format --check .` — passed;
+- `uv run pytest -q` — `93 passed`;
+- real WebSocket, Redis broker, API key и storage write не запускались.
+
 ## Статус
 
 - [x] scope и integration gate зафиксированы;
-- [ ] transport/method Protocol созданы;
-- [ ] read-only adapter и fixtures созданы;
-- [ ] ключевые contract tests созданы;
-- [ ] `STATE.md` обновлён.
+- [x] transport/method Protocol созданы;
+- [x] read-only adapter и fixtures созданы;
+- [x] ключевые contract tests созданы;
+- [x] `STATE.md` обновлён.

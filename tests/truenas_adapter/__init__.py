@@ -1,0 +1,1 @@
+"""TrueNAS adapter contract tests."""
