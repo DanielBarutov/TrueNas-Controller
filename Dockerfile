@@ -13,6 +13,8 @@ RUN pip install --no-cache-dir uv \
 
 COPY . .
 COPY docker/backend-entrypoint.sh /usr/local/bin/tnas-backend-entrypoint
+RUN sed -i 's/\r$//' /usr/local/bin/tnas-backend-entrypoint \
+    && chmod +x /usr/local/bin/tnas-backend-entrypoint
 
 EXPOSE 8000
 

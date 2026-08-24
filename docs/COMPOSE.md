@@ -35,6 +35,18 @@ docker compose up -d --build backend frontend
 docker compose logs backend
 ```
 
+Если backend завершается с `set: invalid option name` в строке
+`backend-entrypoint.sh`, это обычно CRLF из Windows checkout. Репозиторий
+фиксирует shell-файлы в LF, а Dockerfile дополнительно нормализует entrypoint
+внутри Linux-образа. Обновите checkout и пересоберите backend:
+
+```powershell
+git pull --ff-only origin main
+docker compose build --no-cache backend
+docker compose up -d postgres redis backend
+docker compose logs --tail=100 backend
+```
+
 Для остановки:
 
 ```powershell

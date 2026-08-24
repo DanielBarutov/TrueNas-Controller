@@ -55,3 +55,13 @@ docker compose logs frontend
 Если frontend не открывается, сначала дождись статуса `healthy` у backend.
 Frontend proxy внутри Compose обращается к сервису `backend`, а при обычном
 локальном `npm run dev` использует `127.0.0.1:8000`.
+
+Ошибка `set: invalid option name` в начале логов backend означает, что shell
+entrypoint пришёл в Linux-контейнер с Windows-окончаниями строк. Обнови проект
+и пересобери backend после исправления:
+
+```powershell
+git pull --ff-only origin main
+docker compose build --no-cache backend
+docker compose up -d postgres redis backend
+```

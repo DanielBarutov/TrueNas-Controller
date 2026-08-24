@@ -192,6 +192,9 @@
 - [x] Compose runtime: PostgreSQL baseline migration `bee81bac70cc` применена,
   `stations`/`publish_jobs` созданы, backend healthy и `/api/v1/stations`
   вернул `200` через Basic Auth.
+- [x] Исправлен Windows CRLF-регресс в Docker backend entrypoint: `.gitattributes`
+  фиксирует LF для shell-файлов, Dockerfile нормализует скрипт; backend image
+  собран, migration и `/openapi.json` проверены в Compose.
 - [x] Authorized visual smoke-check: временный SQLite backend и headed browser
   подтвердили login, health, stations, publish wizard и knowledge base; артефакты
   вынесены из workspace в `/tmp/tnas-playwright-artifacts`.
