@@ -4,31 +4,20 @@ import time
 
 SERVICE_NAME = "TrueNasControllerAgent"
 SERVICE_DISPLAY_NAME = "TrueNAS Controller Agent"
+SERVICE_ACCOUNT = "LocalSystem"
 
 
 def install_windows_service(
     *,
     command_line: str,
-    service_account: str,
-    service_password: str,
 ) -> None:
-    """Create or update the agent service using the target Python runtime."""
+    """Create or update the agent service to run as LocalSystem."""
 
     try:
-        import win32api
-        import win32con
-        import win32security
         import win32service
     except ImportError as exc:
         raise RuntimeError("pywin32 is required to register the Windows Service") from exc
 
-    _validate_service_credentials(
-        win32api,
-        win32con,
-        win32security,
-        service_account,
-        service_password,
-    )
     manager = win32service.OpenSCManager(
         None,
         None,
@@ -51,8 +40,8 @@ def install_windows_service(
                 None,
                 0,
                 None,
-                service_account,
-                service_password,
+                SERVICE_ACCOUNT,
+                "",
                 SERVICE_DISPLAY_NAME,
             )
         except win32service.error as exc:
@@ -70,8 +59,8 @@ def install_windows_service(
                 None,
                 0,
                 None,
-                service_account,
-                service_password,
+                None,
+                None,
             )
     except win32service.error as exc:
         raise RuntimeError("could not register the Windows Service") from exc
@@ -104,13 +93,13 @@ def start_windows_service() -> None:
                 pass
             elif error_code == 1069:
                 raise RuntimeError(
-                    "could not start the Windows Service: service account logon failed; "
-                    "verify the Windows account name and password"
+                    "could not start the Windows Service: it is not configured for "
+                    "the LocalSystem account; rerun the installer"
                 ) from exc
             elif error_code == 1385:
                 raise RuntimeError(
-                    "could not start the Windows Service: the account is not granted "
-                    "Log on as a service"
+                    "could not start the Windows Service: its service account "
+                    "configuration is invalid; rerun the installer"
                 ) from exc
             else:
                 raise RuntimeError("could not start the Windows Service") from exc
@@ -126,40 +115,3 @@ def start_windows_service() -> None:
     finally:
         win32service.CloseServiceHandle(service)
         win32service.CloseServiceHandle(manager)
-
-
-def _validate_service_credentials(
-    win32api,
-    win32con,
-    win32security,
-    service_account: str,
-    service_password: str,
-) -> None:
-    """Validate the Windows password before writing it into SCM configuration."""
-
-    domain, username = _split_service_account(service_account)
-    try:
-        token = win32security.LogonUser(
-            username,
-            domain,
-            service_password,
-            win32con.LOGON32_LOGON_INTERACTIVE,
-            win32con.LOGON32_PROVIDER_DEFAULT,
-        )
-    except win32security.error as exc:
-        raise RuntimeError(
-            "service account credentials were rejected; use the Windows logon "
-            "password, not the Controller Basic Auth password; a blank password "
-            "is not supported for a Windows service account"
-        ) from exc
-    try:
-        win32api.CloseHandle(token)
-    except Exception:
-        raise RuntimeError("could not close the temporary service account token") from None
-
-
-def _split_service_account(service_account: str) -> tuple[str | None, str]:
-    if "\\" in service_account:
-        domain, username = service_account.split("\\", 1)
-        return (domain or None), username
-    return None, service_account

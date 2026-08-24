@@ -6,8 +6,8 @@ stdlib-only Python-скриптом и заполняет форму station в 
 ниже описывает ручной recovery-путь и отдельные проверки Windows Service.
 
 Инструкция предназначена для staging-проверки текущего agent slice. Она не
-не заменяет фактическую Windows-проверку service account и ACL: эти runtime
-проверки остаются отдельным gate.
+заменяет фактическую Windows-проверку `LocalSystem`, ACL и heartbeat: эти
+runtime-проверки остаются отдельным gate.
 
 Агент подключается к собственному Controller API и не обращается напрямую к
 TrueNAS. Поэтому `AGENT_API_BASE_URL` — это URL Controller без `/api/docs` и
@@ -22,16 +22,15 @@ TrueNAS. Поэтому `AGENT_API_BASE_URL` — это URL Controller без `/
 - HTTPS-доступ от Windows-машины к Controller API; для локального Docker Compose
   допускается HTTP на порту `8000` только с явным `--allow-insecure-http`;
 - стабильная папка проекта агента;
-- отдельная Windows-учётная запись для службы, если это возможно;
-- непустой пароль Windows для учётной записи службы; passwordless-учётная
-  запись не поддерживается этим вариантом службы;
+- elevated PowerShell для enrollment и регистрации службы;
 - согласованные `station_id`, `agent_uuid` и agent version. Public key для
   подписанных команд нужен только если требуется удалённый refresh.
 
-В production enrollment и служба должны работать под одной и той же учётной
-записью. Credential защищается DPAPI user scope и ACL текущего пользователя;
-если enrollment выполнить под администратором, а службу запустить под другим
-пользователем, служба не сможет расшифровать credential.
+В production enrollment выполняется elevated-оператором, а служба работает от
+встроенной учётной записи `LocalSystem`. Credential защищается DPAPI
+machine-scope, а ACL файла разрешает доступ только `SYSTEM` и локальным
+администраторам. Поэтому пароль обычного Windows-пользователя для службы не
+нужен.
 
 Перед установкой Controller должен быть запущен с внешним
 `BASIC_AUTH_PASSWORD`, а оператор должен отдельно решить вопрос применения
@@ -42,16 +41,15 @@ baseline Alembic migration. Пароль, TrueNAS API key и private signing key
 "http://<controller-ip>:8000"`; автоматический installer дополнительно требует
 `--allow-insecure-http`. В production используйте HTTPS без этого флага.
 
-### Важно про пароль Windows
+### Важно про LocalSystem
 
-В prompt регистрации службы вводится пароль входа именно той Windows-учётной
-записи, под которой будет работать агент. Это не пароль Basic Auth Controller,
-не enrollment token и не `AGENT_COMMAND_VERIFY_KEY`. Пустой пароль Windows для
-этого сценария не подходит: Windows отклоняет запуск службы под такой записью.
+У `LocalSystem` нет пароля: SCM запускает службу напрямую от встроенной
+системной учётной записи. Это не пароль Basic Auth Controller и не enrollment
+token. Команда installer больше не запрашивает пароль Windows.
 
-Если у текущего пользователя нет пароля, задайте его в настройках Windows или
-в elevated PowerShell командой `net user <имя-пользователя> *`. Звёздочка
-оставляет ввод нового пароля скрытым и не записывает его в историю команд.
+Компромисс: локальный администратор имеет доступ к machine-scope credential.
+Агент не получает TrueNAS API key, а credential остаётся ограничен этим
+клиентом и его station binding.
 
 ## 2. Создать station и получить одноразовый token
 
@@ -154,11 +152,10 @@ $CommandVerifyKey = $null # optional: public key for signed refresh commands
 `AGENT_ALLOW_INSECURE_HTTP` в Machine environment равным `1`; при HTTPS оставьте
 переменную пустой или удалите её.
 
-## 5. Выполнить enrollment под service account
+## 5. Выполнить enrollment elevated-оператором
 
-Открыть PowerShell под той же учётной записью, под которой будет работать
-служба. Убедиться, что эта учётная запись читает `$ProjectRoot` и может писать
-в каталог `$CredentialPath`.
+Открыть elevated PowerShell. Служба позже будет работать от `LocalSystem`, поэтому
+enrollment не нужно выполнять под отдельной Windows-учётной записью.
 
 Token вводится открыто и передаётся только текущему процессу. Он не попадает в
 аргументы командной строки и после enrollment удаляется из переменной процесса:
@@ -194,9 +191,10 @@ if (-not (Test-Path $CredentialPath)) {
 Write-Host "Enrollment completed; credential content is not displayed."
 ```
 
-Повторный запуск при уже существующем credential не делает новый сетевой
-enrollment. Не читать credential через `Get-Content` и не копировать его в
-другой каталог.
+Повторный запуск при уже существующем credential проверит/перепривяжет его к
+machine-scope и не делает новый сетевой enrollment. Это нужно для обновления
+агента со старой user-scope схемы. Не читать credential через `Get-Content` и
+не копировать его в другой каталог.
 
 ## 6. Зарегистрировать и настроить службу
 
@@ -211,17 +209,10 @@ Set-Location $ProjectRoot
 Get-Service -Name TrueNasControllerAgent
 ```
 
-Команда `install` только регистрирует SCM boundary и не расшифровывает
-credential. Credential загружается при фактическом запуске процесса службы,
-уже под настроенной service account; поэтому регистрацию можно выполнять из
-elevated administrator PowerShell.
+Команда `install` переводит службу на `LocalSystem` и не запрашивает пароль.
+Credential загружается только при фактическом запуске процесса службы.
 
-Затем открыть `services.msc`, найти `TrueNAS Controller Agent` и на вкладке
-`Log On` выбрать ту же service account, под которой выполнялся enrollment.
-Учётной записи должно быть разрешено `Log on as a service`. `LocalSystem` не
-использовать без отдельного обоснования.
-
-После настройки учётной записи:
+Проверить конфигурацию:
 
 ```powershell
 sc.exe qc TrueNasControllerAgent
@@ -230,8 +221,8 @@ Get-Service -Name TrueNasControllerAgent
 ```
 
 Если переменные окружения изменялись после регистрации службы, службу нужно
-перезапустить. Не передавать пароль service account в `sc.exe` или в
-аргументах командной строки; использовать UI/защищённый механизм Windows.
+перезапустить. Не копировать credential и не добавлять его в переменные
+окружения или аргументы командной строки.
 
 ## 7. Проверить heartbeat
 
@@ -251,7 +242,7 @@ $Stations |
 
 Ожидаемое состояние после успешного heartbeat — `online`. Если станция не
 появилась или осталась offline, сначала проверить `Get-Service`, HTTPS-доступ,
-`AGENT_API_BASE_URL`, `AGENT_STATION_ID` и совпадение service account.
+`AGENT_API_BASE_URL`, `AGENT_STATION_ID`, путь credential и режим `LocalSystem`.
 
 ## 8. Проверить signed refresh command
 
@@ -319,12 +310,11 @@ Set-Location $ProjectRoot
 | Симптом | Проверка |
 |---|---|
 | heartbeat работает, но refresh-команда не выполняется | передайте public key через `--command-verify-key` или `AGENT_COMMAND_VERIFY_KEY`; без него refresh намеренно отключён |
-| `agent credential is missing` | enrollment выполнен под той же учётной записью и в тот же путь |
+| `agent credential is missing` | выполнить enrollment elevated-оператором в тот же путь |
 | `protected Windows credential store is unavailable` | команда запущена не на Windows; plaintext fallback для production запрещён |
-| `credential file ACL setup failed while trying to resolve current Windows account` | обновить checkout; installer использует SID текущего process token, а `check-credential-store` проверяет ACL до token |
+| `credential file ACL setup failed while trying to resolve protected Windows principals` | обновить checkout и проверить pywin32; installer применяет ACL для `SYSTEM` и локальных администраторов до записи credential |
 | `No module named win32service` при регистрации службы | обновить checkout и повторить installer: SCM запускается из target `.venv`, внешний `py -3` не используется для pywin32 |
-| ошибка SCM `1069` при запуске службы | введён неверный пароль Windows или используется passwordless-учётка; пароль Basic Auth Controller здесь не подходит |
-| ошибка SCM `1385` при запуске службы | учётной записи не выдано право `Log on as a service` в локальной политике Windows |
+| ошибка SCM `1069`/`1385` при запуске службы | повторить `install`: служба должна быть переведена на `LocalSystem`; пароль Windows не используется |
 | HTTP 409 при enrollment | token просрочен или уже использован; получить новый |
 | HTTP 401 на heartbeat | credential/station binding не совпадает или credential отозван |
 | станция offline | проверить службу, URL Controller, порт `8000` для локального HTTP, firewall и timestamp/часы Windows |

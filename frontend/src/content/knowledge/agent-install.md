@@ -17,8 +17,9 @@ enrollment с открытым вводом token, регистрирует сл
    `AGENT_UUID`, `AGENT_VERSION`, `AGENT_HOSTNAME` и
    `AGENT_CREDENTIAL_PATH`. `AGENT_COMMAND_VERIFY_KEY` необязателен: это
    публичный ключ проверки подписанных refresh-команд.
-4. Выполни enrollment под той же service account, под которой будет работать
-   Windows Service. В автоматическом сценарии передай `--report
+4. Выполни enrollment из elevated PowerShell. Windows Service работает от
+   `LocalSystem`, поэтому пароль Windows не нужен. В автоматическом сценарии
+   передай `--report
    C:\Install\station-report.json`: station UUID берётся из отчёта. Installer
    сначала проверяет локальные DPAPI/ACL и только после успешной проверки
    просит одноразовый token.
@@ -37,19 +38,17 @@ Remove-Item Env:AGENT_ENROLLMENT_TOKEN
 Token вводится видимо только в локальном PowerShell. Никогда не вставляй token или credential в issue,
 лог, README или frontend.
 
-## Credential и service account
+## Credential и LocalSystem
 
-Windows production store использует DPAPI user scope и ACL текущей учётной
-записи. Enrollment под администратором и запуск службы под другим пользователем
-приведут к ошибке расшифровки. Private signing key на клиент не устанавливается.
-Для запуска службы Windows-учётная запись должна иметь непустой пароль. В
-скрытом prompt installer вводится пароль входа Windows, а не пароль Basic Auth
-Controller и не enrollment token. Passwordless-учётка приводит к ошибке SCM
-`1069`; задайте пароль Windows или используйте отдельную сервисную учётную
-запись с паролем.
-Если preflight сообщает об ошибке определения Windows account, нужна актуальная
-копия checkout: ACL определяется по SID текущего process token, включая elevated
-PowerShell, а одноразовый token до успешного preflight не запрашивается.
+Windows production store использует DPAPI machine scope и ACL только для
+`SYSTEM` и локальных администраторов. Installer больше не запрашивает пароль
+Windows и регистрирует службу от `LocalSystem`. Старый user-scope credential при
+повторной установке автоматически перепротектится в machine-scope. Локальный
+администратор сможет получить machine-scope credential — это осознанный
+компромисс passwordless-сценария. Private signing key на клиент не устанавливается.
+Если preflight сообщает об ошибке определения защищённых Windows principals,
+нужна актуальная копия checkout и рабочий `pywin32`; одноразовый token до
+успешного preflight не запрашивается.
 
 ## Регистрация службы
 
@@ -59,6 +58,6 @@ PowerShell, а одноразовый token до успешного preflight н
 python -m agent.entrypoint install
 ```
 
-В `services.msc` выбери `TrueNAS Controller Agent`, укажи ту же service
-account и только после этого запусти службу. Полная инструкция находится в
+В `services.msc` проверь, что `TrueNAS Controller Agent` работает от
+`LocalSystem`, и запусти службу. Полная инструкция находится в
 `docs/AGENT_INSTALL.md`.

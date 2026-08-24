@@ -8,7 +8,12 @@ import sys
 import tempfile
 
 from agent.config import AgentConfig, AgentConfigError
-from agent.credentials import CredentialStore, build_credential_store
+from agent.credentials import (
+    CredentialStore,
+    CredentialStoreError,
+    ProtectedCredentialStore,
+    build_credential_store,
+)
 from agent.enrollment import (
     EnrollmentCoordinator,
     EnrollmentGateway,
@@ -22,6 +27,7 @@ SERVICE_NAME = "TrueNasControllerAgent"
 SERVICE_DISPLAY_NAME = "TrueNAS Controller Agent"
 ENROLL_COMMAND = "enroll"
 CHECK_CREDENTIAL_STORE_COMMAND = "check-credential-store"
+MIGRATE_CREDENTIAL_STORE_COMMAND = "migrate-credential-store"
 SCM_COMMANDS = frozenset({"install", "update", "remove", "start", "stop", "restart", "debug"})
 _CREDENTIAL_STORE_PROBE = "credential-store-preflight"
 
@@ -113,6 +119,43 @@ def check_credential_store_from_environment(env: Mapping[str, str] | None = None
             probe_path.unlink(missing_ok=True)
 
 
+def migrate_credential_store_from_environment(
+    env: Mapping[str, str] | None = None,
+    *,
+    machine_store: CredentialStore | None = None,
+    legacy_store: CredentialStore | None = None,
+) -> None:
+    """Migrate a user-scope credential to the LocalSystem machine scope."""
+
+    source = os.environ if env is None else env
+    config = AgentConfig.from_env(source)
+    if not config.credential_path.exists():
+        return
+
+    target_store = machine_store or build_credential_store(config.credential_path)
+    try:
+        credential = target_store.load()
+        if credential:
+            target_store.save(credential)
+            return
+    except CredentialStoreError:
+        pass
+
+    if legacy_store is None:
+        if os.name != "nt":
+            raise CredentialStoreError("legacy Windows credential migration is unavailable")
+        from agent.windows_credentials import DpapiCredentialProtector
+
+        legacy_store = ProtectedCredentialStore(
+            config.credential_path,
+            DpapiCredentialProtector(local_machine_scope=False),
+        )
+    credential = legacy_store.load()
+    if not credential:
+        raise CredentialStoreError("existing credential could not be migrated")
+    target_store.save(credential)
+
+
 def build_service_runtime(
     config: AgentConfig | None = None,
     *,
@@ -159,6 +202,9 @@ def main() -> None:
     command = sys.argv[1].lower() if len(sys.argv) > 1 else ""
     if command == CHECK_CREDENTIAL_STORE_COMMAND:
         check_credential_store_from_environment()
+        return
+    if command == MIGRATE_CREDENTIAL_STORE_COMMAND:
+        migrate_credential_store_from_environment()
         return
     build_service_runtime(require_credential=command not in SCM_COMMANDS).run()
 

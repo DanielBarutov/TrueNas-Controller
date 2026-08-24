@@ -83,9 +83,9 @@ Backend считается authoritative для freshness: агент не мо�
 [`scripts/install_windows_agent.py`](../../scripts/install_windows_agent.py): он
 читает station report, копирует release checkout в стабильную папку, запускает
 `uv sync --locked --no-dev`, выполняет one-shot enrollment с открытым вводом token и
-регистрирует службу под текущей service account. Поле `--dry-run` не меняет
-файлы и SCM. Фактический Windows runtime и проверка права `Log on as a service`
-остаются обязательным integration gate.
+регистрирует службу под `LocalSystem` без пароля. Поле `--dry-run` не меняет
+файлы и SCM. Фактический Windows runtime, machine-scope DPAPI и ACL остаются
+обязательным integration gate.
 
 ## Agent tests
 
@@ -119,7 +119,7 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] server heartbeat contract `protocol_version=1` с валидацией и сохранением
   hostname/IP/MAC metadata в station/agent binding;
 - [x] `CredentialProtector` через `Protocol`, atomic protected-byte store и
-  Windows DPAPI adapter с user-scope по умолчанию; plaintext store остаётся
+  Windows DPAPI machine-scope adapter для `LocalSystem`; plaintext store остаётся
   только явным development fallback;
 - [x] потокобезопасный `WindowsServiceHost` и pywin32 SCM wrapper с graceful
   stop; pywin32 подключается только на Windows;
@@ -146,10 +146,9 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] installer выполняет локальный DPAPI/ACL preflight до запроса одноразового
   enrollment token;
 - [x] SCM registration/start выполняются через target `.venv` Python с
-  `pywin32`; пароль service account передаётся только через stdin дочернего
-  процесса и не попадает в argv или machine environment;
-- [x] installer явно отклоняет пустой пароль Windows service account и
-  объясняет, что ошибка SCM `1069` означает отказ входа службы, а `1385` —
-  отсутствие права `Log on as a service`;
+  `pywin32`; служба регистрируется под `LocalSystem` без пароля и без секретов
+  в argv или machine environment;
+- [x] installer мигрирует существующий user-scope credential в machine-scope
+  без повторного enrollment и применяет ACL для `SYSTEM`/Administrators;
 - [ ] фактическая проверка installer/service registration, ACL и heartbeat под
-  фактической service account после обновления checkout на Windows;
+  `LocalSystem` после обновления checkout на Windows;

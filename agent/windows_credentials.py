@@ -19,10 +19,8 @@ class _DataBlob(ctypes.Structure):
 class DpapiCredentialProtector:
     """Protect bytes with non-interactive Windows user- or machine-scope DPAPI.
 
-    User scope is the default and matches a service running under the same
-    account that enrolled the agent.  Machine scope is opt-in because it lets
-    every local user decrypt the blob and therefore requires an explicit
-    deployment decision.
+    User scope remains available for legacy migration. Production composition
+    selects machine scope because the service runs under LocalSystem.
     """
 
     _CRYPTPROTECT_UI_FORBIDDEN = 0x1

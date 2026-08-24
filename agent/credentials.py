@@ -188,7 +188,11 @@ def build_credential_store(
     *,
     allow_plaintext_fallback: bool = False,
 ) -> CredentialStore:
-    """Build the platform store and require explicit plaintext fallback in dev."""
+    """Build the platform store and require explicit plaintext fallback in dev.
+
+    Windows production uses machine-scope DPAPI because the agent service runs
+    under LocalSystem rather than a password-bearing interactive user.
+    """
 
     if os.name != "nt":
         if allow_plaintext_fallback:
@@ -201,6 +205,6 @@ def build_credential_store(
 
     return ProtectedCredentialStore(
         path,
-        DpapiCredentialProtector(),
+        DpapiCredentialProtector(local_machine_scope=True),
         file_security=WindowsCredentialFileSecurity(),
     )

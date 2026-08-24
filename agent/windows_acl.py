@@ -9,39 +9,31 @@ class WindowsCredentialAclError(RuntimeError):
 
 
 class WindowsCredentialFileSecurity:
-    """Allow only the account running the agent to access the credential file."""
+    """Allow only LocalSystem and local administrators to access the file."""
 
     def secure(self, path: Path) -> None:
         if os.name != "nt":
             raise WindowsCredentialAclError("Windows credential ACL is available only on Windows")
         try:
             import ntsecuritycon
-            import win32api
-            import win32con
             import win32security
         except ImportError as exc:
             raise WindowsCredentialAclError("pywin32 is required for credential ACL setup") from exc
 
-        operation = "resolve current Windows account"
+        operation = "resolve protected Windows principals"
         try:
-            token = win32security.OpenProcessToken(
-                win32api.GetCurrentProcess(),
-                win32con.TOKEN_QUERY,
-            )
-            try:
-                user_sid, _ = win32security.GetTokenInformation(
-                    token,
-                    win32security.TokenUser,
-                )
-            finally:
-                win32api.CloseHandle(token)
             dacl = win32security.ACL()
             access_mask = (
                 ntsecuritycon.FILE_GENERIC_READ
                 | ntsecuritycon.FILE_GENERIC_WRITE
                 | ntsecuritycon.DELETE
             )
-            dacl.AddAccessAllowedAce(win32security.ACL_REVISION, access_mask, user_sid)
+            for sid_type in (
+                win32security.WinLocalSystemSid,
+                win32security.WinBuiltinAdministratorsSid,
+            ):
+                sid = win32security.CreateWellKnownSid(sid_type, None)
+                dacl.AddAccessAllowedAce(win32security.ACL_REVISION, access_mask, sid)
             operation = "apply protected file DACL"
             win32security.SetNamedSecurityInfo(
                 str(path),

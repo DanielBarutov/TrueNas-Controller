@@ -37,7 +37,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, runtime composition, station report, installer orchestration и preflight созданы; первый Windows smoke дошёл до Controller и выявил ACL setup failure, исправление ожидает проверки на клиенте | Windows service account/ACL/heartbeat smoke после обновления checkout |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, runtime composition, station report, installer orchestration и preflight созданы; служба переведена на LocalSystem и machine-scope credential | LocalSystem/ACL/heartbeat smoke после обновления checkout |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -133,7 +133,7 @@
 - [x] Windows-agent lifecycle slice: fail-closed config, atomic credential fallback, one-shot enrollment coordinator, command handler и graceful service boundary; native Windows integration не запускалась.
 - [x] Server-agent heartbeat contract: protocol `1`, hostname/IP/MAC validation and persistence; baseline migration сгенерирована, apply не выполнялся.
 - [x] Общий набор тестов после agent/server contract slice: `125 passed, 1 skipped` на Python 3.12/uv.
-- [x] Protected credential boundary: `CredentialProtector` через `Protocol`, atomic protected-byte store и DPAPI user-scope adapter; plaintext fallback не используется автоматически.
+- [x] Protected credential boundary: `CredentialProtector` через `Protocol`, atomic protected-byte store и DPAPI machine-scope adapter для LocalSystem; plaintext fallback не используется автоматически.
 - [x] Общий набор тестов после protected credential slice: `131 passed, 1 skipped` на Python 3.12/uv.
 - [x] Windows Service boundary: thread-safe stop bridge, optional pywin32 SCM wrapper и platform-specific dependency; Windows SCM runtime не запускался.
 - [x] Общий набор тестов после service wrapper slice: `133 passed, 1 skipped` на Python 3.12/uv.
@@ -148,9 +148,9 @@
   добавлены в `docs/AGENT_DEPLOYMENT.md`.
 - [x] Пошаговая Windows staging-инструкция добавлена в
   `docs/AGENT_INSTALL.md`; installer orchestration добавлен, но фактический
-  service account runtime по-прежнему не проверялся.
+  LocalSystem/ACL runtime по-прежнему не проверялся.
 - [x] SCM install/start path не расшифровывает DPAPI credential под оператором:
-  загрузка deferred до фактического запуска службы под service account.
+  загрузка deferred до фактического запуска службы под LocalSystem.
 - [x] Быстрый onboarding Windows-клиента: stdlib-only
   `scripts/agent_station_report.py` сохраняет стабильный UUID, выводит JSON
   station/agent/network/drive данных и не содержит секретов.
@@ -164,8 +164,8 @@
 - [x] Windows installer SCM boundary: регистрация и запуск службы выполняются
   target `.venv` Python с pywin32; внешний `py -3` больше не импортирует
   `win32service`, пароль передаётся через stdin.
-- [x] Windows installer требует непустой пароль service account, явно отделяет
-  его от Controller Basic Auth и объясняет ошибки SCM `1069`/`1385`.
+- [x] Windows installer регистрирует службу LocalSystem без пароля, использует
+  machine-scope DPAPI и мигрирует старый user-scope credential без нового token.
 - [ ] Native Windows retest после исправления ACL и preflight не выполнен в
   текущем Linux окружении.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
@@ -280,3 +280,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Исправлен Windows ACL gate | named protected DACL, SID текущего process token, диагностируемый Windows error code и локальный DPAPI/ACL preflight до расходования enrollment token; native Windows retest остаётся открытым |
 | 2026-08-24 | Исправлен `win32service` installer gate | SCM registration/start перенесены в target `.venv` с pywin32; пароль service account передаётся через stdin, внешний `py -3` больше не импортирует `win32service` |
 | 2026-08-24 | Уточнён Windows service password gate | пустой пароль отклоняется до SCM-регистрации; Basic Auth отделён от пароля входа Windows; добавлены подсказки для ошибок `1069` и `1385` |
+| 2026-08-24 | Переведён Windows agent на LocalSystem | удалён prompt пароля, включён machine-scope DPAPI, ACL для SYSTEM/Administrators и миграция старого user-scope credential |

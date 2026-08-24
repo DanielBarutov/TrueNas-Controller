@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 from dataclasses import dataclass
-from getpass import getpass
 import json
 import os
 from pathlib import Path
@@ -25,6 +24,7 @@ DEFAULT_CREDENTIAL_NAME = "agent.credential"
 DEFAULT_INSTALL_SUBPATH = Path("TrueNasController") / "agent"
 SERVICE_NAME = "TrueNasControllerAgent"
 SERVICE_DISPLAY_NAME = "TrueNAS Controller Agent"
+SERVICE_ACCOUNT = "LocalSystem"
 COPY_IGNORES = shutil.ignore_patterns(
     ".git",
     ".venv",
@@ -56,7 +56,6 @@ class AgentInstallConfig:
     command_verify_key: str | None
     source_dir: Path
     install_dir: Path
-    service_account: str
     allow_insecure_http: bool = False
 
     @property
@@ -130,7 +129,6 @@ def build_install_config(args: argparse.Namespace) -> AgentInstallConfig:
     hostname = args.hostname or report.get("hostname") or ""
     source_dir = args.source_dir.resolve()
     install_dir = args.install_dir.resolve()
-    service_account = args.service_account or f".\\{_current_username()}"
     _validate_non_empty(agent_version, "agent-version")
     _validate_non_empty(hostname, "hostname")
     if args.command_verify_key:
@@ -148,7 +146,6 @@ def build_install_config(args: argparse.Namespace) -> AgentInstallConfig:
         command_verify_key=args.command_verify_key or None,
         source_dir=source_dir,
         install_dir=install_dir,
-        service_account=service_account,
         allow_insecure_http=args.allow_insecure_http,
     )
 
@@ -161,8 +158,6 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
     resolved_uv = shutil.which(uv_path) or uv_path
     if not shutil.which(resolved_uv) and not Path(resolved_uv).exists():
         raise InstallerError("uv is required; install it before running the agent installer")
-    _ensure_service_account_matches_current_user(config.service_account)
-
     print(f"[1/6] Copying agent to {config.install_dir}")
     _copy_source(config.source_dir, config.install_dir)
     print("[2/6] Installing locked runtime dependencies")
@@ -181,7 +176,12 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
         process_env.pop("AGENT_ALLOW_INSECURE_HTTP", None)
 
     if config.credential_path.exists():
-        print("[4/6] Existing credential found; enrollment skipped")
+        print("[4/6] Checking/migrating credential for LocalSystem; enrollment skipped")
+        _run(
+            [str(python_path), "-m", "agent.entrypoint", "migrate-credential-store"],
+            cwd=config.install_dir,
+            env=process_env,
+        )
     else:
         print("[4/6] Checking protected credential store before token use")
         _run(
@@ -193,14 +193,7 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
         _enroll(python_path, config.install_dir, process_env)
 
     print("[5/6] Registering Windows Service")
-    _install_service(
-        python_path,
-        config.service_runner,
-        config.service_account,
-        getpass(
-            "Windows logon password for the service account (hidden; not Controller Basic Auth): "
-        ),
-    )
+    _install_service(python_path, config.service_runner)
     print("[6/6] Starting and checking Windows Service")
     _start_and_check_service(python_path, config.service_runner, config.install_dir)
     print(f"Agent installed and running: {SERVICE_NAME}")
@@ -231,28 +224,14 @@ def _copy_source(source_dir: Path, install_dir: Path) -> None:
 def _install_service(
     python_path: Path,
     service_runner: Path,
-    service_account: str,
-    service_password: str,
 ) -> None:
-    if not service_password:
-        raise InstallerError(
-            "Windows service account password cannot be empty; "
-            "Windows cannot start this service under a passwordless user. "
-            "Set a Windows logon password or use a dedicated Windows account "
-            "with a password"
-        )
-    child_environment = os.environ.copy()
-    child_environment["AGENT_SERVICE_ACCOUNT"] = service_account
-    try:
-        _run(
-            [str(python_path), str(service_runner), "install"],
-            cwd=service_runner.parents[1],
-            env=child_environment,
-            input_text=service_password,
-        )
-    finally:
-        child_environment.pop("AGENT_SERVICE_ACCOUNT", None)
-        del service_password
+    service_environment = os.environ.copy()
+    service_environment.pop("AGENT_ENROLLMENT_TOKEN", None)
+    _run(
+        [str(python_path), str(service_runner), "install"],
+        cwd=service_runner.parents[1],
+        env=service_environment,
+    )
 
 
 def _start_and_check_service(
@@ -296,15 +275,12 @@ def _run(
     *,
     cwd: Path,
     env: dict[str, str] | None = None,
-    input_text: str | None = None,
 ) -> None:
     try:
         subprocess.run(
             command,
             cwd=cwd,
             env=env,
-            input=input_text,
-            text=input_text is not None,
             check=True,
         )
     except OSError as exc:
@@ -358,21 +334,6 @@ def _validate_non_empty(value: str, field: str) -> None:
         raise InstallerError(f"{field} cannot be empty")
 
 
-def _current_username() -> str:
-    import getpass
-
-    return getpass.getuser()
-
-
-def _ensure_service_account_matches_current_user(service_account: str) -> None:
-    current = _current_username().casefold()
-    account_user = service_account.rsplit("\\", 1)[-1].casefold()
-    if account_user != current:
-        raise InstallerError(
-            "run the installer under the same Windows account that will run the service"
-        )
-
-
 def _require_windows() -> None:
     if os.name != "nt":
         raise InstallerError("the Windows agent installer must run on Windows")
@@ -412,7 +373,6 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--source-dir", type=Path, default=default_source_dir())
     parser.add_argument("--install-dir", type=Path, default=default_install_dir())
-    parser.add_argument("--service-account", help="Windows account; defaults to the current user")
     parser.add_argument("--uv-path", default="uv", help="uv executable or path")
     parser.add_argument("--allow-insecure-http", action="store_true", help="development only")
     parser.add_argument(
@@ -429,7 +389,7 @@ def main() -> None:
     if args.dry_run:
         print(f"source: {config.source_dir}")
         print(f"install: {config.install_dir}")
-        print(f"service: {SERVICE_NAME} ({config.service_account})")
+        print(f"service: {SERVICE_NAME} ({SERVICE_ACCOUNT})")
         print(f"controller: {config.controller_url}")
         print(f"station: {config.station_id}")
         print(f"agent: {config.agent_uuid} / {config.hostname} / {config.agent_version}")

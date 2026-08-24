@@ -4,7 +4,7 @@
 [`AGENT_INSTALL.md`](AGENT_INSTALL.md).
 
 Документ описывает только подготовленный безопасный flow. Реальная Windows
-регистрация службы, запуск от service account и запрос к controller выполняются
+регистрация службы `LocalSystem`, ACL и запрос к controller выполняются
 отдельным операторским smoke/integration gate и не считаются пройденными этим
 репозиторием.
 
@@ -49,14 +49,12 @@ credential уже есть, повторный сетевой enrollment не в
 `POST /api/v1/agents/enroll`, после чего сохраняет только полученный credential.
 Token и credential не выводятся в stdout/stderr.
 
-В Windows production factory использует DPAPI user scope и ограничивает ACL
-credential-файла текущей учётной записью. Поэтому enrollment должен выполняться
-под той же учётной записью, под которой впоследствии будет работать служба.
-Фактический service account и его права остаются отдельным незакрытым gate.
-Для запуска Windows Service у этой учётной записи должен быть непустой пароль.
-В prompt installer вводится пароль входа Windows, а не пароль Basic Auth
-Controller; passwordless-учётка и код ошибки SCM `1069` требуют сначала задать
-пароль Windows.
+В Windows production factory использует DPAPI machine scope, а credential-файл
+получает защищённый DACL только для `SYSTEM` и локальных администраторов.
+Enrollment выполняется elevated-оператором, после чего служба запускается от
+встроенной учётной записи `LocalSystem`; пароль Windows не нужен.
+Локальный администратор сможет получить machine-scope credential — это осознанный
+компромисс выбранного passwordless-сценария.
 
 ## Автоматический installer
 
@@ -70,15 +68,13 @@ Controller; passwordless-учётка и код ошибки SCM `1069` треб
 3. записывает несекретные настройки на уровне компьютера;
 4. проверяет локальные DPAPI/ACL до использования одноразового token;
 5. вводит одноразовый token открытым prompt и выполняет enrollment;
-6. регистрирует службу под той же учётной записью и проверяет её запуск.
+6. регистрирует службу `LocalSystem` без запроса пароля и проверяет её запуск.
 
-Пароль service account вводится скрыто и не передаётся через argv или machine
-environment: installer передаёт его только через stdin процессу target `.venv`.
 SCM-регистрация и запуск выполняются тем же `.venv\Scripts\python.exe`, куда
 установлен `pywin32`; внешний Python, которым запущен installer, не обязан иметь
 модуль `win32service`. `--dry-run` проверяет план без изменений. Скрипт должен
-запускаться elevated и под той же учётной записью, которая расшифрует DPAPI
-credential.
+запускаться elevated. При наличии старого user-scope credential installer
+перепротектит его в machine-scope без повторного enrollment.
 
 ## Windows Service
 
@@ -93,8 +89,8 @@ $Python = "C:\ProgramData\TrueNasController\agent\.venv\Scripts\python.exe"
 
 Для остановки и удаления используются соответствующие команды `stop` и
 `remove`. Перед production запуском нужно проверить, что служба читает тот же
-credential store, имеет доступ к конфигурации и запускается под согласованной
-service account. В Linux/CI эти команды намеренно завершаются без попытки
+credential store и запускается под `LocalSystem`. В Linux/CI эти команды
+намеренно завершаются без попытки
 обратиться к SCM.
 
 ## Что проверено в репозитории
@@ -105,5 +101,5 @@ service account. В Linux/CI эти команды намеренно завер
 - композиция `enroll`/SCM entrypoint через injected Protocol boundaries;
 - unit-тесты без внешнего controller, Windows SCM, Redis, PostgreSQL и TrueNAS.
 
-Открыты: фактическая Windows-проверка service account/ACL, opt-in API↔agent
+Открыты: фактическая Windows-проверка `LocalSystem`/ACL, opt-in API↔agent
 integration test и применение baseline Alembic migration.

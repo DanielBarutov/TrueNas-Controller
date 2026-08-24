@@ -83,7 +83,6 @@ def test_installer_uses_station_uuid_from_report(tmp_path: Path) -> None:
             command_verify_key=None,
             source_dir=source_dir,
             install_dir=tmp_path / "install",
-            service_account=".\\client",
             allow_insecure_http=True,
         )
     )
@@ -117,7 +116,7 @@ def test_enrollment_token_is_requested_with_visible_input(monkeypatch, tmp_path:
     ]
 
 
-def test_service_scm_commands_use_target_runtime_and_stdin_password(
+def test_service_scm_commands_use_target_runtime_and_local_system(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -125,19 +124,19 @@ def test_service_scm_commands_use_target_runtime_and_stdin_password(
     monkeypatch.setattr(
         installer,
         "_run",
-        lambda command, *, cwd, env, input_text=None: calls.append(
+        lambda command, *, cwd, env: calls.append(
             {
                 "command": command,
                 "cwd": cwd,
                 "env": env.copy(),
-                "input_text": input_text,
             }
         ),
     )
     python_path = tmp_path / ".venv" / "Scripts" / "python.exe"
     service_runner = tmp_path / "scripts" / "windows_agent_service.py"
+    monkeypatch.setenv("AGENT_ENROLLMENT_TOKEN", "one-shot-secret")
 
-    installer._install_service(python_path, service_runner, ".\\client", "service-password")
+    installer._install_service(python_path, service_runner)
 
     assert calls[0]["command"] == [
         str(python_path),
@@ -145,19 +144,10 @@ def test_service_scm_commands_use_target_runtime_and_stdin_password(
         "install",
     ]
     assert calls[0]["cwd"] == tmp_path
-    assert calls[0]["input_text"] == "service-password"
-    assert calls[0]["env"]["AGENT_SERVICE_ACCOUNT"] == ".\\client"
+    assert "AGENT_SERVICE_ACCOUNT" not in calls[0]["env"]
     assert "AGENT_SERVICE_PASSWORD" not in calls[0]["env"]
-
-
-def test_installer_rejects_passwordless_windows_service_account(tmp_path: Path) -> None:
-    with pytest.raises(InstallerError, match="password cannot be empty"):
-        installer._install_service(
-            tmp_path / ".venv" / "Scripts" / "python.exe",
-            tmp_path / "scripts" / "windows_agent_service.py",
-            ".\\client",
-            "",
-        )
+    assert "AGENT_ENROLLMENT_TOKEN" not in calls[0]["env"]
+    assert installer.SERVICE_ACCOUNT == "LocalSystem"
 
 
 def test_installer_environment_contains_no_enrollment_token(tmp_path: Path) -> None:
@@ -170,7 +160,6 @@ def test_installer_environment_contains_no_enrollment_token(tmp_path: Path) -> N
         command_verify_key="public-key",
         source_dir=tmp_path / "source",
         install_dir=tmp_path / "install",
-        service_account=".\\client",
     )
 
     environment = config.machine_environment()
@@ -191,7 +180,6 @@ def test_installer_can_omit_optional_command_verify_key(tmp_path: Path) -> None:
         command_verify_key=None,
         source_dir=tmp_path / "source",
         install_dir=tmp_path / "install",
-        service_account=".\\client",
         allow_insecure_http=True,
     )
 
@@ -214,7 +202,6 @@ def test_installer_rejects_source_inside_install_directory(tmp_path: Path) -> No
         command_verify_key="public-key",
         source_dir=source_dir,
         install_dir=source_dir / "installed",
-        service_account=".\\client",
         allow_insecure_http=False,
     )
 

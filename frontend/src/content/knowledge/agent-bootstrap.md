@@ -38,8 +38,7 @@ identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`
 ## Установка одним сценарием
 
 После создания station скопируйте согласованный checkout/release-пакет проекта
-на Windows-клиент, установите `uv` и запустите elevated PowerShell под той же
-учётной записью, под которой должна работать служба:
+на Windows-клиент, установите `uv` и запустите elevated PowerShell:
 
 ```powershell
 Set-Location C:\Install\TrueNas-Controller
@@ -51,16 +50,15 @@ py -3 .\scripts\install_windows_agent.py `
 
 Для production с HTTPS замените URL на `https://controller.example` и уберите
 `--allow-insecure-http`. Сценарий создаёт стабильную папку агента, устанавливает
-зависимости, открыто запрашивает enrollment token и скрыто — пароль service
-account, регистрирует службу и проверяет её состояние. Token не передаётся в аргументах
-командной строки и не сохраняется.
+зависимости, открыто запрашивает enrollment token, регистрирует службу от
+`LocalSystem` без пароля и проверяет её состояние. Token не передаётся в
+аргументах командной строки и не сохраняется.
 
 `--station-id` не нужен: station UUID берётся из `station-report.json`.
 
-В prompt после token вводится непустой пароль входа Windows для текущей
-учётной записи службы. Это не пароль Basic Auth Controller. Если у Windows
-пользователя нет пароля, сначала задайте его; passwordless-учётка не может
-запустить эту службу и приводит к ошибке SCM `1069`.
+Пароль после token не запрашивается: служба работает от `LocalSystem`. Если
+обновляется старая установка с user-scope credential, installer автоматически
+перепротектит credential в machine-scope.
 
 `--command-verify-key` необязателен. Это публичный Ed25519-ключ Controller для
 проверки подписанной команды refresh, а не enrollment token и не пароль. Без
