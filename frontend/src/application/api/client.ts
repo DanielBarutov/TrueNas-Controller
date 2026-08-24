@@ -34,6 +34,7 @@ export class ControllerApi {
   }
 
   async createStation(input: {
+    station_id?: string;
     display_name: string;
     hostname: string;
     role: StationRole;

@@ -11,6 +11,7 @@ from presentation.schemas import StationResponse
 
 
 class StationCreateRequest(BaseModel):
+    station_id: UUID | None = None
     display_name: str = Field(min_length=1, max_length=120)
     hostname: str = Field(min_length=1, max_length=255)
     role: StationRole = StationRole.CLIENT

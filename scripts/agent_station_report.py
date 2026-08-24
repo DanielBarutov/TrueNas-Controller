@@ -84,6 +84,7 @@ def collect_station_report(
     return StationReport(
         report_version=REPORT_VERSION,
         station={
+            "station_id": str(agent_uuid),
             "display_name": hostname,
             "hostname": hostname,
             "role": "client",

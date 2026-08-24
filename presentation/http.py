@@ -102,6 +102,7 @@ def create_app(
             _: Annotated[str, Depends(require_basic_auth)],
         ) -> StationRegistrationResponse:
             result = await station_registry.execute(
+                station_id=payload.station_id,
                 display_name=payload.display_name,
                 hostname=payload.hostname,
                 role=payload.role,

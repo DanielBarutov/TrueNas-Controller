@@ -76,6 +76,20 @@ async def test_enrollment_is_one_shot_and_credential_is_hashed(
     assert agent is not None and agent.credential_hash != result.credential
 
 
+async def test_create_station_preserves_report_station_uuid(engine: AsyncEngine) -> None:
+    factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
+    station_id = uuid4()
+
+    registration = await CreateStationUseCase(factory).execute(
+        station_id=station_id,
+        display_name="Client 01",
+        hostname="client-01",
+        role=StationRole.CLIENT,
+    )
+
+    assert registration.station.station_id == station_id
+
+
 async def test_heartbeat_updates_station_and_snapshot(
     engine: AsyncEngine,
 ) -> None:

@@ -58,13 +58,13 @@ credential-файла текущей учётной записью. Поэтом
 
 Для нового клиента используйте
 [`scripts/install_windows_agent.py`](../scripts/install_windows_agent.py). Он
-принимает `station-report.json`, `station_id` и Controller URL,
+принимает `station-report.json` и Controller URL,
 затем:
 
 1. копирует согласованный checkout в стабильный каталог;
 2. выполняет `uv sync --locked --no-dev`;
 3. записывает несекретные настройки на уровне компьютера;
-4. вводит одноразовый token только скрытым prompt и выполняет enrollment;
+4. вводит одноразовый token открытым prompt и выполняет enrollment;
 5. регистрирует службу под той же учётной записью и проверяет её запуск.
 
 Пароль service account вводится скрыто и не передаётся через argv. `--dry-run`

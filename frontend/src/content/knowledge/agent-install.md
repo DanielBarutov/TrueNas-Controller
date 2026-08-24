@@ -5,7 +5,7 @@
 Для нового клиента сначала сформируй отчёт через
 `scripts/agent_station_report.py`, создай station в UI, а затем запусти
 `scripts/install_windows_agent.py`. Он сам ставит зависимости, выполняет
-скрытый enrollment, регистрирует службу и проверяет её запуск.
+enrollment с открытым вводом token, регистрирует службу и проверяет её запуск.
 
 Ручной порядок ниже используй только для recovery или диагностики.
 
@@ -18,16 +18,17 @@
    `AGENT_CREDENTIAL_PATH`. `AGENT_COMMAND_VERIFY_KEY` необязателен: это
    публичный ключ проверки подписанных refresh-команд.
 4. Выполни enrollment под той же service account, под которой будет работать
-   Windows Service:
+   Windows Service. В автоматическом сценарии передай `--report
+   C:\Install\station-report.json`: station UUID берётся из отчёта.
 
 ```powershell
-$env:AGENT_ENROLLMENT_TOKEN = "<one-shot-token>"
+Set-Location C:\ProgramData\TrueNasController\agent
+$env:AGENT_ENROLLMENT_TOKEN = Read-Host "One-shot enrollment token (visible)"
 python -m agent.entrypoint enroll
 Remove-Item Env:AGENT_ENROLLMENT_TOKEN
 ```
 
-В рабочем процессе token нужно вводить скрыто, как описано в полном документе
-`docs/AGENT_INSTALL.md`. Никогда не вставляй token или credential в issue,
+Token вводится видимо только в локальном PowerShell. Никогда не вставляй token или credential в issue,
 лог, README или frontend.
 
 ## Credential и service account

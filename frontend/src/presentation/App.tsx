@@ -207,7 +207,11 @@ function StationsPage({ api }: { api: ControllerApi }) {
   async function createStation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      const result = await api.createStation(form);
+      const stationId = parsedReport?.station.station_id ?? parsedReport?.agent.agent_uuid;
+      const result = await api.createStation({
+        ...form,
+        ...(stationId ? { station_id: stationId } : {}),
+      });
       setCreatedToken(result.enrollment_token);
       setCreatedAgentUuid(parsedReport?.agent.agent_uuid ?? null);
       setForm({ display_name: "", hostname: "", role: "client" });
@@ -267,11 +271,11 @@ function StationsPage({ api }: { api: ControllerApi }) {
               onChange={(event) => setClientReport(event.target.value)}
               placeholder="Вставьте JSON, который вывел agent_station_report.py"
             />
-            <HelpHint>Скрипт не содержит Basic Auth, enrollment token или credential. Он только заполняет поля station и показывает agent UUID.</HelpHint>
+          <HelpHint>Скрипт не содержит Basic Auth, enrollment token или credential. Он передаёт один стабильный UUID для station и agent.</HelpHint>
           </label>
           <button className="secondary-button" type="button" onClick={applyClientReport} disabled={!clientReport.trim()}>Подставить данные отчёта</button>
           {reportError && <p className="error-message">{reportError}</p>}
-          {parsedReport && <InfoNote>Agent UUID: <code>{parsedReport.agent.agent_uuid}</code>. После создания station передайте одноразовый token клиенту для enrollment.</InfoNote>}
+          {parsedReport && <InfoNote>Общий station/agent UUID: <code>{parsedReport.station.station_id}</code>. После создания station передайте одноразовый token клиенту для enrollment.</InfoNote>}
         </div>
         <form className="station-form" onSubmit={createStation}>
           <label>Отображаемое имя<input required value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} /><HelpHint>Имя, которое оператор увидит в таблицах и wizard.</HelpHint></label>
@@ -279,7 +283,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
           <label>Роль<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as StationRole })}><option value="client">client — игровой ПК</option><option value="admin">admin — админский ПК</option></select><HelpHint>Роль влияет на preflight policy, а не на права Basic Auth.</HelpHint></label>
           <button className="primary-button" type="submit">Создать station</button>
         </form>
-        {createdToken && <div className="secret-warning"><strong>Token показан один раз.</strong><p>Передайте его на клиентский ПК по защищённому каналу и не сохраняйте в UI. Token: <code>{createdToken}</code></p>{createdAgentUuid && <p>Для этого клиента сохраните также agent UUID: <code>{createdAgentUuid}</code>.</p>}<button className="secondary-button" onClick={() => { setCreatedToken(null); setCreatedAgentUuid(null); }}>Скрыть token</button></div>}
+        {createdToken && <div className="secret-warning"><strong>Token показан один раз.</strong><p>Передайте его на клиентский ПК по защищённому каналу и не сохраняйте в UI. Token: <code>{createdToken}</code></p>{createdAgentUuid && <p>Установка использует общий station/agent UUID: <code>{createdAgentUuid}</code>.</p>}<button className="secondary-button" onClick={() => { setCreatedToken(null); setCreatedAgentUuid(null); }}>Скрыть token</button></div>}
       </section>
     </PageHeader>
   );

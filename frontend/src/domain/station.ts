@@ -15,6 +15,7 @@ export interface Station {
 export interface StationSetupReport {
   report_version: "1";
   station: {
+    station_id: string;
     display_name: string;
     hostname: string;
     role: StationRole;
@@ -81,6 +82,10 @@ export function parseStationSetupReport(raw: string): StationSetupReport {
   return {
     report_version: "1",
     station: {
+      station_id: requireString(
+        station.station_id ?? agent.agent_uuid,
+        "station.station_id",
+      ),
       display_name: requireString(station.display_name, "station.display_name"),
       hostname: requireString(station.hostname, "station.hostname"),
       role,

@@ -36,8 +36,10 @@ class FakeStationQuery:
 class FakeStationRegistry:
     def __init__(self, station: Station) -> None:
         self.station = station
+        self.calls: list[dict[str, object]] = []
 
     async def execute(self, **kwargs) -> StationRegistration:
+        self.calls.append(kwargs)
         return StationRegistration(
             station=self.station,
             enrollment_token="token-for-test",
@@ -216,18 +218,25 @@ def test_agent_lifecycle_routes_use_their_auth_boundaries(monkeypatch) -> None:
         status=StationStatus.OFFLINE,
     )
     heartbeat = FakeHeartbeat()
+    registry = FakeStationRegistry(station)
     client = TestClient(
         create_app(
             FakeStationQuery([station]),
-            station_registry=FakeStationRegistry(station),
+            station_registry=registry,
             enroll_agent=FakeEnrollment(),
             receive_heartbeat=heartbeat,
         )
     )
 
+    requested_station_id = uuid4()
     station_response = client.post(
         "/api/v1/stations",
-        json={"display_name": "Client 01", "hostname": "client-01", "role": "client"},
+        json={
+            "station_id": str(requested_station_id),
+            "display_name": "Client 01",
+            "hostname": "client-01",
+            "role": "client",
+        },
         auth=("admin", TEST_PASSWORD),
     )
     enroll_response = client.post(
@@ -252,6 +261,7 @@ def test_agent_lifecycle_routes_use_their_auth_boundaries(monkeypatch) -> None:
     )
 
     assert station_response.status_code == 201
+    assert registry.calls[0]["station_id"] == requested_station_id
     assert enroll_response.status_code == 200
     assert client.post("/api/v1/agents/heartbeat", json={}).status_code == 401
     assert heartbeat_response.status_code == 200

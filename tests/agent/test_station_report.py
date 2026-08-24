@@ -15,6 +15,7 @@ def test_station_report_is_repeatable_and_contains_no_credentials(tmp_path: Path
 
     assert first.station["role"] == "client"
     assert UUID(first.agent["agent_uuid"]) == UUID(second.agent["agent_uuid"])
+    assert first.station["station_id"] == first.agent["agent_uuid"]
     assert "credential" not in serialized
     assert "enrollment_token" not in serialized
 
@@ -22,7 +23,7 @@ def test_station_report_is_repeatable_and_contains_no_credentials(tmp_path: Path
 def test_station_report_has_the_fields_needed_by_operator(tmp_path: Path) -> None:
     report = collect_station_report(identity_path=tmp_path / "identity.json")
 
-    assert set(report.station) == {"display_name", "hostname", "role"}
+    assert set(report.station) == {"station_id", "display_name", "hostname", "role"}
     assert set(report.agent) >= {"agent_uuid", "agent_version", "hostname"}
     assert set(report.network) == {"ip_addresses", "mac_addresses"}
     assert report.drives[0].letter == "D:"

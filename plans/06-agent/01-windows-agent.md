@@ -22,7 +22,8 @@
 
 - `station.display_name`, `station.hostname`, `station.role` — данными для
   создания station;
-- стабильным `agent.agent_uuid`, версией агента и hostname;
+- общим стабильным `station.station_id`/`agent.agent_uuid`, версией агента и
+  hostname;
 - справочными IP/MAC и состоянием `D:`.
 
 Пароли, Basic Auth, enrollment token и credential в отчёт не входят. UUID
@@ -81,7 +82,7 @@ Backend считается authoritative для freshness: агент не мо�
 Для staging onboarding реализован единый
 [`scripts/install_windows_agent.py`](../../scripts/install_windows_agent.py): он
 читает station report, копирует release checkout в стабильную папку, запускает
-`uv sync --locked --no-dev`, выполняет скрытый one-shot enrollment и
+`uv sync --locked --no-dev`, выполняет one-shot enrollment с открытым вводом token и
 регистрирует службу под текущей service account. Поле `--dry-run` не меняет
 файлы и SCM. Фактический Windows runtime и проверка права `Log on as a service`
 остаются обязательным integration gate.
@@ -135,7 +136,7 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] baseline Alembic migration сгенерирована, но не применена;
 - [x] безопасный stdlib-only station report для первичного onboarding клиента;
 - [x] единый Windows installer orchestration script: release copy, locked
-  dependencies, hidden token prompt, machine config, DPAPI enrollment и SCM
+  dependencies, visible token prompt, machine config, DPAPI enrollment и SCM
   registration boundary;
 - [x] verify key сделан optional: heartbeat/status flow работает без
   `AGENT_COMMAND_VERIFY_KEY`, signed refresh остаётся отдельной настройкой;

@@ -7,15 +7,19 @@
 
 ## 1. Получить отчёт на клиентском ПК
 
-Скопируйте на Windows-ПК только файл `agent_station_report.py`. Нужен Python
-3.12+; внешние зависимости не требуются. Запустите PowerShell:
+Скопируйте на Windows-ПК только файл `agent_station_report.py` в каталог
+`C:\Install`. Нужен Python 3.12+; внешние зависимости не требуются. Запустите
+PowerShell и сначала перейдите именно в этот каталог:
 
 ```powershell
-py -3 .\agent_station_report.py
+New-Item -ItemType Directory -Force -Path C:\Install | Out-Null
+Set-Location C:\Install
+py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
 ```
 
-Скопируйте весь JSON из вывода и передайте его оператору по согласованному
-внутреннему каналу. Не редактируйте `agent.agent_uuid`: он сохраняется локально
+Передайте файл `C:\Install\station-report.json` оператору по согласованному
+внутреннему каналу. Не редактируйте `station.station_id` и `agent.agent_uuid`:
+это один и тот же стабильный UUID, который сохраняется локально
 в `%LOCALAPPDATA%\TrueNasController\agent\identity.json`, чтобы повторный
 запуск не создал другую identity.
 
@@ -23,20 +27,15 @@ py -3 .\agent_station_report.py
 
 - поля `station.display_name`, `station.hostname` и `station.role` для формы
   создания station;
-- `agent.agent_uuid` и `agent.agent_version` для последующего enrollment;
+- общий `station.station_id`/`agent.agent_uuid` и `agent.agent_version` для
+  создания station и последующего enrollment;
 - справочные IP/MAC и состояние диска `D:`.
-
-Если нужно сохранить результат в файл в Windows PowerShell 5.1, используйте
-явную кодировку UTF-8:
-
-```powershell
-py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
-```
 
 ## 2. Создать station на админском ПК
 
 1. Откройте Controller UI → **Станции и агенты**.
-2. Вставьте JSON в поле **Отчёт с клиентского ПК**.
+2. Откройте `C:\Install\station-report.json`, скопируйте JSON и вставьте его
+   в поле **Отчёт с клиентского ПК**.
 3. Нажмите **Подставить данные отчёта** и проверьте hostname, роль и UUID.
 4. Нажмите **Создать station**.
 5. Передайте показанный один раз enrollment token обратно на тот же клиентский
@@ -55,7 +54,6 @@ Token имеет ограниченный TTL и после использова
 Set-Location C:\Install\TrueNas-Controller
 py -3 .\scripts\install_windows_agent.py `
   --controller-url "http://192.168.0.47:8000" `
-  --station-id "<station-id-from-controller>" `
   --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
@@ -63,9 +61,12 @@ py -3 .\scripts\install_windows_agent.py `
 Для production с HTTPS укажите URL вида `https://controller.example` и уберите
 `--allow-insecure-http`. Сценарий сам создаёт стабильную папку
 `%ProgramData%\TrueNasController\agent`, устанавливает locked dependencies,
-попросит скрыто ввести одноразовый enrollment token и пароль той же service
-account, зарегистрирует и запустит службу. Token не попадает в аргументы
-командной строки, машинные переменные или файлы.
+попросит открыто ввести одноразовый enrollment token и скрыто — пароль той же
+service account, зарегистрирует и запустит службу. Token не попадает в аргументы
+командной строки, постоянные машинные переменные или файлы.
+
+`--station-id` здесь не нужен: installer читает общий UUID station/agent из
+`station-report.json`.
 
 `--command-verify-key` не нужен для первичной установки. Это публичный Ed25519
 ключ Controller для проверки подписанной команды `refresh_process_snapshot`; он

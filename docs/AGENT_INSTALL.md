@@ -147,17 +147,16 @@ $CommandVerifyKey = $null # optional: public key for signed refresh commands
 служба. Убедиться, что эта учётная запись читает `$ProjectRoot` и может писать
 в каталог `$CredentialPath`.
 
-Token вводится скрыто и передаётся только текущему процессу:
+Token вводится открыто и передаётся только текущему процессу. Он не попадает в
+аргументы командной строки и после enrollment удаляется из переменной процесса:
 
 ```powershell
 Set-Location $ProjectRoot
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
-$TokenPointer = [IntPtr]::Zero
-$SecureToken = Read-Host "One-shot enrollment token" -AsSecureString
+$EnrollmentToken = Read-Host "One-shot enrollment token (visible)"
 
 try {
-    $TokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureToken)
-    $env:AGENT_ENROLLMENT_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($TokenPointer)
+    $env:AGENT_ENROLLMENT_TOKEN = $EnrollmentToken
 
     & $Python -m agent.entrypoint enroll
     if ($LASTEXITCODE -ne 0) {
@@ -165,11 +164,8 @@ try {
     }
 }
 finally {
-    if ($TokenPointer -ne [IntPtr]::Zero) {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($TokenPointer)
-    }
     Remove-Item Env:AGENT_ENROLLMENT_TOKEN -ErrorAction SilentlyContinue
-    Remove-Variable SecureToken -ErrorAction SilentlyContinue
+    Remove-Variable EnrollmentToken -ErrorAction SilentlyContinue
 }
 
 if (-not (Test-Path $CredentialPath)) {

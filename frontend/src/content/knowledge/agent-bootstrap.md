@@ -5,20 +5,22 @@
 На клиентском ПК запускается `scripts/agent_station_report.py`. Это один файл
 на стандартной библиотеке Python 3.12+, без установки пакетов и без доступа к
 сети. Скрипт собирает hostname, IP/MAC, состояние `D:` и создаёт локальный
-несекретный `agent_uuid`.
+несекретный общий UUID `station.station_id` и `agent.agent_uuid`.
 
 Он не содержит Basic Auth, пароль Controller, enrollment token или agent
 credential. Поэтому файл можно передать клиенту отдельно от админского доступа.
 
 ## На клиентском ПК
 
-Скопируйте файл на Windows и выполните в PowerShell:
+Скопируйте файл в `C:\Install` на Windows и выполните в PowerShell:
 
 ```powershell
-py -3 .\agent_station_report.py
+New-Item -ItemType Directory -Force -Path C:\Install | Out-Null
+Set-Location C:\Install
+py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
 ```
 
-Скопируйте JSON из консоли оператору. Для повторного запуска оставляйте файл
+Передайте оператору файл `C:\Install\station-report.json`. Для повторного запуска оставляйте файл
 identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`.
 Иначе будет создан новый UUID, который не совпадёт с последующим enrollment.
 
@@ -26,7 +28,8 @@ identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`
 
 В разделе **Станции и агенты** вставьте JSON в блок **Отчёт с клиентского ПК**
 и нажмите **Подставить данные отчёта**. UI заполнит поля `display_name`,
-`hostname` и `role`, покажет UUID и позволит создать station.
+`hostname`, `role` и передаст общий UUID для station/agent, после чего позволит
+создать station.
 
 После создания station Controller показывает одноразовый enrollment token.
 Передайте его клиенту по защищённому каналу. Token ограничен по времени и
@@ -42,16 +45,17 @@ identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`
 Set-Location C:\Install\TrueNas-Controller
 py -3 .\scripts\install_windows_agent.py `
   --controller-url "http://192.168.0.47:8000" `
-  --station-id "<station-id>" `
   --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
 Для production с HTTPS замените URL на `https://controller.example` и уберите
 `--allow-insecure-http`. Сценарий создаёт стабильную папку агента, устанавливает
-зависимости, скрыто запрашивает enrollment token и пароль service account,
-регистрирует службу и проверяет её состояние. Token не передаётся в аргументах
+зависимости, открыто запрашивает enrollment token и скрыто — пароль service
+account, регистрирует службу и проверяет её состояние. Token не передаётся в аргументах
 командной строки и не сохраняется.
+
+`--station-id` не нужен: station UUID берётся из `station-report.json`.
 
 `--command-verify-key` необязателен. Это публичный Ed25519-ключ Controller для
 проверки подписанной команды refresh, а не enrollment token и не пароль. Без

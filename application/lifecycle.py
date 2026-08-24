@@ -76,6 +76,7 @@ class CreateStationUseCase:
     async def execute(
         self,
         *,
+        station_id: UUID | None = None,
         display_name: str,
         hostname: str,
         role: StationRole,
@@ -84,7 +85,7 @@ class CreateStationUseCase:
         created_at = ensure_utc(now or datetime.now(UTC))
         station = Station(
             id=uuid4(),
-            station_id=uuid4(),
+            station_id=station_id or uuid4(),
             display_name=display_name,
             hostname=hostname,
             role=role,

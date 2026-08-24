@@ -106,6 +106,10 @@ def load_station_report(path: Path) -> dict[str, str]:
     if station.get("role") != "client":
         raise InstallerError("station report must describe a client station")
     return {
+        "station_id": _required_string(
+            station.get("station_id") or agent.get("agent_uuid"),
+            "station.station_id",
+        ),
         "agent_uuid": _required_string(agent.get("agent_uuid"), "agent.agent_uuid"),
         "agent_version": _required_string(agent.get("agent_version"), "agent.agent_version"),
         "hostname": _required_string(agent.get("hostname"), "agent.hostname"),
@@ -114,7 +118,10 @@ def load_station_report(path: Path) -> dict[str, str]:
 
 def build_install_config(args: argparse.Namespace) -> AgentInstallConfig:
     report = load_station_report(args.report) if args.report else {}
-    station_id = _parse_uuid(args.station_id, "station-id")
+    station_id = _parse_uuid(
+        args.station_id or report.get("station_id") or report.get("agent_uuid"),
+        "station-id or report.station_id",
+    )
     agent_uuid = _parse_uuid(
         args.agent_uuid or report.get("agent_uuid"),
         "agent-uuid or report.agent_uuid",
@@ -176,7 +183,7 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
     if config.credential_path.exists():
         print("[4/6] Existing credential found; enrollment skipped")
     else:
-        print("[4/6] Enrolling agent; only the one-shot token input is hidden")
+        print("[4/6] Enrolling agent; the one-shot token is entered visibly")
         _enroll(python_path, config.install_dir, process_env)
 
     print("[5/6] Registering Windows Service")
@@ -192,7 +199,7 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
 
 
 def _enroll(python_path: Path, install_dir: Path, environment: dict[str, str]) -> None:
-    token = getpass("One-shot enrollment token (hidden; not the verify key): ").strip()
+    token = input("One-shot enrollment token (visible; not the verify key): ").strip()
     if not token:
         raise InstallerError("enrollment token cannot be empty")
     child_environment = environment.copy()
@@ -447,8 +454,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--station-id",
-        required=True,
-        help="station_id returned by POST /api/v1/stations",
+        help="station UUID; normally read from --report, use only as an override",
     )
     parser.add_argument("--report", type=Path, help="JSON file produced by agent_station_report.py")
     parser.add_argument("--agent-uuid", help="agent UUID; normally read from --report")
