@@ -41,7 +41,7 @@ class WindowsCredentialFileSecurity:
                 | ntsecuritycon.FILE_GENERIC_WRITE
                 | ntsecuritycon.DELETE
             )
-            dacl.AddAccessAllowedAce(ntsecuritycon.ACL_REVISION, access_mask, user_sid)
+            dacl.AddAccessAllowedAce(win32security.ACL_REVISION, access_mask, user_sid)
             operation = "apply protected file DACL"
             win32security.SetNamedSecurityInfo(
                 str(path),
