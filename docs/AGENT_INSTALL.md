@@ -117,7 +117,7 @@ $ControllerUrl = "https://<controller-host>"
 $AgentUuid = [Guid]::NewGuid().Guid
 $AgentVersion = "0.1.0"
 $AgentHostname = "CLIENT-01"
-$CredentialPath = "C:\ProgramData\TrueNasController\agent.credential"
+$CredentialPath = Join-Path $ProjectRoot "agent.credential"
 $CommandVerifyKey = $null # optional: public key for signed refresh commands
 
 [Environment]::SetEnvironmentVariable("AGENT_API_BASE_URL", $ControllerUrl, "Machine")
@@ -153,6 +153,13 @@ Token вводится открыто и передаётся только те�
 ```powershell
 Set-Location $ProjectRoot
 $Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$env:AGENT_ENROLLMENT_TOKEN = $null
+
+& $Python -m agent.entrypoint check-credential-store
+if ($LASTEXITCODE -ne 0) {
+    throw "Local protected credential store check failed; token was not used"
+}
+
 $EnrollmentToken = Read-Host "One-shot enrollment token (visible)"
 
 try {

@@ -140,5 +140,9 @@ Backend считается authoritative для freshness: агент не мо�
   registration boundary;
 - [x] verify key сделан optional: heartbeat/status flow работает без
   `AGENT_COMMAND_VERIFY_KEY`, signed refresh остаётся отдельной настройкой;
-- [ ] фактическая проверка installer/service registration и ACL под фактической
-  service account;
+- [x] Windows ACL переведён на именованный `SetNamedSecurityInfo` с
+  защищённым DACL и безопасным кодом ошибки без вывода credential;
+- [x] installer выполняет локальный DPAPI/ACL preflight до запроса одноразового
+  enrollment token;
+- [ ] фактическая проверка installer/service registration, ACL и heartbeat под
+  фактической service account после обновления checkout на Windows;

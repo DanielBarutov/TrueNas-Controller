@@ -16,14 +16,15 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [31 — Frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
-- **Текущая задача:** завершить frontend/onboarding slice: удаление station из
-  реестра с отзывом agent binding и повторной регистрацией по тому же
-  `station-report.json`. План 30 TrueNAS и фактический Windows runtime остаются
-  отдельными gate.
-- **Следующий разрешённый шаг:** после проверки удаления перейти к
-  `--dry-run`/согласованному Windows smoke с тестовой station. Real Redis worker
-  execution, TrueNAS write и storage switch пока не включать.
+- **Активный план:** [06 — Windows-агент](/home/daniel/tnas/plans/06-agent/01-windows-agent.md).
+- **Текущая задача:** закрыть Windows runtime gate после фактического сбоя ACL:
+  проверить защищённое сохранение credential, регистрацию службы и heartbeat
+  на клиентском ПК. Enrollment до Controller уже проходит; первый запуск был
+  остановлен только на локальном ACL.
+- **Следующий разрешённый шаг:** обновить checkout на клиенте, выполнить
+  локальный `check-credential-store`, затем повторить enrollment с новым
+  одноразовым token после восстановления station. Real Redis worker execution,
+  TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -36,7 +37,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, runtime composition, station report и единый installer orchestration созданы; фактический Windows runtime ещё не проверен | Windows service account/ACL/heartbeat smoke |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, runtime composition, station report, installer orchestration и preflight созданы; первый Windows smoke дошёл до Controller и выявил ACL setup failure, исправление ожидает проверки на клиенте | Windows service account/ACL/heartbeat smoke после обновления checkout |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -158,6 +159,10 @@
   в machine environment/argv и регистрирует SCM service под текущей account.
 - [x] `AGENT_COMMAND_VERIFY_KEY` сделан необязательным для установки: без него
   heartbeat работает, а подписанные refresh-команды отключены.
+- [x] Windows ACL runtime hardening: named protected DACL, безопасный код
+  Windows-ошибки и preflight DPAPI/ACL до расходования enrollment token.
+- [ ] Native Windows retest после исправления ACL и preflight не выполнен в
+  текущем Linux окружении.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
   поля создания station и напоминает оператору о раздельной передаче one-shot
   enrollment token.
@@ -267,3 +272,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Добавлен единый Windows installer orchestration | Скрипт копирует release checkout, ставит locked dependencies, выполняет enrollment и регистрирует службу; реальный Windows/SCM smoke оставлен отдельным gate |
 | 2026-08-24 | Упрощён первый запуск агента | Verify key больше не требуется; общий station/agent UUID берётся из station report, token вводится открыто, пароль service account остаётся скрытым |
 | 2026-08-24 | Добавлен план 32 и удаление station/agent | DELETE soft-delete скрывает станцию, удаляет agent binding и pending commands, отзывает tokens, сохраняет историю; тот же station report UUID можно использовать для повторной регистрации |
+| 2026-08-24 | Исправлен Windows ACL gate | named protected DACL, диагностируемый Windows error code и локальный DPAPI/ACL preflight до расходования enrollment token; native Windows retest остаётся открытым |

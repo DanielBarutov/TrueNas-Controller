@@ -26,7 +26,7 @@ AGENT_STATION_ID=<station-uuid>
 AGENT_UUID=<new-agent-uuid>
 AGENT_VERSION=0.1.0
 AGENT_HOSTNAME=CLIENT-01
-AGENT_CREDENTIAL_PATH=C:\ProgramData\TrueNasController\agent.credential
+AGENT_CREDENTIAL_PATH=C:\ProgramData\TrueNasController\agent\agent.credential
 AGENT_ENROLLMENT_TOKEN=<TOKEN>
 ```
 
@@ -64,8 +64,9 @@ credential-файла текущей учётной записью. Поэтом
 1. копирует согласованный checkout в стабильный каталог;
 2. выполняет `uv sync --locked --no-dev`;
 3. записывает несекретные настройки на уровне компьютера;
-4. вводит одноразовый token открытым prompt и выполняет enrollment;
-5. регистрирует службу под той же учётной записью и проверяет её запуск.
+4. проверяет локальные DPAPI/ACL до использования одноразового token;
+5. вводит одноразовый token открытым prompt и выполняет enrollment;
+6. регистрирует службу под той же учётной записью и проверяет её запуск.
 
 Пароль service account вводится скрыто и не передаётся через argv. `--dry-run`
 проверяет план без изменений. Скрипт должен запускаться elevated и под той же

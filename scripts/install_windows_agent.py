@@ -183,6 +183,12 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
     if config.credential_path.exists():
         print("[4/6] Existing credential found; enrollment skipped")
     else:
+        print("[4/6] Checking protected credential store before token use")
+        _run(
+            [str(python_path), "-m", "agent.entrypoint", "check-credential-store"],
+            cwd=config.install_dir,
+            env=process_env,
+        )
         print("[4/6] Enrolling agent; the one-shot token is entered visibly")
         _enroll(python_path, config.install_dir, process_env)
 

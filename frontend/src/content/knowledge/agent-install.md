@@ -19,12 +19,18 @@ enrollment с открытым вводом token, регистрирует сл
    публичный ключ проверки подписанных refresh-команд.
 4. Выполни enrollment под той же service account, под которой будет работать
    Windows Service. В автоматическом сценарии передай `--report
-   C:\Install\station-report.json`: station UUID берётся из отчёта.
+   C:\Install\station-report.json`: station UUID берётся из отчёта. Installer
+   сначала проверяет локальные DPAPI/ACL и только после успешной проверки
+   просит одноразовый token.
 
 ```powershell
 Set-Location C:\ProgramData\TrueNasController\agent
+$env:AGENT_ENROLLMENT_TOKEN = $null
+$Python = Join-Path (Get-Location) ".venv\Scripts\python.exe"
+& $Python -m agent.entrypoint check-credential-store
+if ($LASTEXITCODE -ne 0) { throw "Local protected credential store check failed" }
 $env:AGENT_ENROLLMENT_TOKEN = Read-Host "One-shot enrollment token (visible)"
-python -m agent.entrypoint enroll
+& $Python -m agent.entrypoint enroll
 Remove-Item Env:AGENT_ENROLLMENT_TOKEN
 ```
 
