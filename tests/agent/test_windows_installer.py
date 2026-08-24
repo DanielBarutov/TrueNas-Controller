@@ -1,0 +1,84 @@
+from argparse import Namespace
+import json
+from pathlib import Path
+from uuid import UUID, uuid4
+
+import pytest
+from scripts.install_windows_agent import (
+    AgentInstallConfig,
+    InstallerError,
+    build_install_config,
+    load_station_report,
+)
+
+
+def test_installer_reads_identity_from_station_report(tmp_path: Path) -> None:
+    report_path = tmp_path / "station-report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "report_version": "1",
+                "station": {
+                    "display_name": "CLIENT-01",
+                    "hostname": "CLIENT-01",
+                    "role": "client",
+                },
+                "agent": {
+                    "agent_uuid": str(uuid4()),
+                    "agent_version": "0.1.0",
+                    "hostname": "CLIENT-01",
+                },
+            }
+        ),
+        encoding="utf-8-sig",
+    )
+
+    identity = load_station_report(report_path)
+
+    assert UUID(identity["agent_uuid"])
+    assert identity["agent_version"] == "0.1.0"
+    assert identity["hostname"] == "CLIENT-01"
+
+
+def test_installer_environment_contains_no_enrollment_token(tmp_path: Path) -> None:
+    config = AgentInstallConfig(
+        controller_url="https://controller.example",
+        station_id=uuid4(),
+        agent_uuid=uuid4(),
+        agent_version="0.1.0",
+        hostname="CLIENT-01",
+        command_verify_key="public-key",
+        source_dir=tmp_path / "source",
+        install_dir=tmp_path / "install",
+        service_account=".\\client",
+    )
+
+    environment = config.machine_environment()
+
+    assert "AGENT_ENROLLMENT_TOKEN" not in environment
+    assert environment["AGENT_STATION_ID"] == str(config.station_id)
+    assert environment["AGENT_CREDENTIAL_PATH"].endswith("agent.credential")
+
+
+def test_installer_rejects_source_inside_install_directory(tmp_path: Path) -> None:
+    source_dir = tmp_path / "source"
+    for name in ("agent", "domain"):
+        (source_dir / name).mkdir(parents=True)
+    (source_dir / "pyproject.toml").write_text("", encoding="utf-8")
+    (source_dir / "uv.lock").write_text("", encoding="utf-8")
+    args = Namespace(
+        controller_url="https://controller.example",
+        station_id=str(uuid4()),
+        report=None,
+        agent_uuid=str(uuid4()),
+        agent_version="0.1.0",
+        hostname="CLIENT-01",
+        command_verify_key="public-key",
+        source_dir=source_dir,
+        install_dir=source_dir / "installed",
+        service_account=".\\client",
+        allow_insecure_http=False,
+    )
+
+    with pytest.raises(InstallerError, match="inside source-dir"):
+        build_install_config(args)

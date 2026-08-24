@@ -54,6 +54,23 @@ credential-файла текущей учётной записью. Поэтом
 под той же учётной записью, под которой впоследствии будет работать служба.
 Фактический service account и его права остаются отдельным незакрытым gate.
 
+## Автоматический installer
+
+Для нового клиента используйте
+[`scripts/install_windows_agent.py`](../scripts/install_windows_agent.py). Он
+принимает `station-report.json`, `station_id`, Controller URL и публичный ключ,
+затем:
+
+1. копирует согласованный checkout в стабильный каталог;
+2. выполняет `uv sync --locked --no-dev`;
+3. записывает несекретные настройки на уровне компьютера;
+4. вводит одноразовый token только скрытым prompt и выполняет enrollment;
+5. регистрирует службу под той же учётной записью и проверяет её запуск.
+
+Пароль service account вводится скрыто и не передаётся через argv. `--dry-run`
+проверяет план без изменений. Скрипт должен запускаться elevated и под той же
+учётной записью, которая расшифрует DPAPI credential.
+
 ## Windows Service
 
 После успешного enrollment pywin32-команды передаются в Windows Service
@@ -78,5 +95,5 @@ service account. В Linux/CI эти команды намеренно завер
 - композиция `enroll`/SCM entrypoint через injected Protocol boundaries;
 - unit-тесты без внешнего controller, Windows SCM, Redis, PostgreSQL и TrueNAS.
 
-Открыты: production installer, фактический service account, opt-in API↔agent
+Открыты: фактическая Windows-проверка service account/ACL, opt-in API↔agent
 integration test и применение baseline Alembic migration.

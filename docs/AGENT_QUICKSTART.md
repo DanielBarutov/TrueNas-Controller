@@ -45,14 +45,34 @@ py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
 Basic Auth оператора и пароль Controller не передаются клиентскому скрипту.
 Token имеет ограниченный TTL и после использования становится недействительным.
 
-## 3. Завершить enrollment агента
+## 3. Установить и запустить агента одним сценарием
 
-Сам отчёт не является установщиком службы: это первый безопасный шаг, который
-избавляет оператора от ручного сбора hostname/IP/MAC/D:. После получения token
-выполните текущую подробную инструкцию из
-[`docs/AGENT_INSTALL.md`](AGENT_INSTALL.md), начиная с подготовки проекта и
-команды `agent.entrypoint enroll`. Для enrollment используйте `agent_uuid` из
-того же отчёта, а не новый UUID.
+На клиентском ПК нужен согласованный checkout/release-пакет проекта и
+установленный [uv](https://docs.astral.sh/uv/). Запустите elevated PowerShell
+под той же Windows-учётной записью, под которой должна работать служба:
+
+```powershell
+Set-Location C:\Install\TrueNas-Controller
+py -3 .\scripts\install_windows_agent.py `
+  --controller-url "https://<controller-host>" `
+  --station-id "<station-id-from-controller>" `
+  --report "C:\Install\station-report.json" `
+  --command-verify-key "<base64url-public-ed25519-key>"
+```
+
+Сценарий сам создаёт стабильную папку `%ProgramData%\TrueNasController\agent`,
+устанавливает locked dependencies, попросит скрыто ввести одноразовый token и
+пароль той же service account, зарегистрирует и запустит службу. Token не
+попадает в аргументы командной строки, машинные переменные или файлы.
+
+Для проверки параметров без изменений используйте `--dry-run`. Для повторного
+запуска уже enrolled агента token не запрашивается, если защищённый credential
+на месте.
+
+`<controller-host>` — адрес Controller API, не адрес TrueNAS `/api/docs`.
+
+Подробности, troubleshooting и ручной recovery-путь остаются в
+[`docs/AGENT_INSTALL.md`](AGENT_INSTALL.md).
 
 Такое разделение сохраняет границу безопасности: клиентский ПК не получает
 Basic Auth оператора, а одноразовый token появляется только после того, как

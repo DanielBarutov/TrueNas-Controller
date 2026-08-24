@@ -3,11 +3,11 @@
 Для нового клиентского ПК сначала используйте короткий сценарий
 [`docs/AGENT_QUICKSTART.md`](AGENT_QUICKSTART.md): он собирает данные одним
 stdlib-only Python-скриптом и заполняет форму station в UI. Текущая инструкция
-ниже описывает оставшийся staging enrollment и регистрацию Windows Service.
+ниже описывает ручной recovery-путь и отдельные проверки Windows Service.
 
 Инструкция предназначена для staging-проверки текущего agent slice. Она не
-заменяет production installer: фактическая Windows-проверка service account и
-регистрация службы пока остаются отдельным gate.
+не заменяет фактическую Windows-проверку service account и ACL: эти runtime
+проверки остаются отдельным gate.
 
 Агент подключается к собственному Controller API и не обращается напрямую к
 TrueNAS. Поэтому `AGENT_API_BASE_URL` — это URL Controller без `/api/docs` и

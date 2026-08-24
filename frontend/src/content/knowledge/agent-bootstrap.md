@@ -32,13 +32,29 @@ identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`
 Передайте его клиенту по защищённому каналу. Token ограничен по времени и
 может быть использован только один раз.
 
-## Что делать после создания station
+## Установка одним сценарием
 
-Отчёт не регистрирует Windows Service автоматически. Для текущего staging
-enrollment используйте [подробную инструкцию установки](../../../docs/AGENT_INSTALL.md):
-укажите `AGENT_UUID` из отчёта, введите token только в процесс enrollment и
-запускайте службу под той же учётной записью, под которой сохранён DPAPI
-credential.
+После создания station скопируйте согласованный checkout/release-пакет проекта
+на Windows-клиент, установите `uv` и запустите elevated PowerShell под той же
+учётной записью, под которой должна работать служба:
+
+```powershell
+Set-Location C:\Install\TrueNas-Controller
+py -3 .\scripts\install_windows_agent.py `
+  --controller-url "https://<controller-host>" `
+  --station-id "<station-id>" `
+  --report "C:\Install\station-report.json" `
+  --command-verify-key "<base64url-public-ed25519-key>"
+```
+
+Сценарий создаёт стабильную папку агента, устанавливает зависимости, скрыто
+запрашивает token и пароль service account, регистрирует службу и проверяет её
+состояние. Token не передаётся в аргументах командной строки и не сохраняется.
+`--dry-run` проверяет параметры без изменений. Адрес Controller не должен быть
+адресом TrueNAS `/api/docs`.
+
+Ручной recovery-путь и troubleshooting описаны в
+[подробной инструкции установки](../../../docs/AGENT_INSTALL.md).
 
 Не передавайте клиенту пароль Basic Auth и не вставляйте token в общий чат,
 issue tracker или Markdown-файл.

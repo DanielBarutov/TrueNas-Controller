@@ -78,6 +78,14 @@ Backend считается authoritative для freshness: агент не мо�
 
 Отдельно проверить запуск от обычной учётной записи; SYSTEM не использовать без доказанной необходимости.
 
+Для staging onboarding реализован единый
+[`scripts/install_windows_agent.py`](../../scripts/install_windows_agent.py): он
+читает station report, копирует release checkout в стабильную папку, запускает
+`uv sync --locked --no-dev`, выполняет скрытый one-shot enrollment и
+регистрирует службу под текущей service account. Поле `--dry-run` не меняет
+файлы и SCM. Фактический Windows runtime и проверка права `Log on as a service`
+остаются обязательным integration gate.
+
 ## Agent tests
 
 - process iterator: normal, AccessDenied, process исчез между итерациями;
@@ -126,5 +134,8 @@ Backend считается authoritative для freshness: агент не мо�
   [`docs/AGENT_DEPLOYMENT.md`](../../docs/AGENT_DEPLOYMENT.md);
 - [x] baseline Alembic migration сгенерирована, но не применена;
 - [x] безопасный stdlib-only station report для первичного onboarding клиента;
-- [ ] production installer/service registration и проверка ACL под фактической
+- [x] единый Windows installer orchestration script: release copy, locked
+  dependencies, hidden token prompt, machine config, DPAPI enrollment и SCM
+  registration boundary;
+- [ ] фактическая проверка installer/service registration и ACL под фактической
   service account;

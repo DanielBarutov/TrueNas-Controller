@@ -16,11 +16,13 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [31 — frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
-- **Текущая задача:** завершить быстрый onboarding Windows-клиента и проверить
-  его скрипт/UI-контракт. План 30 TrueNAS остаётся отдельным LAN gate, а
-  production service-account gate агента ещё открыт.
-- **Следующий разрешённый шаг:** отдельно согласовать read-only NAS smoke или Windows service-account validation. Real Redis worker execution, TrueNAS write и storage switch пока не включать.
+- **Активный план:** [06 — Windows-агент](/home/daniel/tnas/plans/06-agent/01-windows-agent.md).
+- **Текущая задача:** завершить единый Windows installer orchestration и затем
+  провести фактическую проверку service account/DPAPI/SCM на тестовом ПК. План
+  30 TrueNAS остаётся отдельным LAN gate.
+- **Следующий разрешённый шаг:** запустить `--dry-run`, затем согласованный
+  Windows smoke с тестовой station. Real Redis worker execution, TrueNAS write
+  и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -33,7 +35,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и stdlib-only onboarding report созданы; apply/production registration ещё нет | migration review/apply gate и service account validation |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, runtime composition, station report и единый installer orchestration созданы; фактический Windows runtime ещё не проверен | Windows service account/ACL/heartbeat smoke |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -142,13 +144,16 @@
   injected Protocol boundaries и не выводит credential/token; deployment notes
   добавлены в `docs/AGENT_DEPLOYMENT.md`.
 - [x] Пошаговая Windows staging-инструкция добавлена в
-  `docs/AGENT_INSTALL.md`; production installer и фактический service account
-  runtime по-прежнему не проверялись.
+  `docs/AGENT_INSTALL.md`; installer orchestration добавлен, но фактический
+  service account runtime по-прежнему не проверялся.
 - [x] SCM install/start path не расшифровывает DPAPI credential под оператором:
   загрузка deferred до фактического запуска службы под service account.
 - [x] Быстрый onboarding Windows-клиента: stdlib-only
   `scripts/agent_station_report.py` сохраняет стабильный UUID, выводит JSON
   station/agent/network/drive данных и не содержит секретов.
+- [x] Единый installer orchestration: копирует release checkout, запускает
+  locked `uv` dependencies, вводит token только скрытым prompt, не кладёт token
+  в machine environment/argv и регистрирует SCM service под текущей account.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
   поля создания station и напоминает оператору о раздельной передаче one-shot
   enrollment token.
@@ -245,3 +250,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-23 | Продолжен plan 31 publish slice | Замкнуты prepare/dispatch HTTP-контракты и frontend wizard; worker/TrueNAS completion не симулируется |
 | 2026-08-23 | Продолжен plan 31 read model slice | Добавлен polling publish job, per-target progress и безопасные terminal/recovery состояния |
 | 2026-08-24 | Добавлен быстрый Windows-agent onboarding | Клиентский stdlib-only script собирает station report; frontend валидирует JSON и заполняет форму создания station без передачи Basic Auth или credential |
+| 2026-08-24 | Добавлен единый Windows installer orchestration | Скрипт копирует release checkout, ставит locked dependencies, выполняет скрытый enrollment и регистрирует службу; реальный Windows/SCM smoke оставлен отдельным gate |
