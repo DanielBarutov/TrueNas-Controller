@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir uv \
     && uv sync --frozen --no-dev
 
 COPY . .
+RUN test -n "$(find repository/migrations/versions -maxdepth 1 -type f -name '*.py' ! -name '__init__.py' -print -quit)"
 COPY docker/backend-entrypoint.sh /usr/local/bin/tnas-backend-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/tnas-backend-entrypoint \
     && chmod +x /usr/local/bin/tnas-backend-entrypoint

@@ -195,6 +195,8 @@
 - [x] Исправлен Windows CRLF-регресс в Docker backend entrypoint: `.gitattributes`
   фиксирует LF для shell-файлов, Dockerfile нормализует скрипт; backend image
   собран, migration и `/openapi.json` проверены в Compose.
+- [x] Добавлена fail-fast проверка Alembic revision: Docker build не проходит
+  без migration-файла, а entrypoint не запускает API после ошибки `upgrade head`.
 - [x] Authorized visual smoke-check: временный SQLite backend и headed browser
   подтвердили login, health, stations, publish wizard и knowledge base; артефакты
   вынесены из workspace в `/tmp/tnas-playwright-artifacts`.

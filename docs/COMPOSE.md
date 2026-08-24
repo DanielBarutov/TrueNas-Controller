@@ -35,6 +35,19 @@ docker compose up -d --build backend frontend
 docker compose logs backend
 ```
 
+Ошибка `Can't locate revision identified by 'head'` означает, что в checkout
+нет Alembic revision-файла или он не попал в Docker context. Проверьте в
+PowerShell:
+
+```powershell
+Get-ChildItem .\repository\migrations\versions\*.py
+```
+
+В текущем baseline должен присутствовать файл
+`bee81bac70cc_initial_schema.py`. Не заменяйте строку entrypoint на
+`set eeuo pipfail`: правильный Bash-синтаксис — `set -Eeuo pipefail`. При
+ошибке миграции API не должен запускаться.
+
 Если backend завершается с `set: invalid option name` в строке
 `backend-entrypoint.sh`, это обычно CRLF из Windows checkout. Репозиторий
 фиксирует shell-файлы в LF, а Dockerfile дополнительно нормализует entrypoint

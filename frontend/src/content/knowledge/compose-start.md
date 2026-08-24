@@ -29,6 +29,12 @@ Backend автоматически выполняет `alembic upgrade head` п�
 docker compose logs backend
 ```
 
+Если видишь `Can't locate revision identified by 'head'`, проверь наличие
+файла `repository/migrations/versions/bee81bac70cc_initial_schema.py` в
+checkout. Строка shell entrypoint должна оставаться именно
+`set -Eeuo pipefail`; вариант `set eeuo pipfail` неверен. Backend не должен
+запускаться после неудачной миграции.
+
 После исправления `.env` или изменения схемы пересобери backend:
 
 ```powershell
