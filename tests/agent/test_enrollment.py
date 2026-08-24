@@ -6,8 +6,10 @@ from agent.config import AgentConfig, AgentConfigError
 from agent.credentials import MemoryCredentialStore
 from agent.enrollment import (
     EnrollmentCoordinator,
+    EnrollmentError,
     EnrollmentRequest,
     EnrollmentResponse,
+    HttpEnrollmentGateway,
 )
 from agent.entrypoint import enroll_agent, enroll_from_environment
 
@@ -19,6 +21,18 @@ class FakeEnrollmentGateway:
     async def enroll(self, request: EnrollmentRequest) -> EnrollmentResponse:
         self.calls.append(request)
         return EnrollmentResponse(request.agent_uuid, "credential-for-test")
+
+
+class FakeHttpResponse:
+    status_code = 409
+
+
+class FakeHttpClient:
+    async def post(self, *_args, **_kwargs) -> FakeHttpResponse:
+        return FakeHttpResponse()
+
+    async def aclose(self) -> None:
+        return None
 
 
 @pytest.mark.asyncio
@@ -45,6 +59,19 @@ async def test_enrollment_coordinator_rejects_empty_gateway_credential() -> None
         await EnrollmentCoordinator(MemoryCredentialStore(), EmptyGateway()).ensure_credential(
             EnrollmentRequest("token", uuid4(), "CLIENT-01", "0.1.0")
         )
+
+
+@pytest.mark.asyncio
+async def test_http_enrollment_explains_consumed_or_expired_token() -> None:
+    gateway = HttpEnrollmentGateway(
+        "https://controller.example/api/v1/agents/enroll",
+        client_factory=lambda **_: FakeHttpClient(),
+    )
+
+    with pytest.raises(EnrollmentError, match="invalid, expired, or already used"):
+        await gateway.enroll(EnrollmentRequest("token", uuid4(), "CLIENT-01", "0.1.0"))
+
+    await gateway.close()
 
 
 @pytest.mark.asyncio

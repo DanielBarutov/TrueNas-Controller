@@ -96,6 +96,11 @@ class HttpEnrollmentGateway:
                 "agent enrollment request failed; check Controller URL, port, "
                 "HTTP/HTTPS and firewall"
             ) from exc
+        if response.status_code == 409:
+            raise EnrollmentError(
+                "agent enrollment rejected with HTTP 409: enrollment token is "
+                "invalid, expired, or already used; create a new station and token"
+            )
         if response.status_code < 200 or response.status_code >= 300:
             raise EnrollmentError(f"agent enrollment rejected with status {response.status_code}")
         try:
