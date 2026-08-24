@@ -68,9 +68,13 @@ credential-файла текущей учётной записью. Поэтом
 5. вводит одноразовый token открытым prompt и выполняет enrollment;
 6. регистрирует службу под той же учётной записью и проверяет её запуск.
 
-Пароль service account вводится скрыто и не передаётся через argv. `--dry-run`
-проверяет план без изменений. Скрипт должен запускаться elevated и под той же
-учётной записью, которая расшифрует DPAPI credential.
+Пароль service account вводится скрыто и не передаётся через argv или machine
+environment: installer передаёт его только через stdin процессу target `.venv`.
+SCM-регистрация и запуск выполняются тем же `.venv\Scripts\python.exe`, куда
+установлен `pywin32`; внешний Python, которым запущен installer, не обязан иметь
+модуль `win32service`. `--dry-run` проверяет план без изменений. Скрипт должен
+запускаться elevated и под той же учётной записью, которая расшифрует DPAPI
+credential.
 
 ## Windows Service
 
@@ -78,8 +82,9 @@ credential-файла текущей учётной записью. Поэтом
 Control Manager:
 
 ```powershell
-python -m agent.entrypoint install
-python -m agent.entrypoint start
+$Python = "C:\ProgramData\TrueNasController\agent\.venv\Scripts\python.exe"
+& $Python -m agent.entrypoint install
+& $Python -m agent.entrypoint start
 ```
 
 Для остановки и удаления используются соответствующие команды `stop` и

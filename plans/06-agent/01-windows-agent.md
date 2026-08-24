@@ -145,5 +145,8 @@ Backend считается authoritative для freshness: агент не мо�
   безопасно без credential;
 - [x] installer выполняет локальный DPAPI/ACL preflight до запроса одноразового
   enrollment token;
+- [x] SCM registration/start выполняются через target `.venv` Python с
+  `pywin32`; пароль service account передаётся только через stdin дочернего
+  процесса и не попадает в argv или machine environment;
 - [ ] фактическая проверка installer/service registration, ACL и heartbeat под
   фактической service account после обновления checkout на Windows;

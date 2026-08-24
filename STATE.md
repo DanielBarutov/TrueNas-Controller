@@ -161,6 +161,9 @@
   heartbeat работает, а подписанные refresh-команды отключены.
 - [x] Windows ACL runtime hardening: named protected DACL, безопасный код
   Windows-ошибки и preflight DPAPI/ACL до расходования enrollment token.
+- [x] Windows installer SCM boundary: регистрация и запуск службы выполняются
+  target `.venv` Python с pywin32; внешний `py -3` больше не импортирует
+  `win32service`, пароль передаётся через stdin.
 - [ ] Native Windows retest после исправления ACL и preflight не выполнен в
   текущем Linux окружении.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
@@ -273,3 +276,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Упрощён первый запуск агента | Verify key больше не требуется; общий station/agent UUID берётся из station report, token вводится открыто, пароль service account остаётся скрытым |
 | 2026-08-24 | Добавлен план 32 и удаление station/agent | DELETE soft-delete скрывает станцию, удаляет agent binding и pending commands, отзывает tokens, сохраняет историю; тот же station report UUID можно использовать для повторной регистрации |
 | 2026-08-24 | Исправлен Windows ACL gate | named protected DACL, SID текущего process token, диагностируемый Windows error code и локальный DPAPI/ACL preflight до расходования enrollment token; native Windows retest остаётся открытым |
+| 2026-08-24 | Исправлен `win32service` installer gate | SCM registration/start перенесены в target `.venv` с pywin32; пароль service account передаётся через stdin, внешний `py -3` больше не импортирует `win32service` |

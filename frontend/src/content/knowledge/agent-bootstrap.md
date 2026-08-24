@@ -63,6 +63,10 @@ account, регистрирует службу и проверяет её сос
 `--dry-run` проверяет параметры без изменений. Адрес Controller не должен быть
 адресом TrueNAS `/api/docs`.
 
+Если внешний `py -3` не видит `win32service`, обновите checkout и повторите
+installer: актуальная версия регистрирует и запускает службу через target
+`.venv\Scripts\python.exe`, где `uv sync` установил pywin32.
+
 Ручной recovery-путь и troubleshooting описаны в
 [подробной инструкции установки](../../../docs/AGENT_INSTALL.md).
 

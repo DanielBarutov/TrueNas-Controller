@@ -117,6 +117,39 @@ def test_enrollment_token_is_requested_with_visible_input(monkeypatch, tmp_path:
     ]
 
 
+def test_service_scm_commands_use_target_runtime_and_stdin_password(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        installer,
+        "_run",
+        lambda command, *, cwd, env, input_text=None: calls.append(
+            {
+                "command": command,
+                "cwd": cwd,
+                "env": env.copy(),
+                "input_text": input_text,
+            }
+        ),
+    )
+    python_path = tmp_path / ".venv" / "Scripts" / "python.exe"
+    service_runner = tmp_path / "scripts" / "windows_agent_service.py"
+
+    installer._install_service(python_path, service_runner, ".\\client", "service-password")
+
+    assert calls[0]["command"] == [
+        str(python_path),
+        str(service_runner),
+        "install",
+    ]
+    assert calls[0]["cwd"] == tmp_path
+    assert calls[0]["input_text"] == "service-password"
+    assert calls[0]["env"]["AGENT_SERVICE_ACCOUNT"] == ".\\client"
+    assert "AGENT_SERVICE_PASSWORD" not in calls[0]["env"]
+
+
 def test_installer_environment_contains_no_enrollment_token(tmp_path: Path) -> None:
     config = AgentInstallConfig(
         controller_url="https://controller.example",

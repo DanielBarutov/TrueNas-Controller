@@ -200,7 +200,7 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
         getpass("Password for the service account (hidden): "),
     )
     print("[6/6] Starting and checking Windows Service")
-    _start_and_check_service()
+    _start_and_check_service(python_path, config.service_runner, config.install_dir)
     print(f"Agent installed and running: {SERVICE_NAME}")
 
 
@@ -234,97 +234,30 @@ def _install_service(
 ) -> None:
     if not service_password:
         raise InstallerError("service account password cannot be empty")
+    child_environment = os.environ.copy()
+    child_environment["AGENT_SERVICE_ACCOUNT"] = service_account
     try:
-        import win32service
-    except ImportError as exc:
-        raise InstallerError("pywin32 is required to register the Windows Service") from exc
-
-    command_line = f'"{python_path}" "{service_runner}"'
-    manager = win32service.OpenSCManager(
-        None,
-        None,
-        win32service.SC_MANAGER_CONNECT | win32service.SC_MANAGER_CREATE_SERVICE,
-    )
-    service = None
-    try:
-        try:
-            service = win32service.OpenService(
-                manager,
-                SERVICE_NAME,
-                win32service.SERVICE_CHANGE_CONFIG,
-            )
-            win32service.ChangeServiceConfig(
-                service,
-                win32service.SERVICE_NO_CHANGE,
-                win32service.SERVICE_AUTO_START,
-                win32service.SERVICE_ERROR_NORMAL,
-                command_line,
-                None,
-                0,
-                None,
-                service_account,
-                service_password,
-                SERVICE_DISPLAY_NAME,
-            )
-        except win32service.error as exc:
-            if not _is_service_missing_error(exc):
-                raise InstallerError("could not update the existing Windows Service") from exc
-            service = win32service.CreateService(
-                manager,
-                SERVICE_NAME,
-                SERVICE_DISPLAY_NAME,
-                win32service.SERVICE_ALL_ACCESS,
-                win32service.SERVICE_WIN32_OWN_PROCESS,
-                win32service.SERVICE_AUTO_START,
-                win32service.SERVICE_ERROR_NORMAL,
-                command_line,
-                None,
-                0,
-                None,
-                service_account,
-                service_password,
-            )
-    except win32service.error as exc:
-        raise InstallerError("could not register the Windows Service") from exc
+        _run(
+            [str(python_path), str(service_runner), "install"],
+            cwd=service_runner.parents[1],
+            env=child_environment,
+            input_text=service_password,
+        )
     finally:
-        if service is not None:
-            win32service.CloseServiceHandle(service)
-        win32service.CloseServiceHandle(manager)
+        child_environment.pop("AGENT_SERVICE_ACCOUNT", None)
         del service_password
 
 
-def _start_and_check_service() -> None:
-    try:
-        import time
-
-        import win32service
-    except ImportError as exc:
-        raise InstallerError("pywin32 is required to start the Windows Service") from exc
-
-    manager = win32service.OpenSCManager(None, None, win32service.SC_MANAGER_CONNECT)
-    service = win32service.OpenService(
-        manager,
-        SERVICE_NAME,
-        win32service.SERVICE_START | win32service.SERVICE_QUERY_STATUS,
+def _start_and_check_service(
+    python_path: Path,
+    service_runner: Path,
+    install_dir: Path,
+) -> None:
+    _run(
+        [str(python_path), str(service_runner), "start"],
+        cwd=install_dir,
+        env=os.environ.copy(),
     )
-    try:
-        try:
-            win32service.StartService(service, [])
-        except win32service.error as exc:
-            if not _is_service_already_running_error(exc):
-                raise InstallerError("could not start the Windows Service") from exc
-        deadline = time.monotonic() + 30
-        while time.monotonic() < deadline:
-            status = win32service.QueryServiceStatus(service)[1]
-            if status == win32service.SERVICE_RUNNING:
-                return
-            if status == win32service.SERVICE_STOPPED:
-                raise InstallerError("Windows Service stopped during startup")
-            time.sleep(0.5)
-        raise InstallerError("Windows Service did not reach running state in 30 seconds")
-    finally:
-        win32service.CloseServiceHandle(service)
-        win32service.CloseServiceHandle(manager)
 
 
 def _write_machine_environment(values: dict[str, str]) -> None:
@@ -356,9 +289,17 @@ def _run(
     *,
     cwd: Path,
     env: dict[str, str] | None = None,
+    input_text: str | None = None,
 ) -> None:
     try:
-        subprocess.run(command, cwd=cwd, env=env, check=True)
+        subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            input=input_text,
+            text=input_text is not None,
+            check=True,
+        )
     except OSError as exc:
         raise InstallerError(f"could not execute {Path(command[0]).name}") from exc
     except subprocess.CalledProcessError as exc:
@@ -439,14 +380,6 @@ def _require_elevated() -> None:
         raise InstallerError("could not verify administrator privileges") from exc
     if not elevated:
         raise InstallerError("run the installer from an elevated PowerShell")
-
-
-def _is_service_missing_error(error: BaseException) -> bool:
-    return getattr(error, "winerror", None) in {1060}
-
-
-def _is_service_already_running_error(error: BaseException) -> bool:
-    return getattr(error, "winerror", None) in {1056}
 
 
 def _parser() -> argparse.ArgumentParser:
