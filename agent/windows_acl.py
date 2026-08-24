@@ -34,7 +34,7 @@ class WindowsCredentialFileSecurity:
                     win32security.TokenUser,
                 )
             finally:
-                token.Close()
+                win32api.CloseHandle(token)
             dacl = win32security.ACL()
             access_mask = (
                 ntsecuritycon.FILE_GENERIC_READ
@@ -58,6 +58,8 @@ class WindowsCredentialFileSecurity:
             details = f" ({type(exc).__name__}"
             if error_code is not None:
                 details += f", Windows error {error_code}"
+            if isinstance(exc, AttributeError):
+                details += f": {exc}"
             details += ")"
             raise WindowsCredentialAclError(
                 f"credential file ACL setup failed while trying to {operation}{details}"
