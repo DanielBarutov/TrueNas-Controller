@@ -42,6 +42,11 @@ Token вводится видимо только в локальном PowerShel
 Windows production store использует DPAPI user scope и ACL текущей учётной
 записи. Enrollment под администратором и запуск службы под другим пользователем
 приведут к ошибке расшифровки. Private signing key на клиент не устанавливается.
+Для запуска службы Windows-учётная запись должна иметь непустой пароль. В
+скрытом prompt installer вводится пароль входа Windows, а не пароль Basic Auth
+Controller и не enrollment token. Passwordless-учётка приводит к ошибке SCM
+`1069`; задайте пароль Windows или используйте отдельную сервисную учётную
+запись с паролем.
 Если preflight сообщает об ошибке определения Windows account, нужна актуальная
 копия checkout: ACL определяется по SID текущего process token, включая elevated
 PowerShell, а одноразовый token до успешного preflight не запрашивается.

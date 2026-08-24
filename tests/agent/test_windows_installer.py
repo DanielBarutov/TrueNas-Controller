@@ -150,6 +150,16 @@ def test_service_scm_commands_use_target_runtime_and_stdin_password(
     assert "AGENT_SERVICE_PASSWORD" not in calls[0]["env"]
 
 
+def test_installer_rejects_passwordless_windows_service_account(tmp_path: Path) -> None:
+    with pytest.raises(InstallerError, match="password cannot be empty"):
+        installer._install_service(
+            tmp_path / ".venv" / "Scripts" / "python.exe",
+            tmp_path / "scripts" / "windows_agent_service.py",
+            ".\\client",
+            "",
+        )
+
+
 def test_installer_environment_contains_no_enrollment_token(tmp_path: Path) -> None:
     config = AgentInstallConfig(
         controller_url="https://controller.example",

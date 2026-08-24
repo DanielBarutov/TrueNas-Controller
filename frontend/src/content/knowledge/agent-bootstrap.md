@@ -57,6 +57,11 @@ account, регистрирует службу и проверяет её сос
 
 `--station-id` не нужен: station UUID берётся из `station-report.json`.
 
+В prompt после token вводится непустой пароль входа Windows для текущей
+учётной записи службы. Это не пароль Basic Auth Controller. Если у Windows
+пользователя нет пароля, сначала задайте его; passwordless-учётка не может
+запустить эту службу и приводит к ошибке SCM `1069`.
+
 `--command-verify-key` необязателен. Это публичный Ed25519-ключ Controller для
 проверки подписанной команды refresh, а не enrollment token и не пароль. Без
 него heartbeat работает, но удалённая refresh-команда отключена.

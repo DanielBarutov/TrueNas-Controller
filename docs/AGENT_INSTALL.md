@@ -23,6 +23,8 @@ TrueNAS. Поэтому `AGENT_API_BASE_URL` — это URL Controller без `/
   допускается HTTP на порту `8000` только с явным `--allow-insecure-http`;
 - стабильная папка проекта агента;
 - отдельная Windows-учётная запись для службы, если это возможно;
+- непустой пароль Windows для учётной записи службы; passwordless-учётная
+  запись не поддерживается этим вариантом службы;
 - согласованные `station_id`, `agent_uuid` и agent version. Public key для
   подписанных команд нужен только если требуется удалённый refresh.
 
@@ -39,6 +41,17 @@ baseline Alembic migration. Пароль, TrueNAS API key и private signing key
 Для текущего Docker Compose используйте `$ControllerUrl =
 "http://<controller-ip>:8000"`; автоматический installer дополнительно требует
 `--allow-insecure-http`. В production используйте HTTPS без этого флага.
+
+### Важно про пароль Windows
+
+В prompt регистрации службы вводится пароль входа именно той Windows-учётной
+записи, под которой будет работать агент. Это не пароль Basic Auth Controller,
+не enrollment token и не `AGENT_COMMAND_VERIFY_KEY`. Пустой пароль Windows для
+этого сценария не подходит: Windows отклоняет запуск службы под такой записью.
+
+Если у текущего пользователя нет пароля, задайте его в настройках Windows или
+в elevated PowerShell командой `net user <имя-пользователя> *`. Звёздочка
+оставляет ввод нового пароля скрытым и не записывает его в историю команд.
 
 ## 2. Создать station и получить одноразовый token
 
@@ -310,6 +323,8 @@ Set-Location $ProjectRoot
 | `protected Windows credential store is unavailable` | команда запущена не на Windows; plaintext fallback для production запрещён |
 | `credential file ACL setup failed while trying to resolve current Windows account` | обновить checkout; installer использует SID текущего process token, а `check-credential-store` проверяет ACL до token |
 | `No module named win32service` при регистрации службы | обновить checkout и повторить installer: SCM запускается из target `.venv`, внешний `py -3` не используется для pywin32 |
+| ошибка SCM `1069` при запуске службы | введён неверный пароль Windows или используется passwordless-учётка; пароль Basic Auth Controller здесь не подходит |
+| ошибка SCM `1385` при запуске службы | учётной записи не выдано право `Log on as a service` в локальной политике Windows |
 | HTTP 409 при enrollment | token просрочен или уже использован; получить новый |
 | HTTP 401 на heartbeat | credential/station binding не совпадает или credential отозван |
 | станция offline | проверить службу, URL Controller, порт `8000` для локального HTTP, firewall и timestamp/часы Windows |

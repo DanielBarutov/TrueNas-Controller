@@ -53,6 +53,10 @@ Token и credential не выводятся в stdout/stderr.
 credential-файла текущей учётной записью. Поэтому enrollment должен выполняться
 под той же учётной записью, под которой впоследствии будет работать служба.
 Фактический service account и его права остаются отдельным незакрытым gate.
+Для запуска Windows Service у этой учётной записи должен быть непустой пароль.
+В prompt installer вводится пароль входа Windows, а не пароль Basic Auth
+Controller; passwordless-учётка и код ошибки SCM `1069` требуют сначала задать
+пароль Windows.
 
 ## Автоматический installer
 

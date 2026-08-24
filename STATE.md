@@ -164,6 +164,8 @@
 - [x] Windows installer SCM boundary: регистрация и запуск службы выполняются
   target `.venv` Python с pywin32; внешний `py -3` больше не импортирует
   `win32service`, пароль передаётся через stdin.
+- [x] Windows installer требует непустой пароль service account, явно отделяет
+  его от Controller Basic Auth и объясняет ошибки SCM `1069`/`1385`.
 - [ ] Native Windows retest после исправления ACL и preflight не выполнен в
   текущем Linux окружении.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
@@ -277,3 +279,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Добавлен план 32 и удаление station/agent | DELETE soft-delete скрывает станцию, удаляет agent binding и pending commands, отзывает tokens, сохраняет историю; тот же station report UUID можно использовать для повторной регистрации |
 | 2026-08-24 | Исправлен Windows ACL gate | named protected DACL, SID текущего process token, диагностируемый Windows error code и локальный DPAPI/ACL preflight до расходования enrollment token; native Windows retest остаётся открытым |
 | 2026-08-24 | Исправлен `win32service` installer gate | SCM registration/start перенесены в target `.venv` с pywin32; пароль service account передаётся через stdin, внешний `py -3` больше не импортирует `win32service` |
+| 2026-08-24 | Уточнён Windows service password gate | пустой пароль отклоняется до SCM-регистрации; Basic Auth отделён от пароля входа Windows; добавлены подсказки для ошибок `1069` и `1385` |

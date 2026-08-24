@@ -197,7 +197,9 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
         python_path,
         config.service_runner,
         config.service_account,
-        getpass("Password for the service account (hidden): "),
+        getpass(
+            "Windows logon password for the service account (hidden; not Controller Basic Auth): "
+        ),
     )
     print("[6/6] Starting and checking Windows Service")
     _start_and_check_service(python_path, config.service_runner, config.install_dir)
@@ -233,7 +235,12 @@ def _install_service(
     service_password: str,
 ) -> None:
     if not service_password:
-        raise InstallerError("service account password cannot be empty")
+        raise InstallerError(
+            "Windows service account password cannot be empty; "
+            "Windows cannot start this service under a passwordless user. "
+            "Set a Windows logon password or use a dedicated Windows account "
+            "with a password"
+        )
     child_environment = os.environ.copy()
     child_environment["AGENT_SERVICE_ACCOUNT"] = service_account
     try:

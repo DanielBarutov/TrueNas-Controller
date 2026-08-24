@@ -148,5 +148,8 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] SCM registration/start выполняются через target `.venv` Python с
   `pywin32`; пароль service account передаётся только через stdin дочернего
   процесса и не попадает в argv или machine environment;
+- [x] installer явно отклоняет пустой пароль Windows service account и
+  объясняет, что ошибка SCM `1069` означает отказ входа службы, а `1385` —
+  отсутствие права `Log on as a service`;
 - [ ] фактическая проверка installer/service registration, ACL и heartbeat под
   фактической service account после обновления checkout на Windows;

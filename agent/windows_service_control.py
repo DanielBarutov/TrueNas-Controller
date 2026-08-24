@@ -15,10 +15,20 @@ def install_windows_service(
     """Create or update the agent service using the target Python runtime."""
 
     try:
+        import win32api
+        import win32con
+        import win32security
         import win32service
     except ImportError as exc:
         raise RuntimeError("pywin32 is required to register the Windows Service") from exc
 
+    _validate_service_credentials(
+        win32api,
+        win32con,
+        win32security,
+        service_account,
+        service_password,
+    )
     manager = win32service.OpenSCManager(
         None,
         None,
@@ -89,7 +99,20 @@ def start_windows_service() -> None:
         try:
             win32service.StartService(service, [])
         except win32service.error as exc:
-            if getattr(exc, "winerror", None) != 1056:
+            error_code = getattr(exc, "winerror", None)
+            if error_code == 1056:
+                pass
+            elif error_code == 1069:
+                raise RuntimeError(
+                    "could not start the Windows Service: service account logon failed; "
+                    "verify the Windows account name and password"
+                ) from exc
+            elif error_code == 1385:
+                raise RuntimeError(
+                    "could not start the Windows Service: the account is not granted "
+                    "Log on as a service"
+                ) from exc
+            else:
                 raise RuntimeError("could not start the Windows Service") from exc
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
@@ -103,3 +126,40 @@ def start_windows_service() -> None:
     finally:
         win32service.CloseServiceHandle(service)
         win32service.CloseServiceHandle(manager)
+
+
+def _validate_service_credentials(
+    win32api,
+    win32con,
+    win32security,
+    service_account: str,
+    service_password: str,
+) -> None:
+    """Validate the Windows password before writing it into SCM configuration."""
+
+    domain, username = _split_service_account(service_account)
+    try:
+        token = win32security.LogonUser(
+            username,
+            domain,
+            service_password,
+            win32con.LOGON32_LOGON_INTERACTIVE,
+            win32con.LOGON32_PROVIDER_DEFAULT,
+        )
+    except win32security.error as exc:
+        raise RuntimeError(
+            "service account credentials were rejected; use the Windows logon "
+            "password, not the Controller Basic Auth password; a blank password "
+            "is not supported for a Windows service account"
+        ) from exc
+    try:
+        win32api.CloseHandle(token)
+    except Exception:
+        raise RuntimeError("could not close the temporary service account token") from None
+
+
+def _split_service_account(service_account: str) -> tuple[str | None, str]:
+    if "\\" in service_account:
+        domain, username = service_account.split("\\", 1)
+        return (domain or None), username
+    return None, service_account
