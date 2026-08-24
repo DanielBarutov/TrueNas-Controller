@@ -17,10 +17,12 @@ from application.agent_commands import (
 from application.lifecycle import (
     AgentUnauthorizedError,
     CreateStationUseCase,
+    DeleteStationUseCase,
     EnrollAgentUseCase,
     EnrollmentRejectedError,
     HeartbeatRejectedError,
     ReceiveHeartbeatUseCase,
+    StationRegistrationConflictError,
 )
 from application.ports import StationListQuery
 from application.preflight import EvaluateStationPreflightUseCase, StationNotFoundError
@@ -64,6 +66,7 @@ from presentation.schemas import StationResponse
 def create_app(
     station_query: StationListQuery,
     station_registry: CreateStationUseCase | None = None,
+    delete_station: DeleteStationUseCase | None = None,
     enroll_agent: EnrollAgentUseCase | None = None,
     receive_heartbeat: ReceiveHeartbeatUseCase | None = None,
     evaluate_preflight: EvaluateStationPreflightUseCase | None = None,
@@ -101,17 +104,40 @@ def create_app(
             payload: StationCreateRequest,
             _: Annotated[str, Depends(require_basic_auth)],
         ) -> StationRegistrationResponse:
-            result = await station_registry.execute(
-                station_id=payload.station_id,
-                display_name=payload.display_name,
-                hostname=payload.hostname,
-                role=payload.role,
-            )
+            try:
+                result = await station_registry.execute(
+                    station_id=payload.station_id,
+                    display_name=payload.display_name,
+                    hostname=payload.hostname,
+                    role=payload.role,
+                )
+            except StationRegistrationConflictError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
             return StationRegistrationResponse(
                 **StationResponse.from_domain(result.station).model_dump(),
                 enrollment_token=result.enrollment_token,
                 enrollment_expires_at=result.enrollment_expires_at,
             )
+
+    if delete_station is not None:
+
+        @app.delete(
+            "/api/v1/stations/{station_id}",
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+        async def delete_station_route(
+            station_id: UUID,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> None:
+            deleted = await delete_station.execute(station_id=station_id)
+            if not deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="station not found",
+                )
 
     if enroll_agent is not None:
 

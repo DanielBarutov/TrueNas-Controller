@@ -45,6 +45,12 @@ export class ControllerApi {
     });
   }
 
+  async deleteStation(stationId: string): Promise<void> {
+    await this.request<void>(`/api/v1/stations/${stationId}`, {
+      method: "DELETE",
+    });
+  }
+
   async preflight(input: {
     station_id: string;
     max_snapshot_age_seconds?: number;
@@ -112,6 +118,9 @@ export class ControllerApi {
         // Keep the safe status-only message when the response is not JSON.
       }
       throw new ApiError(detail, response.status);
+    }
+    if (response.status === 204) {
+      return undefined as T;
     }
     return (await response.json()) as T;
   }

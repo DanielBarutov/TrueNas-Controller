@@ -47,6 +47,16 @@ class FakeStationRegistry:
         )
 
 
+class FakeStationDeletion:
+    def __init__(self, result: bool = True) -> None:
+        self.result = result
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> bool:
+        self.calls.append(kwargs)
+        return self.result
+
+
 class FakeEnrollment:
     async def execute(self, **kwargs) -> EnrollmentResult:
         return EnrollmentResult(
@@ -266,6 +276,40 @@ def test_agent_lifecycle_routes_use_their_auth_boundaries(monkeypatch) -> None:
     assert client.post("/api/v1/agents/heartbeat", json={}).status_code == 401
     assert heartbeat_response.status_code == 200
     assert heartbeat.credential == "credential-for-test"
+
+
+def test_delete_station_route_requires_basic_auth_and_removes_registry_entry(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    station_id = uuid4()
+    deletion = FakeStationDeletion()
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            delete_station=deletion,
+        )
+    )
+
+    assert client.delete(f"/api/v1/stations/{station_id}").status_code == 401
+    response = client.delete(
+        f"/api/v1/stations/{station_id}",
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 204
+    assert deletion.calls == [{"station_id": station_id}]
+
+
+def test_delete_station_route_returns_not_found_for_unknown_station(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    deletion = FakeStationDeletion(result=False)
+    client = TestClient(create_app(FakeStationQuery([]), delete_station=deletion))
+
+    response = client.delete(
+        f"/api/v1/stations/{uuid4()}",
+        auth=("admin", TEST_PASSWORD),
+    )
+
+    assert response.status_code == 404
 
 
 def test_agent_command_routes_require_their_auth_boundaries(monkeypatch) -> None:

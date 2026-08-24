@@ -26,6 +26,10 @@ class EnrollmentRejectedError(ValueError):
     """Raised when an enrollment token cannot be claimed."""
 
 
+class StationRegistrationConflictError(ValueError):
+    """Raised when an active station already owns the requested stable UUID."""
+
+
 class AgentUnauthorizedError(ValueError):
     """Raised when an agent credential or station binding is invalid."""
 
@@ -100,10 +104,35 @@ class CreateStationUseCase:
             expires_at=token_expires_at,
         )
         async with self._uow_factory() as uow:
-            await uow.stations.add(station)
+            existing = await uow.stations.get(station.station_id)
+            if existing is None:
+                await uow.stations.add(station)
+            elif existing.deleted_at is None:
+                raise StationRegistrationConflictError(
+                    "station with this stable UUID is already registered"
+                )
+            else:
+                station = replace(station, id=existing.id)
+                await uow.stations.restore(station)
             await uow.enrollment_tokens.add(token)
             await uow.commit()
         return StationRegistration(station, raw_token, token_expires_at)
+
+
+class DeleteStationUseCase:
+    """Remove a station from the active registry and invalidate its agent."""
+
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self._uow_factory = uow_factory
+
+    async def execute(self, *, station_id: UUID, now: datetime | None = None) -> bool:
+        deleted_at = ensure_utc(now or datetime.now(UTC))
+        async with self._uow_factory() as uow:
+            deleted = await uow.stations.delete(station_id, deleted_at)
+            if not deleted:
+                return False
+            await uow.commit()
+        return True
 
 
 class EnrollAgentUseCase:

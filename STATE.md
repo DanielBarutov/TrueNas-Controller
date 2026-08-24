@@ -16,13 +16,14 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [06 — Windows-агент](/home/daniel/tnas/plans/06-agent/01-windows-agent.md).
-- **Текущая задача:** завершить единый Windows installer orchestration и затем
-  провести фактическую проверку service account/DPAPI/SCM на тестовом ПК. План
-  30 TrueNAS остаётся отдельным LAN gate.
-- **Следующий разрешённый шаг:** запустить `--dry-run`, затем согласованный
-  Windows smoke с тестовой station. Real Redis worker execution, TrueNAS write
-  и storage switch пока не включать.
+- **Активный план:** [31 — Frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
+- **Текущая задача:** завершить frontend/onboarding slice: удаление station из
+  реестра с отзывом agent binding и повторной регистрацией по тому же
+  `station-report.json`. План 30 TrueNAS и фактический Windows runtime остаются
+  отдельными gate.
+- **Следующий разрешённый шаг:** после проверки удаления перейти к
+  `--dry-run`/согласованному Windows smoke с тестовой station. Real Redis worker
+  execution, TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -60,7 +61,8 @@
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
 | [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
-| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, allowlisted Markdown reader, publish wizard, job read model и client station report prefill созданы; миграция и `/api/v1/stations` проверены | проверить новый onboarding script/UI и перейти к отдельному TrueNAS/Windows runtime gate |
+| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, station delete/re-register, allowlisted Markdown reader, publish wizard, job read model и client station report prefill созданы; миграция и `/api/v1/stations` проверены | перейти к отдельному TrueNAS/Windows runtime gate |
+| [32 — Удаление station и агента](plans/32-station-removal/01-station-removal-and-agent-revocation.md) | `closed` | DELETE Basic Auth route, soft-delete, удаление agent/commands, отзыв token, сохранение истории и повторная регистрация по UUID реализованы и проверены | обновлять только при изменении политики удаления |
 
 ## Чекап решений
 
@@ -180,6 +182,11 @@
   пройден, backend/API runtime не запускался в рамках frontend build.
 - [x] Frontend key tests: `npm run test` — 3 test files, 4 tests passed;
   проверены Basic Auth/error mapping, station selection и knowledge allowlist.
+- [x] Station removal slice: DELETE Basic Auth route, подтверждение в UI,
+  отзыв token, удаление agent/commands, сохранение snapshots и повторная
+  регистрация по тому же стабильному UUID проверены ключевыми тестами.
+- [x] После station removal slice: backend targeted tests `20 passed`, frontend
+  tests `7 passed`, `npm run build` и Ruff check/format прошли.
 - [x] Compose config: `docker compose config` прошёл с тестовыми переменными;
   backend startup теперь выполняет idempotent `alembic upgrade head` до Uvicorn.
 - [x] Compose runtime: PostgreSQL baseline migration `bee81bac70cc` применена,
@@ -254,3 +261,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Добавлен быстрый Windows-agent onboarding | Клиентский stdlib-only script собирает station report; frontend валидирует JSON и заполняет форму создания station без передачи Basic Auth или credential |
 | 2026-08-24 | Добавлен единый Windows installer orchestration | Скрипт копирует release checkout, ставит locked dependencies, выполняет enrollment и регистрирует службу; реальный Windows/SCM smoke оставлен отдельным gate |
 | 2026-08-24 | Упрощён первый запуск агента | Verify key больше не требуется; общий station/agent UUID берётся из station report, token вводится открыто, пароль service account остаётся скрытым |
+| 2026-08-24 | Добавлен план 32 и удаление station/agent | DELETE soft-delete скрывает станцию, удаляет agent binding и pending commands, отзывает tokens, сохраняет историю; тот же station report UUID можно использовать для повторной регистрации |

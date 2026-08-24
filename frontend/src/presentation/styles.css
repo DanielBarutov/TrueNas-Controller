@@ -39,6 +39,8 @@ h3 { margin-bottom: 10px; }
 .primary-button { background: #7894ff; color: #081020; font-weight: 750; }
 .primary-button:hover { background: #9aadff; }
 .secondary-button { border: 1px solid #405275; background: #17243a; }
+.danger-button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #7b3f4a; border-radius: 9px; padding: 8px 10px; background: #3b2029; color: #ffb0ba; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.danger-button:hover { border-color: #ff7f8e; background: #512832; }
 .ghost-button, .nav-button { background: transparent; color: #9eacc3; text-align: left; }
 .nav-button { padding: 12px 14px; }
 .nav-button:hover, .nav-button.active { background: #1c2b48; color: #dfe7ff; }

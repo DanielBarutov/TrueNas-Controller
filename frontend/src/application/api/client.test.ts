@@ -35,4 +35,16 @@ describe("ControllerApi", () => {
     await expect(new ControllerApi({ username: "admin", password: "bad" }).health())
       .rejects.toEqual(new ApiError("Request failed with status 401", 401));
   });
+
+  it("supports an authenticated station deletion with an empty 204 response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new ControllerApi({ username: "admin", password: "secret" }).deleteStation("station-1"))
+      .resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/stations/station-1", expect.objectContaining({
+      method: "DELETE",
+    }));
+  });
 });

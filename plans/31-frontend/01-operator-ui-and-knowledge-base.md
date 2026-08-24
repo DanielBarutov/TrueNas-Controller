@@ -165,6 +165,8 @@ key. Basic Auth credential живёт только в памяти текуще�
   backend contract: overview, stations, publish wizard и knowledge base;
 - [x] Compose runtime backend/frontend и PostgreSQL startup migration проверены;
   `/api/v1/stations` через Basic Auth вернул `200`.
+- [x] Добавлено удаление station из UI с подтверждением, отзывом agent binding
+  на backend и повторной регистрацией по тому же стабильному UUID отчёта.
 
 ## Запреты
 

@@ -14,6 +14,7 @@ import {
   Rocket,
   Search,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -191,6 +192,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
   const [reportError, setReportError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StationStatus | "all">("all");
+  const [deletingStationId, setDeletingStationId] = useState<string | null>(null);
   const [form, setForm] = useState({ display_name: "", hostname: "", role: "client" as StationRole });
 
   useEffect(() => { void loadStations(); }, []);
@@ -201,6 +203,23 @@ function StationsPage({ api }: { api: ControllerApi }) {
       setError(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось получить stations.");
+    }
+  }
+
+  async function deleteStation(station: Station) {
+    const confirmed = window.confirm(
+      `Удалить станцию «${station.display_name}»? Реестр скроет station, агентская привязка и токены будут удалены/отозваны. История снимков сохранится.`,
+    );
+    if (!confirmed) return;
+    setDeletingStationId(station.station_id);
+    setError(null);
+    try {
+      await api.deleteStation(station.station_id);
+      setStations((current) => current.filter((item) => item.station_id !== station.station_id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось удалить station.");
+    } finally {
+      setDeletingStationId(null);
     }
   }
 
@@ -256,8 +275,8 @@ function StationsPage({ api }: { api: ControllerApi }) {
       {error && <p className="error-message">{error}</p>}
       <div className="station-toolbar"><label className="search-field"><span><Search aria-hidden size={13} /> Поиск</span><input placeholder="Имя или hostname" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-field"><span><Filter aria-hidden size={13} /> Статус</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StationStatus | "all")}><option value="all">Все ({stations.length})</option><option value="online">Online ({statusCounts.online ?? 0})</option><option value="stale">Stale ({statusCounts.stale ?? 0})</option><option value="offline">Offline ({statusCounts.offline ?? 0})</option></select></label><div className="toolbar-note"><span className="pulse-dot" /> {visibleStations.length} в текущем списке</div></div>
       <div className="table-card">
-        <table><thead><tr><th>Станция</th><th>Роль</th><th>Статус</th><th>Пояснение</th></tr></thead>
-          <tbody>{visibleStations.length === 0 ? <tr><td colSpan={4} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td></tr>)}</tbody>
+        <table><thead><tr><th>Станция</th><th>Роль</th><th>Статус</th><th>Пояснение</th><th aria-label="Действия" /></tr></thead>
+          <tbody>{visibleStations.length === 0 ? <tr><td colSpan={5} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td><td><button className="danger-button" type="button" onClick={() => void deleteStation(station)} disabled={deletingStationId === station.station_id} title="Удалить станцию и агентскую привязку"><Trash2 aria-hidden size={15} />{deletingStationId === station.station_id ? "Удаляем…" : "Удалить"}</button></td></tr>)}</tbody>
         </table>
       </div>
       <section className="form-card">

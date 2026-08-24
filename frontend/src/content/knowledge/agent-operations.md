@@ -29,6 +29,21 @@ POST /api/v1/agents/{agent_uuid}/commands
 }
 ```
 
+## Удаление station и агента
+
+В UI откройте **Станции и агенты**, нажмите **Удалить** напротив станции и
+подтвердите действие. Controller soft-delete-ит station, удаляет её agent
+binding и ожидающие команды, отзывает enrollment tokens. История snapshots и
+publish сохраняется. Старый credential перестаёт работать сразу.
+
+Это серверная операция: Windows Service на клиентском ПК не удаляется по сети.
+При полном удалении клиента сначала остановите службу, затем локально
+выполните `python -m agent.entrypoint remove` из папки проекта.
+
+Для повторной установки используйте тот же `station-report.json`: после
+удаления Controller восстановит station по стабильному UUID и выдаст новый
+одноразовый token.
+
 ## Если агент offline
 
 1. Проверь `Get-Service -Name TrueNasControllerAgent`.

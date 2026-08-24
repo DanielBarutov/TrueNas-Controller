@@ -260,7 +260,7 @@ $Command | Select-Object command_id, name, expires_at, status
 snapshot и отправит acknowledgement. Shell, PowerShell и произвольный запуск
 процессов этой командой не поддерживаются.
 
-## 9. Остановка, удаление и re-enrollment
+## 9. Остановка и удаление агента
 
 Обычная остановка:
 
@@ -268,7 +268,7 @@ snapshot и отправит acknowledgement. Shell, PowerShell и произв�
 Stop-Service -Name TrueNasControllerAgent
 ```
 
-Удаление регистрации после остановки:
+Удаление локальной регистрации агента после остановки:
 
 ```powershell
 Set-Location $ProjectRoot
@@ -276,10 +276,23 @@ Set-Location $ProjectRoot
 ```
 
 Не удалять credential до остановки службы. При re-enrollment не использовать
-старый token: Controller помечает token использованным. Для текущей версии
-повторная регистрация с тем же `agent_uuid` требует отдельного решения по
-старой binding записи; безопаснее заранее выдать новый UUID и новый
-одноразовый token либо выполнить согласованную операторскую очистку.
+старый token: Controller помечает token использованным.
+
+Удаление station из Controller выполняется оператором в UI:
+
+1. Откройте **Станции и агенты**.
+2. Нажмите **Удалить** в строке станции и подтвердите действие.
+3. Controller скрывает station из активного реестра, удаляет agent binding и
+   ожидающие команды, отзывает enrollment tokens, но сохраняет snapshots и
+   историю publish.
+4. Старый agent credential сразу перестаёт работать. Удаление в Controller не
+   может физически удалить Windows Service на клиентском ПК: остановите службу
+   и выполните локальную команду `agent.entrypoint remove` при необходимости.
+
+Если нужно повторить установку на том же ПК, вставьте тот же
+`station-report.json` в форму создания station. Soft-deleted запись будет
+восстановлена с тем же стабильным UUID, а Controller выдаст новый token.
+Старый credential и старый token использовать нельзя.
 
 ## Частые ошибки
 

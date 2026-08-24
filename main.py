@@ -12,7 +12,12 @@ from application.agent_commands import (
     AcknowledgeAgentCommandUseCase,
     IssueAgentCommandUseCase,
 )
-from application.lifecycle import CreateStationUseCase, EnrollAgentUseCase, ReceiveHeartbeatUseCase
+from application.lifecycle import (
+    CreateStationUseCase,
+    DeleteStationUseCase,
+    EnrollAgentUseCase,
+    ReceiveHeartbeatUseCase,
+)
 from application.preflight import EvaluateStationPreflightUseCase
 from application.publish_commands import CreatePublishJobUseCase
 from application.publish_confirmation import PreparePublishJobUseCase
@@ -38,6 +43,7 @@ def build_app(database_url: str | None = None) -> FastAPI:
     return create_app(
         ListStationsUseCase(uow_factory),
         station_registry=CreateStationUseCase(uow_factory),
+        delete_station=DeleteStationUseCase(uow_factory),
         enroll_agent=EnrollAgentUseCase(uow_factory),
         receive_heartbeat=ReceiveHeartbeatUseCase(uow_factory),
         evaluate_preflight=preflight,

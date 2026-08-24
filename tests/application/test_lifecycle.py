@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from application.lifecycle import (
     AgentUnauthorizedError,
     CreateStationUseCase,
+    DeleteStationUseCase,
     EnrollAgentUseCase,
     EnrollmentRejectedError,
     HeartbeatRejectedError,
@@ -20,6 +21,7 @@ from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from domain.station import StationRole
 from repository.database import create_engine, create_session_factory
 from repository.models import (
+    AgentCommandRecord,
     AgentRecord,
     Base,
     EnrollmentTokenRecord,
@@ -88,6 +90,92 @@ async def test_create_station_preserves_report_station_uuid(engine: AsyncEngine)
     )
 
     assert registration.station.station_id == station_id
+
+
+async def test_delete_station_hides_registry_and_removes_agent_binding(
+    engine: AsyncEngine,
+) -> None:
+    factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
+    now = datetime(2026, 8, 23, 12, tzinfo=UTC)
+    registration = await CreateStationUseCase(factory).execute(
+        display_name="Client 01",
+        hostname="client-01",
+        role=StationRole.CLIENT,
+        now=now,
+    )
+    enrollment = await EnrollAgentUseCase(factory).execute(
+        enrollment_token=registration.enrollment_token,
+        agent_uuid=uuid4(),
+        hostname="client-01",
+        agent_version="1.0.0",
+        now=now,
+    )
+    snapshot = ProcessSnapshot(
+        station_id=registration.station.station_id,
+        captured_at=now,
+        agent_version="1.0.0",
+    )
+    await ReceiveHeartbeatUseCase(factory).execute(
+        credential=enrollment.credential,
+        snapshot=snapshot,
+        received_at=now,
+    )
+    async with create_session_factory(engine)() as session:
+        agent = await session.scalar(select(AgentRecord))
+        assert agent is not None
+        session.add(
+            AgentCommandRecord(
+                agent_id=agent.id,
+                name="refresh_process_snapshot",
+                expires_at=now + timedelta(minutes=5),
+                signature="test-signature",
+            )
+        )
+        await session.commit()
+
+    deleted_at = now + timedelta(minutes=1)
+    assert await DeleteStationUseCase(factory).execute(
+        station_id=registration.station.station_id,
+        now=deleted_at,
+    )
+    assert not await DeleteStationUseCase(factory).execute(
+        station_id=registration.station.station_id,
+        now=deleted_at + timedelta(seconds=1),
+    )
+
+    async with create_session_factory(engine)() as session:
+        station = await session.scalar(select(StationRecord))
+        token = await session.scalar(select(EnrollmentTokenRecord))
+        stored_agent = await session.scalar(select(AgentRecord))
+        stored_command = await session.scalar(select(AgentCommandRecord))
+        stored_snapshot = await session.scalar(select(ProcessSnapshotRecord))
+    assert station is not None
+    assert station.enabled is False
+    assert station.deleted_at is not None
+    assert station.deleted_at.replace(tzinfo=UTC) == deleted_at
+    assert station.state.value == "disabled"
+    assert token is not None and token.revoked_at is not None
+    assert token.revoked_at.replace(tzinfo=UTC) == deleted_at
+    assert stored_agent is None
+    assert stored_command is None
+    assert stored_snapshot is not None
+
+    with pytest.raises(AgentUnauthorizedError):
+        await ReceiveHeartbeatUseCase(factory).execute(
+            credential=enrollment.credential,
+            snapshot=snapshot,
+            received_at=deleted_at,
+        )
+
+    restored = await CreateStationUseCase(factory).execute(
+        station_id=registration.station.station_id,
+        display_name="Client 01 restored",
+        hostname="client-01-restored",
+        role=StationRole.CLIENT,
+        now=deleted_at + timedelta(minutes=1),
+    )
+    assert restored.station.id == registration.station.id
+    assert restored.station.deleted_at is None
 
 
 async def test_heartbeat_updates_station_and_snapshot(

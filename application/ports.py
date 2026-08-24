@@ -41,8 +41,14 @@ class StationRepository(Protocol):
     async def add(self, station: Station) -> None:
         """Stage a new station for persistence in the current unit of work."""
 
+    async def restore(self, station: Station) -> None:
+        """Restore a previously soft-deleted station with fresh registration data."""
+
     async def update_hostname(self, station_id: UUID, hostname: str) -> None:
         """Update the station hostname received during enrollment."""
+
+    async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:
+        """Soft-delete a station and remove its active agent binding."""
 
 
 class EnrollmentTokenRepository(Protocol):
