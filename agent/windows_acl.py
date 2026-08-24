@@ -17,14 +17,24 @@ class WindowsCredentialFileSecurity:
         try:
             import ntsecuritycon
             import win32api
+            import win32con
             import win32security
         except ImportError as exc:
             raise WindowsCredentialAclError("pywin32 is required for credential ACL setup") from exc
 
         operation = "resolve current Windows account"
         try:
-            account_name = win32api.GetUserName()
-            user_sid, _, _ = win32security.LookupAccountName(None, account_name)
+            token = win32security.OpenProcessToken(
+                win32api.GetCurrentProcess(),
+                win32con.TOKEN_QUERY,
+            )
+            try:
+                user_sid, _ = win32security.GetTokenInformation(
+                    token,
+                    win32security.TokenUser,
+                )
+            finally:
+                token.Close()
             dacl = win32security.ACL()
             access_mask = (
                 ntsecuritycon.FILE_GENERIC_READ
@@ -45,7 +55,10 @@ class WindowsCredentialFileSecurity:
             )
         except Exception as exc:
             error_code = getattr(exc, "winerror", None)
-            details = f" (Windows error {error_code})" if error_code is not None else ""
+            details = f" ({type(exc).__name__}"
+            if error_code is not None:
+                details += f", Windows error {error_code}"
+            details += ")"
             raise WindowsCredentialAclError(
                 f"credential file ACL setup failed while trying to {operation}{details}"
             ) from exc

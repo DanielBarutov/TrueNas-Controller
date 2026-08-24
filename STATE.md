@@ -272,4 +272,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Добавлен единый Windows installer orchestration | Скрипт копирует release checkout, ставит locked dependencies, выполняет enrollment и регистрирует службу; реальный Windows/SCM smoke оставлен отдельным gate |
 | 2026-08-24 | Упрощён первый запуск агента | Verify key больше не требуется; общий station/agent UUID берётся из station report, token вводится открыто, пароль service account остаётся скрытым |
 | 2026-08-24 | Добавлен план 32 и удаление station/agent | DELETE soft-delete скрывает станцию, удаляет agent binding и pending commands, отзывает tokens, сохраняет историю; тот же station report UUID можно использовать для повторной регистрации |
-| 2026-08-24 | Исправлен Windows ACL gate | named protected DACL, диагностируемый Windows error code и локальный DPAPI/ACL preflight до расходования enrollment token; native Windows retest остаётся открытым |
+| 2026-08-24 | Исправлен Windows ACL gate | named protected DACL, SID текущего process token, диагностируемый Windows error code и локальный DPAPI/ACL preflight до расходования enrollment token; native Windows retest остаётся открытым |

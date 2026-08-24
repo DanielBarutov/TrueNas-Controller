@@ -308,6 +308,7 @@ Set-Location $ProjectRoot
 | heartbeat работает, но refresh-команда не выполняется | передайте public key через `--command-verify-key` или `AGENT_COMMAND_VERIFY_KEY`; без него refresh намеренно отключён |
 | `agent credential is missing` | enrollment выполнен под той же учётной записью и в тот же путь |
 | `protected Windows credential store is unavailable` | команда запущена не на Windows; plaintext fallback для production запрещён |
+| `credential file ACL setup failed while trying to resolve current Windows account` | обновить checkout; installer использует SID текущего process token, а `check-credential-store` проверяет ACL до token |
 | HTTP 409 при enrollment | token просрочен или уже использован; получить новый |
 | HTTP 401 на heartbeat | credential/station binding не совпадает или credential отозван |
 | станция offline | проверить службу, URL Controller, порт `8000` для локального HTTP, firewall и timestamp/часы Windows |
