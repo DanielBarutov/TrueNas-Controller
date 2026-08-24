@@ -47,8 +47,8 @@ def upgrade() -> None:
         sa.Column("label", sa.String(length=255), nullable=False),
         sa.Column("description", sa.String(length=1000), nullable=True),
         sa.Column("game_name", sa.String(length=255), nullable=False),
-        sa.Column("dry_run", sa.Boolean(), server_default=sa.text("1"), nullable=False),
-        sa.Column("allow_hot_switch", sa.Boolean(), server_default=sa.text("0"), nullable=False),
+        sa.Column("dry_run", sa.Boolean(), server_default=sa.true(), nullable=False),
+        sa.Column("allow_hot_switch", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column("step", sa.String(length=64), nullable=False),
         sa.Column(
             "status",

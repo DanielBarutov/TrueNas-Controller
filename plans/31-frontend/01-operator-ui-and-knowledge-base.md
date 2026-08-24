@@ -159,7 +159,8 @@ key. Basic Auth credential живёт только в памяти текуще�
 - [x] добавить frontend в локальный Compose вместе с PostgreSQL и Redis;
 - [x] расширить visual check на авторизованные экраны через временный SQLite
   backend contract: overview, stations, publish wizard и knowledge base;
-  runtime Compose отдельно не запускался.
+- [x] Compose runtime backend/frontend и PostgreSQL startup migration проверены;
+  `/api/v1/stations` через Basic Auth вернул `200`.
 
 ## Запреты
 

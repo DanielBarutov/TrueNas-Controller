@@ -1,6 +1,6 @@
 # STATE — состояние проекта
 
-Последнее обновление: **2026-08-23**
+Последнее обновление: **2026-08-24**
 
 ## Как читать этот файл
 
@@ -17,8 +17,8 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [31 — frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
-- **Текущая задача:** проверить локальный Compose-профиль после создания оператором `.env` и затем перейти к отдельным runtime gates. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
-- **Следующий разрешённый шаг:** выполнить локальный Compose smoke-check с автоматической startup-миграцией; затем отдельно согласовать read-only NAS smoke или Windows service-account validation. Real Redis worker execution, TrueNAS write и storage switch пока не включать.
+- **Текущая задача:** перейти от подтверждённого локального Compose runtime к отдельным runtime gates. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
+- **Следующий разрешённый шаг:** отдельно согласовать read-only NAS smoke или Windows service-account validation. Real Redis worker execution, TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -56,7 +56,7 @@
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
 | [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
-| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, allowlisted Markdown reader, publish wizard, job read model, key frontend tests и Compose config созданы; runtime Compose не запускался | локальный Compose smoke-check после создания `.env` |
+| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, allowlisted Markdown reader, publish wizard, job read model, key frontend tests и Compose runtime созданы; миграция и `/api/v1/stations` проверены | перейти к отдельному TrueNAS/Windows runtime gate |
 
 ## Чекап решений
 
@@ -167,6 +167,9 @@
   проверены Basic Auth/error mapping, station selection и knowledge allowlist.
 - [x] Compose config: `docker compose config` прошёл с тестовыми переменными;
   backend startup теперь выполняет idempotent `alembic upgrade head` до Uvicorn.
+- [x] Compose runtime: PostgreSQL baseline migration `bee81bac70cc` применена,
+  `stations`/`publish_jobs` созданы, backend healthy и `/api/v1/stations`
+  вернул `200` через Basic Auth.
 - [x] Authorized visual smoke-check: временный SQLite backend и headed browser
   подтвердили login, health, stations, publish wizard и knowledge base; артефакты
   вынесены из workspace в `/tmp/tnas-playwright-artifacts`.
@@ -196,6 +199,7 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-23 | Добавлен корневой `.gitignore` | Исключены кеши Python, утилит, IDE, локальные данные и секреты |
 | 2026-08-23 | Убран автоматический `game_version_marker` | Версию игры подтверждает оператор; приложение не поддерживает дополнительную game-specific настройку |
 | 2026-08-23 | Добавлен локальный Compose-контур и frontend key tests | PostgreSQL/Redis/backend/frontend описаны; Basic Auth, selection и knowledge allowlist проверены |
+| 2026-08-24 | Исправлен PostgreSQL boolean default в baseline migration | `dry_run/allow_hot_switch` переведены с SQLite `1/0` на SQL `TRUE/FALSE`; Compose startup migration и stations API проверены |
 | 2026-08-23 | Добавлен план 13 и persistence slice | Созданы ORM models, station repository и concrete UoW; миграции не применялись |
 | 2026-08-23 | Добавлен план 14 и минимальный read-only API | Health, stations list, Basic Auth и Alembic config; TrueNAS не подключался |
 | 2026-08-23 | Добавлены планы 15–16 | Реализованы agent lifecycle и чистый preflight evaluator; TrueNAS write не добавлялся |
