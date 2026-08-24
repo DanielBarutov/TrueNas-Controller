@@ -19,4 +19,4 @@ RUN sed -i 's/\r$//' /usr/local/bin/tnas-backend-entrypoint \
 
 EXPOSE 8000
 
-CMD ["bash", "/usr/local/bin/tnas-backend-entrypoint"]
+ENTRYPOINT ["bash", "/usr/local/bin/tnas-backend-entrypoint"]
