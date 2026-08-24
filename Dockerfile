@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir uv \
     && uv sync --frozen --no-dev
 
 COPY . .
+COPY docker/backend-entrypoint.sh /usr/local/bin/tnas-backend-entrypoint
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["bash", "/usr/local/bin/tnas-backend-entrypoint"]

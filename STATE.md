@@ -18,7 +18,7 @@
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [31 — frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
 - **Текущая задача:** проверить локальный Compose-профиль после создания оператором `.env` и затем перейти к отдельным runtime gates. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
-- **Следующий разрешённый шаг:** выполнить только локальный Compose smoke-check без авто-миграции; затем отдельно согласовать read-only NAS smoke или Windows service-account validation. Real Redis worker execution, TrueNAS write и storage switch пока не включать.
+- **Следующий разрешённый шаг:** выполнить локальный Compose smoke-check с автоматической startup-миграцией; затем отдельно согласовать read-only NAS smoke или Windows service-account validation. Real Redis worker execution, TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -166,7 +166,7 @@
 - [x] Frontend key tests: `npm run test` — 3 test files, 4 tests passed;
   проверены Basic Auth/error mapping, station selection и knowledge allowlist.
 - [x] Compose config: `docker compose config` прошёл с тестовыми переменными;
-  PostgreSQL/Redis runtime и migration не запускались.
+  backend startup теперь выполняет idempotent `alembic upgrade head` до Uvicorn.
 - [x] Authorized visual smoke-check: временный SQLite backend и headed browser
   подтвердили login, health, stations, publish wizard и knowledge base; артефакты
   вынесены из workspace в `/tmp/tnas-playwright-artifacts`.
@@ -195,7 +195,7 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-23 | Добавлен план 12 и bootstrap package layout | Начат этап read-only backend; создана граница domain/application |
 | 2026-08-23 | Добавлен корневой `.gitignore` | Исключены кеши Python, утилит, IDE, локальные данные и секреты |
 | 2026-08-23 | Убран автоматический `game_version_marker` | Версию игры подтверждает оператор; приложение не поддерживает дополнительную game-specific настройку |
-| 2026-08-23 | Добавлен локальный Compose-контур и frontend key tests | PostgreSQL/Redis/backend/frontend описаны без авто-миграции; Basic Auth, selection и knowledge allowlist проверены |
+| 2026-08-23 | Добавлен локальный Compose-контур и frontend key tests | PostgreSQL/Redis/backend/frontend описаны; Basic Auth, selection и knowledge allowlist проверены |
 | 2026-08-23 | Добавлен план 13 и persistence slice | Созданы ORM models, station repository и concrete UoW; миграции не применялись |
 | 2026-08-23 | Добавлен план 14 и минимальный read-only API | Health, stations list, Basic Auth и Alembic config; TrueNAS не подключался |
 | 2026-08-23 | Добавлены планы 15–16 | Реализованы agent lifecycle и чистый preflight evaluator; TrueNAS write не добавлялся |

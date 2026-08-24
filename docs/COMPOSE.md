@@ -25,14 +25,17 @@ Basic Auth использует логин `admin` и значение `BASIC_AU
 
 ## Миграции
 
-Миграция не выполняется автоматически при старте backend. После проверки
-конфигурации базы применить baseline явно:
+Backend перед запуском Uvicorn синхронно выполняет `alembic upgrade head`.
+Если миграция завершается ошибкой, backend-контейнер останавливается и не
+маскирует проблему запуском API. После изменения схемы достаточно пересобрать
+backend:
 
 ```powershell
-docker compose --profile migrate run --rm migrate
+docker compose up -d --build backend frontend
+docker compose logs backend
 ```
 
-Это изменяет только локальный PostgreSQL volume Compose. Для остановки:
+Для остановки:
 
 ```powershell
 docker compose down

@@ -21,10 +21,18 @@ docker compose up -d --build postgres redis backend frontend
 
 ## Миграция базы
 
-Миграции не запускаются автоматически. После проверки локального PostgreSQL:
+Backend автоматически выполняет `alembic upgrade head` перед запуском API.
+Если миграция не проходит, контейнер backend завершится с ошибкой, а причина
+останется в логах:
 
 ```powershell
-docker compose --profile migrate run --rm migrate
+docker compose logs backend
+```
+
+После исправления `.env` или изменения схемы пересобери backend:
+
+```powershell
+docker compose up -d --build backend frontend
 ```
 
 Остановить сервисы:
