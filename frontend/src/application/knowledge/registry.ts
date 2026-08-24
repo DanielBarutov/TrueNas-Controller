@@ -1,5 +1,6 @@
 import agentInstall from "../../content/knowledge/agent-install.md?raw";
 import agentOperations from "../../content/knowledge/agent-operations.md?raw";
+import agentBootstrap from "../../content/knowledge/agent-bootstrap.md?raw";
 import backendStart from "../../content/knowledge/backend-start.md?raw";
 import composeStart from "../../content/knowledge/compose-start.md?raw";
 
@@ -11,6 +12,12 @@ export interface KnowledgeDocument {
 }
 
 export const knowledgeDocuments: KnowledgeDocument[] = [
+  {
+    id: "agent-bootstrap",
+    title: "Быстрый onboarding Windows-клиента",
+    description: "Скрипт отчёта, создание station и безопасная передача token.",
+    content: agentBootstrap,
+  },
   {
     id: "backend-start",
     title: "Запуск backend на Windows",

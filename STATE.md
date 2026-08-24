@@ -17,7 +17,9 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [31 — frontend и база знаний](/home/daniel/tnas/plans/31-frontend/01-operator-ui-and-knowledge-base.md).
-- **Текущая задача:** перейти от подтверждённого локального Compose runtime к отдельным runtime gates. План 30 TrueNAS остаётся отдельным LAN gate, а production service-account gate агента ещё открыт.
+- **Текущая задача:** завершить быстрый onboarding Windows-клиента и проверить
+  его скрипт/UI-контракт. План 30 TrueNAS остаётся отдельным LAN gate, а
+  production service-account gate агента ещё открыт.
 - **Следующий разрешённый шаг:** отдельно согласовать read-only NAS smoke или Windows service-account validation. Real Redis worker execution, TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
@@ -31,7 +33,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и baseline migration созданы; apply/production registration ещё нет | migration review/apply gate и service account validation |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `open` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, agent runtime composition и stdlib-only onboarding report созданы; apply/production registration ещё нет | migration review/apply gate и service account validation |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -56,7 +58,7 @@
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
 | [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
-| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, allowlisted Markdown reader, publish wizard, job read model, key frontend tests и Compose runtime созданы; миграция и `/api/v1/stations` проверены | перейти к отдельному TrueNAS/Windows runtime gate |
+| [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, allowlisted Markdown reader, publish wizard, job read model и client station report prefill созданы; миграция и `/api/v1/stations` проверены | проверить новый onboarding script/UI и перейти к отдельному TrueNAS/Windows runtime gate |
 
 ## Чекап решений
 
@@ -144,6 +146,12 @@
   runtime по-прежнему не проверялись.
 - [x] SCM install/start path не расшифровывает DPAPI credential под оператором:
   загрузка deferred до фактического запуска службы под service account.
+- [x] Быстрый onboarding Windows-клиента: stdlib-only
+  `scripts/agent_station_report.py` сохраняет стабильный UUID, выводит JSON
+  station/agent/network/drive данных и не содержит секретов.
+- [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
+  поля создания station и напоминает оператору о раздельной передаче one-shot
+  enrollment token.
 - [x] Plan 31 frontend: React/Vite shell, in-memory Basic Auth login, status
   explanations, station read/create и Markdown knowledge reader созданы.
 - [x] Frontend design layer: подключён lucide-react; повторяемые
@@ -236,3 +244,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-23 | Продолжен план 31 frontend | Подключён lucide-react, добавлены reusable UI-компоненты и подтверждены production build/visual login smoke-check |
 | 2026-08-23 | Продолжен plan 31 publish slice | Замкнуты prepare/dispatch HTTP-контракты и frontend wizard; worker/TrueNAS completion не симулируется |
 | 2026-08-23 | Продолжен plan 31 read model slice | Добавлен polling publish job, per-target progress и безопасные terminal/recovery состояния |
+| 2026-08-24 | Добавлен быстрый Windows-agent onboarding | Клиентский stdlib-only script собирает station report; frontend валидирует JSON и заполняет форму создания station без передачи Basic Auth или credential |

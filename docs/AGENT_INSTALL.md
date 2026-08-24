@@ -1,5 +1,10 @@
 # Инструкция установки Windows-агента
 
+Для нового клиентского ПК сначала используйте короткий сценарий
+[`docs/AGENT_QUICKSTART.md`](AGENT_QUICKSTART.md): он собирает данные одним
+stdlib-only Python-скриптом и заполняет форму station в UI. Текущая инструкция
+ниже описывает оставшийся staging enrollment и регистрацию Windows Service.
+
 Инструкция предназначена для staging-проверки текущего agent slice. Она не
 заменяет production installer: фактическая Windows-проверка service account и
 регистрация службы пока остаются отдельным gate.

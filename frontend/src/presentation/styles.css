@@ -64,6 +64,9 @@ label input:focus, label select:focus, .knowledge-nav input:focus, .login-card i
 label small { min-height: 34px; font-weight: 400; line-height: 1.35; }
 .secret-warning { margin-top: 20px; border: 1px solid #8a6532; border-radius: 12px; padding: 16px; background: #342817; color: #f0cf8d; }
 .secret-warning p { overflow-wrap: anywhere; }
+.station-report-card { display: grid; gap: 12px; margin: 18px 0; padding: 16px; border: 1px dashed #3d5273; border-radius: 14px; background: #0e1828aa; }
+.station-report-card label { display: grid; gap: 8px; }
+.station-report-card .secondary-button { justify-self: start; }
 code { border-radius: 5px; padding: 2px 5px; background: #080e18; color: #f6d48e; }
 .knowledge-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; align-items: start; }
 .knowledge-nav { display: grid; gap: 8px; padding: 12px; position: sticky; top: 20px; }

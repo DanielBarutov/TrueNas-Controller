@@ -14,6 +14,24 @@
 - `protocol.py` — versioned payload and server command validation;
 - `config.py` — API URL, station UUID, credential path, interval.
 
+## Быстрый отчёт для onboarding клиента
+
+До полноценной установки службы клиентский ПК может запустить
+[`scripts/agent_station_report.py`](../../scripts/agent_station_report.py).
+Скрипт использует только стандартную библиотеку Python и возвращает JSON с:
+
+- `station.display_name`, `station.hostname`, `station.role` — данными для
+  создания station;
+- стабильным `agent.agent_uuid`, версией агента и hostname;
+- справочными IP/MAC и состоянием `D:`.
+
+Пароли, Basic Auth, enrollment token и credential в отчёт не входят. UUID
+сохраняется в `%LOCALAPPDATA%\TrueNasController\agent\identity.json` на
+Windows и переиспользуется при повторном запуске. Оператор вставляет JSON в
+frontend, создаёт station и отдельно передаёт клиенту одноразовый token.
+Полный enrollment и установка службы по-прежнему выполняются по
+[`docs/AGENT_INSTALL.md`](../../docs/AGENT_INSTALL.md).
+
 ## Heartbeat
 
 Период 5–15 секунд с configurable jitter. Payload:
@@ -107,5 +125,6 @@ Backend считается authoritative для freshness: агент не мо�
   notes вынесены в
   [`docs/AGENT_DEPLOYMENT.md`](../../docs/AGENT_DEPLOYMENT.md);
 - [x] baseline Alembic migration сгенерирована, но не применена;
+- [x] безопасный stdlib-only station report для первичного onboarding клиента;
 - [ ] production installer/service registration и проверка ACL под фактической
   service account;

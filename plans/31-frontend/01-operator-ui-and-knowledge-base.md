@@ -62,6 +62,8 @@ key. Basic Auth credential живёт только в памяти текуще�
 - stations table с hostname, role, status, freshness и agent metadata;
 - пояснения к каждому статусу и безопасное различие `offline`/`stale`;
 - создание station/enrollment flow с предупреждением о TTL one-shot token;
+- вставка JSON station report клиента с автозаполнением station-полей и
+  отображением стабильного `agent_uuid`;
 - refresh process snapshot command только через backend API;
 - отображение последнего heartbeat и объяснение, почему browser не видит
   Windows-процессы напрямую;
@@ -154,6 +156,8 @@ key. Basic Auth credential живёт только в памяти текуще�
   HTTP-контрактными тестами;
 - [x] подключён GET publish job read model: polling, target progress,
   terminal states и recovery_required UI;
+- [x] добавлен быстрый onboarding клиента: allowlisted Markdown-инструкция,
+  вставка и проверка station report в форме создания station;
 - [x] добавить ключевые frontend tests для API Basic Auth/error mapping,
   station selection и allowlisted knowledge registry;
 - [x] добавить frontend в локальный Compose вместе с PostgreSQL и Redis;

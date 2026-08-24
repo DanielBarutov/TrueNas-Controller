@@ -21,7 +21,9 @@ import remarkGfm from "remark-gfm";
 import { ApiError, ControllerApi, type Credentials } from "../application/api/client";
 import { knowledgeDocuments } from "../application/knowledge/registry";
 import {
+  parseStationSetupReport,
   type Station,
+  type StationSetupReport,
   type StationRole,
   type StationStatus,
 } from "../domain/station";
@@ -183,6 +185,10 @@ function StationsPage({ api }: { api: ControllerApi }) {
   const [stations, setStations] = useState<Station[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [createdAgentUuid, setCreatedAgentUuid] = useState<string | null>(null);
+  const [clientReport, setClientReport] = useState("");
+  const [parsedReport, setParsedReport] = useState<StationSetupReport | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StationStatus | "all">("all");
   const [form, setForm] = useState({ display_name: "", hostname: "", role: "client" as StationRole });
@@ -203,10 +209,31 @@ function StationsPage({ api }: { api: ControllerApi }) {
     try {
       const result = await api.createStation(form);
       setCreatedToken(result.enrollment_token);
+      setCreatedAgentUuid(parsedReport?.agent.agent_uuid ?? null);
       setForm({ display_name: "", hostname: "", role: "client" });
+      setClientReport("");
+      setParsedReport(null);
       await loadStations();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось создать station.");
+    }
+  }
+
+  function applyClientReport() {
+    try {
+      const report = parseStationSetupReport(clientReport);
+      setForm({
+        display_name: report.station.display_name,
+        hostname: report.station.hostname,
+        role: report.station.role,
+      });
+      setCreatedToken(null);
+      setCreatedAgentUuid(null);
+      setParsedReport(report);
+      setReportError(null);
+    } catch (caught) {
+      setParsedReport(null);
+      setReportError(caught instanceof Error ? caught.message : "Не удалось разобрать отчёт клиента.");
     }
   }
 
@@ -231,13 +258,28 @@ function StationsPage({ api }: { api: ControllerApi }) {
       </div>
       <section className="form-card">
         <div className="section-heading"><div><h2>Добавить station</h2><p className="muted">Controller выдаст одноразовый token с ограниченным TTL.</p></div></div>
+        <div className="station-report-card">
+          <label>
+            Отчёт с клиентского ПК
+            <textarea
+              rows={7}
+              value={clientReport}
+              onChange={(event) => setClientReport(event.target.value)}
+              placeholder="Вставьте JSON, который вывел agent_station_report.py"
+            />
+            <HelpHint>Скрипт не содержит Basic Auth, enrollment token или credential. Он только заполняет поля station и показывает agent UUID.</HelpHint>
+          </label>
+          <button className="secondary-button" type="button" onClick={applyClientReport} disabled={!clientReport.trim()}>Подставить данные отчёта</button>
+          {reportError && <p className="error-message">{reportError}</p>}
+          {parsedReport && <InfoNote>Agent UUID: <code>{parsedReport.agent.agent_uuid}</code>. После создания station передайте одноразовый token клиенту для enrollment.</InfoNote>}
+        </div>
         <form className="station-form" onSubmit={createStation}>
           <label>Отображаемое имя<input required value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} /><HelpHint>Имя, которое оператор увидит в таблицах и wizard.</HelpHint></label>
           <label>Hostname<input required value={form.hostname} onChange={(event) => setForm({ ...form, hostname: event.target.value })} /><HelpHint>Фактическое имя Windows-ПК; это не стабильная identity.</HelpHint></label>
           <label>Роль<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as StationRole })}><option value="client">client — игровой ПК</option><option value="admin">admin — админский ПК</option></select><HelpHint>Роль влияет на preflight policy, а не на права Basic Auth.</HelpHint></label>
           <button className="primary-button" type="submit">Создать station</button>
         </form>
-        {createdToken && <div className="secret-warning"><strong>Token показан один раз.</strong><p>Передайте его на клиентский ПК по защищённому каналу и не сохраняйте в UI. Token: <code>{createdToken}</code></p><button className="secondary-button" onClick={() => setCreatedToken(null)}>Скрыть token</button></div>}
+        {createdToken && <div className="secret-warning"><strong>Token показан один раз.</strong><p>Передайте его на клиентский ПК по защищённому каналу и не сохраняйте в UI. Token: <code>{createdToken}</code></p>{createdAgentUuid && <p>Для этого клиента сохраните также agent UUID: <code>{createdAgentUuid}</code>.</p>}<button className="secondary-button" onClick={() => { setCreatedToken(null); setCreatedAgentUuid(null); }}>Скрыть token</button></div>}
       </section>
     </PageHeader>
   );
