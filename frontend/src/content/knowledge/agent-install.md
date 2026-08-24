@@ -14,8 +14,9 @@
 1. В Controller создай station с ролью `client` или `admin`.
 2. Сохрани одноразовый enrollment token только в защищённом канале.
 3. На Windows-клиенте задай `AGENT_API_BASE_URL`, `AGENT_STATION_ID`,
-   `AGENT_UUID`, `AGENT_VERSION`, `AGENT_HOSTNAME`,
-   `AGENT_CREDENTIAL_PATH` и `AGENT_COMMAND_VERIFY_KEY`.
+   `AGENT_UUID`, `AGENT_VERSION`, `AGENT_HOSTNAME` и
+   `AGENT_CREDENTIAL_PATH`. `AGENT_COMMAND_VERIFY_KEY` необязателен: это
+   публичный ключ проверки подписанных refresh-команд.
 4. Выполни enrollment под той же service account, под которой будет работать
    Windows Service:
 

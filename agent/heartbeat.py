@@ -34,6 +34,7 @@ class HeartbeatAgent:
         sleeper: Sleep = asyncio.sleep,
         random_value: Callable[[], float] = random.random,
         command_receiver: AgentCommandReceiver | None = None,
+        process_commands: bool = True,
     ) -> None:
         if not credential:
             raise ValueError("agent credential cannot be empty")
@@ -48,6 +49,7 @@ class HeartbeatAgent:
         self._sleeper = sleeper
         self._random_value = random_value
         self._command_receiver = command_receiver
+        self._process_commands = process_commands
 
     async def send_once(self, snapshot: ProcessSnapshot, *, process_commands: bool = True) -> None:
         """Build and send one heartbeat without retrying a duplicate payload."""
@@ -99,5 +101,5 @@ class HeartbeatAgent:
 
         while not stop_event.is_set():
             with suppress(HeartbeatTransportError):
-                await self.run_once()
+                await self.run_once(process_commands=self._process_commands)
             await self._sleeper(self._interval_seconds)

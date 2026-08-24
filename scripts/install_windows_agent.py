@@ -53,7 +53,7 @@ class AgentInstallConfig:
     agent_uuid: UUID
     agent_version: str
     hostname: str
-    command_verify_key: str
+    command_verify_key: str | None
     source_dir: Path
     install_dir: Path
     service_account: str
@@ -75,8 +75,9 @@ class AgentInstallConfig:
             "AGENT_VERSION": self.agent_version,
             "AGENT_HOSTNAME": self.hostname,
             "AGENT_CREDENTIAL_PATH": str(self.credential_path),
-            "AGENT_COMMAND_VERIFY_KEY": self.command_verify_key,
         }
+        if self.command_verify_key:
+            values["AGENT_COMMAND_VERIFY_KEY"] = self.command_verify_key
         if self.allow_insecure_http:
             values["AGENT_ALLOW_INSECURE_HTTP"] = "1"
         return values
@@ -125,7 +126,8 @@ def build_install_config(args: argparse.Namespace) -> AgentInstallConfig:
     service_account = args.service_account or f".\\{_current_username()}"
     _validate_non_empty(agent_version, "agent-version")
     _validate_non_empty(hostname, "hostname")
-    _validate_non_empty(args.command_verify_key, "command-verify-key")
+    if args.command_verify_key:
+        _validate_non_empty(args.command_verify_key, "command-verify-key")
     _validate_controller_url(args.controller_url, allow_insecure_http=args.allow_insecure_http)
     _validate_source_dir(source_dir)
     if install_dir == source_dir or install_dir.is_relative_to(source_dir):
@@ -136,7 +138,7 @@ def build_install_config(args: argparse.Namespace) -> AgentInstallConfig:
         agent_uuid=agent_uuid,
         agent_version=agent_version,
         hostname=hostname,
-        command_verify_key=args.command_verify_key,
+        command_verify_key=args.command_verify_key or None,
         source_dir=source_dir,
         install_dir=install_dir,
         service_account=service_account,
@@ -174,7 +176,7 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
     if config.credential_path.exists():
         print("[4/6] Existing credential found; enrollment skipped")
     else:
-        print("[4/6] Enrolling agent; token input is hidden")
+        print("[4/6] Enrolling agent; only the one-shot token input is hidden")
         _enroll(python_path, config.install_dir, process_env)
 
     print("[5/6] Registering Windows Service")
@@ -190,7 +192,7 @@ def install(config: AgentInstallConfig, *, uv_path: str = "uv") -> None:
 
 
 def _enroll(python_path: Path, install_dir: Path, environment: dict[str, str]) -> None:
-    token = getpass("One-shot enrollment token (hidden): ").strip()
+    token = getpass("One-shot enrollment token (hidden; not the verify key): ").strip()
     if not token:
         raise InstallerError("enrollment token cannot be empty")
     child_environment = environment.copy()
@@ -326,7 +328,11 @@ def _write_machine_environment(values: dict[str, str]) -> None:
     ) as key:
         for name, value in values.items():
             winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
-        for name in ("AGENT_ENROLLMENT_TOKEN", "AGENT_ALLOW_INSECURE_HTTP"):
+        for name in (
+            "AGENT_ENROLLMENT_TOKEN",
+            "AGENT_ALLOW_INSECURE_HTTP",
+            "AGENT_COMMAND_VERIFY_KEY",
+        ):
             if name not in values:
                 with contextlib.suppress(FileNotFoundError):
                     winreg.DeleteValue(key, name)
@@ -360,7 +366,9 @@ def _validate_controller_url(url: str, *, allow_insecure_http: bool) -> None:
     if allow_insecure_http:
         allowed.add("http")
     if parsed.scheme not in allowed or not parsed.netloc:
-        raise InstallerError("controller-url must be a full HTTPS URL")
+        raise InstallerError(
+            "controller-url must be a full HTTPS URL, or HTTP with --allow-insecure-http"
+        )
 
 
 def _parse_uuid(value: str | None, field: str) -> UUID:
@@ -448,8 +456,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--hostname", help="agent hostname; normally read from --report")
     parser.add_argument(
         "--command-verify-key",
-        required=True,
-        help="URL-safe base64 public Ed25519 key",
+        help="Optional URL-safe base64 public Ed25519 key for signed refresh commands",
     )
     parser.add_argument("--source-dir", type=Path, default=default_source_dir())
     parser.add_argument("--install-dir", type=Path, default=default_install_dir())

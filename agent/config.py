@@ -80,4 +80,6 @@ def _validate_api_url(url: str, *, allow_insecure_http: bool) -> None:
     if allow_insecure_http:
         allowed_schemes.add("http")
     if parsed.scheme not in allowed_schemes or not parsed.netloc:
-        raise AgentConfigError("AGENT_API_BASE_URL must be a full HTTPS URL")
+        raise AgentConfigError(
+            "AGENT_API_BASE_URL must be a full HTTPS URL, or HTTP with AGENT_ALLOW_INSECURE_HTTP=1"
+        )

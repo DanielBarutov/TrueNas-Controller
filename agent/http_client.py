@@ -85,7 +85,9 @@ def _validate_url(url: str, *, allow_insecure_http: bool) -> None:
     if allow_insecure_http:
         allowed_schemes.add("http")
     if parsed.scheme not in allowed_schemes or not parsed.netloc:
-        raise ValueError("heartbeat URL must be a full HTTPS URL")
+        raise ValueError(
+            "heartbeat URL must be a full HTTPS URL, or HTTP with allow_insecure_http=True"
+        )
 
 
 def _parse_commands(response_data: object) -> tuple[ServerCommand, ...]:

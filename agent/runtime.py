@@ -2,7 +2,7 @@
 
 from agent.command_signing import Ed25519CommandVerifier
 from agent.commands import AgentCommandHandler
-from agent.config import AgentConfig, AgentConfigError
+from agent.config import AgentConfig
 from agent.drive_monitor import DriveSnapshotCollector
 from agent.heartbeat import HeartbeatAgent
 from agent.http_client import HttpHeartbeatTransport
@@ -22,9 +22,9 @@ def build_agent_service(
 ) -> AgentService:
     """Assemble collectors, signed-command validation, transport and lifecycle."""
 
-    if not config.command_verify_key:
-        raise AgentConfigError("AGENT_COMMAND_VERIFY_KEY is required for agent runtime")
-    verifier = Ed25519CommandVerifier.from_base64(config.command_verify_key)
+    verifier = None
+    if config.command_verify_key:
+        verifier = Ed25519CommandVerifier.from_base64(config.command_verify_key)
     snapshot_collector = AgentSnapshotCollector(
         station_id=config.station_id,
         agent_version=config.agent_version,
@@ -47,10 +47,12 @@ def build_agent_service(
         ),
         credential=credential,
         interval_seconds=config.heartbeat_interval_seconds,
+        process_commands=verifier is not None,
     )
-    command_handler = AgentCommandHandler(
-        AgentCommandValidator(verifier),
-        lambda: heartbeat.run_once(process_commands=False),
-    )
-    heartbeat.attach_command_receiver(command_handler)
+    if verifier is not None:
+        command_handler = AgentCommandHandler(
+            AgentCommandValidator(verifier),
+            lambda: heartbeat.run_once(process_commands=False),
+        )
+        heartbeat.attach_command_receiver(command_handler)
     return AgentService(heartbeat)

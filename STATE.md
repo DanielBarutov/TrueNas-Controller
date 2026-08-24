@@ -154,6 +154,8 @@
 - [x] Единый installer orchestration: копирует release checkout, запускает
   locked `uv` dependencies, вводит token только скрытым prompt, не кладёт token
   в machine environment/argv и регистрирует SCM service под текущей account.
+- [x] `AGENT_COMMAND_VERIFY_KEY` сделан необязательным для установки: без него
+  heartbeat работает, а подписанные refresh-команды отключены.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
   поля создания station и напоминает оператору о раздельной передаче one-shot
   enrollment token.
@@ -251,3 +253,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-23 | Продолжен plan 31 read model slice | Добавлен polling publish job, per-target progress и безопасные terminal/recovery состояния |
 | 2026-08-24 | Добавлен быстрый Windows-agent onboarding | Клиентский stdlib-only script собирает station report; frontend валидирует JSON и заполняет форму создания station без передачи Basic Auth или credential |
 | 2026-08-24 | Добавлен единый Windows installer orchestration | Скрипт копирует release checkout, ставит locked dependencies, выполняет скрытый enrollment и регистрирует службу; реальный Windows/SCM smoke оставлен отдельным gate |
+| 2026-08-24 | Упрощён первый запуск агента | Verify key больше не требуется: локальный HTTP Controller указывается как `http://<ip>:8000` с `--allow-insecure-http`; скрытым остаётся только enrollment token и пароль service account |

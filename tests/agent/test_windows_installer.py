@@ -56,8 +56,26 @@ def test_installer_environment_contains_no_enrollment_token(tmp_path: Path) -> N
     environment = config.machine_environment()
 
     assert "AGENT_ENROLLMENT_TOKEN" not in environment
+    assert environment["AGENT_COMMAND_VERIFY_KEY"] == "public-key"
     assert environment["AGENT_STATION_ID"] == str(config.station_id)
     assert environment["AGENT_CREDENTIAL_PATH"].endswith("agent.credential")
+
+
+def test_installer_can_omit_optional_command_verify_key(tmp_path: Path) -> None:
+    config = AgentInstallConfig(
+        controller_url="http://controller.example:8000",
+        station_id=uuid4(),
+        agent_uuid=uuid4(),
+        agent_version="0.1.0",
+        hostname="CLIENT-01",
+        command_verify_key=None,
+        source_dir=tmp_path / "source",
+        install_dir=tmp_path / "install",
+        service_account=".\\client",
+        allow_insecure_http=True,
+    )
+
+    assert "AGENT_COMMAND_VERIFY_KEY" not in config.machine_environment()
 
 
 def test_installer_rejects_source_inside_install_directory(tmp_path: Path) -> None:

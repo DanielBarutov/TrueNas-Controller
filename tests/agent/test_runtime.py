@@ -32,9 +32,14 @@ def make_config(*, command_verify_key: str | None) -> AgentConfig:
     )
 
 
-def test_agent_runtime_requires_public_command_key() -> None:
-    with pytest.raises(AgentConfigError, match="AGENT_COMMAND_VERIFY_KEY"):
-        build_agent_service(make_config(command_verify_key=None), "credential-for-test")
+def test_agent_runtime_works_without_public_command_key() -> None:
+    service = build_agent_service(
+        make_config(command_verify_key=None),
+        "credential-for-test",
+        transport=FakeTransport(),
+    )
+
+    assert isinstance(service, AgentService)
 
 
 def test_agent_runtime_wires_verifier_and_local_components() -> None:

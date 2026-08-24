@@ -19,11 +19,12 @@ TrueNAS. Поэтому `AGENT_API_BASE_URL` — это URL Controller без `/
 - Windows-машина с Python 3.12 или 3.13;
 - PowerShell от имени администратора для подготовки и регистрации службы;
 - установленный [uv](https://docs.astral.sh/uv/);
-- HTTPS-доступ от Windows-машины к Controller API;
+- HTTPS-доступ от Windows-машины к Controller API; для локального Docker Compose
+  допускается HTTP на порту `8000` только с явным `--allow-insecure-http`;
 - стабильная папка проекта агента;
 - отдельная Windows-учётная запись для службы, если это возможно;
-- согласованные `station_id`, `agent_uuid`, agent version и public key для
-  проверки подписанных команд.
+- согласованные `station_id`, `agent_uuid` и agent version. Public key для
+  подписанных команд нужен только если требуется удалённый refresh.
 
 В production enrollment и служба должны работать под одной и той же учётной
 записью. Credential защищается DPAPI user scope и ACL текущего пользователя;
@@ -34,6 +35,10 @@ TrueNAS. Поэтому `AGENT_API_BASE_URL` — это URL Controller без `/
 `BASIC_AUTH_PASSWORD`, а оператор должен отдельно решить вопрос применения
 baseline Alembic migration. Пароль, TrueNAS API key и private signing key в
 эту инструкцию не записываются.
+
+Для текущего Docker Compose используйте `$ControllerUrl =
+"http://<controller-ip>:8000"`; автоматический installer дополнительно требует
+`--allow-insecure-http`. В production используйте HTTPS без этого флага.
 
 ## 2. Создать station и получить одноразовый token
 
@@ -100,7 +105,8 @@ Windows Service должен ссылаться на неизменяемый с
 
 ## 4. Задать runtime-конфигурацию
 
-В elevated PowerShell задать только несекретные параметры и public key на
+В elevated PowerShell задать только несекретные параметры и, при необходимости,
+public key на
 уровне компьютера. `<...>` — placeholders, их нужно заменить своими
 значениями; скобки не вводятся. Этот шаг можно выполнить в той же сессии, что
 и шаг 2; если открыта новая сессия, присвоить `$StationId` фактическим UUID из
@@ -112,7 +118,7 @@ $AgentUuid = [Guid]::NewGuid().Guid
 $AgentVersion = "0.1.0"
 $AgentHostname = "CLIENT-01"
 $CredentialPath = "C:\ProgramData\TrueNasController\agent.credential"
-$CommandVerifyKey = "<base64url-public-ed25519-key>"
+$CommandVerifyKey = $null # optional: public key for signed refresh commands
 
 [Environment]::SetEnvironmentVariable("AGENT_API_BASE_URL", $ControllerUrl, "Machine")
 [Environment]::SetEnvironmentVariable("AGENT_STATION_ID", $StationId.Guid, "Machine")
@@ -125,9 +131,15 @@ $CommandVerifyKey = "<base64url-public-ed25519-key>"
 [Environment]::SetEnvironmentVariable("AGENT_ENROLLMENT_TOKEN", $null, "Machine")
 ```
 
-`AGENT_COMMAND_VERIFY_KEY` — только public key. Private key
+`AGENT_COMMAND_VERIFY_KEY` — необязательный public key для проверки подписанной
+команды refresh. Это не enrollment token и не пароль Basic Auth. Private key
 `AGENT_COMMAND_SIGNING_PRIVATE_KEY` остаётся на Controller и никогда не
-попадает на Windows-машину.
+попадает на Windows-машину. Без public key heartbeat работает, но refresh-команды
+отключены.
+
+Если используется локальный HTTP Compose, в этом ручном варианте также задайте
+`AGENT_ALLOW_INSECURE_HTTP` в Machine environment равным `1`; при HTTPS оставьте
+переменную пустой или удалите её.
 
 ## 5. Выполнить enrollment под service account
 
@@ -277,12 +289,12 @@ Set-Location $ProjectRoot
 
 | Симптом | Проверка |
 |---|---|
-| `AGENT_COMMAND_VERIFY_KEY is required` | public key задан на уровне Machine и служба перезапущена |
+| heartbeat работает, но refresh-команда не выполняется | передайте public key через `--command-verify-key` или `AGENT_COMMAND_VERIFY_KEY`; без него refresh намеренно отключён |
 | `agent credential is missing` | enrollment выполнен под той же учётной записью и в тот же путь |
 | `protected Windows credential store is unavailable` | команда запущена не на Windows; plaintext fallback для production запрещён |
 | HTTP 409 при enrollment | token просрочен или уже использован; получить новый |
 | HTTP 401 на heartbeat | credential/station binding не совпадает или credential отозван |
-| станция offline | проверить службу, HTTPS, URL Controller и timestamp/часы Windows |
+| станция offline | проверить службу, URL Controller, порт `8000` для локального HTTP, firewall и timestamp/часы Windows |
 | команда не создаётся | Controller не собран с `AGENT_COMMAND_SIGNING_PRIVATE_KEY` |
 
 После проверки удалить временные переменные `$EnrollmentToken`, `$Headers`,

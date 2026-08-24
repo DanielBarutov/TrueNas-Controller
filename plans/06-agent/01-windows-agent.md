@@ -137,5 +137,7 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] единый Windows installer orchestration script: release copy, locked
   dependencies, hidden token prompt, machine config, DPAPI enrollment и SCM
   registration boundary;
+- [x] verify key сделан optional: heartbeat/status flow работает без
+  `AGENT_COMMAND_VERIFY_KEY`, signed refresh остаётся отдельной настройкой;
 - [ ] фактическая проверка installer/service registration и ACL под фактической
   service account;

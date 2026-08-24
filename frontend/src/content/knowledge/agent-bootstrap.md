@@ -41,15 +41,21 @@ identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`
 ```powershell
 Set-Location C:\Install\TrueNas-Controller
 py -3 .\scripts\install_windows_agent.py `
-  --controller-url "https://<controller-host>" `
+  --controller-url "http://192.168.0.47:8000" `
   --station-id "<station-id>" `
   --report "C:\Install\station-report.json" `
-  --command-verify-key "<base64url-public-ed25519-key>"
+  --allow-insecure-http
 ```
 
-Сценарий создаёт стабильную папку агента, устанавливает зависимости, скрыто
-запрашивает token и пароль service account, регистрирует службу и проверяет её
-состояние. Token не передаётся в аргументах командной строки и не сохраняется.
+Для production с HTTPS замените URL на `https://controller.example` и уберите
+`--allow-insecure-http`. Сценарий создаёт стабильную папку агента, устанавливает
+зависимости, скрыто запрашивает enrollment token и пароль service account,
+регистрирует службу и проверяет её состояние. Token не передаётся в аргументах
+командной строки и не сохраняется.
+
+`--command-verify-key` необязателен. Это публичный Ed25519-ключ Controller для
+проверки подписанной команды refresh, а не enrollment token и не пароль. Без
+него heartbeat работает, но удалённая refresh-команда отключена.
 `--dry-run` проверяет параметры без изменений. Адрес Controller не должен быть
 адресом TrueNAS `/api/docs`.
 

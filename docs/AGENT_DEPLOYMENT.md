@@ -13,9 +13,9 @@
 Не записывать в git, README, unit-файлы, логи или аргументы командной строки:
 
 - `AGENT_ENROLLMENT_TOKEN` — одноразовый токен первичной регистрации;
-- `AGENT_COMMAND_VERIFY_KEY` — публичный ключ проверки команд можно передавать
-  через защищённую runtime-конфигурацию, но private key остаётся только на
-  controller;
+- `AGENT_COMMAND_VERIFY_KEY` — необязательный публичный ключ проверки команд;
+  private key остаётся только на controller. Без него heartbeat работает, но
+  подписанные refresh-команды отключены;
 - agent credential, `BASIC_AUTH_PASSWORD` и TrueNAS API key.
 
 Минимальный набор переменных для одноразовой регистрации:
@@ -58,7 +58,7 @@ credential-файла текущей учётной записью. Поэтом
 
 Для нового клиента используйте
 [`scripts/install_windows_agent.py`](../scripts/install_windows_agent.py). Он
-принимает `station-report.json`, `station_id`, Controller URL и публичный ключ,
+принимает `station-report.json`, `station_id` и Controller URL,
 затем:
 
 1. копирует согласованный checkout в стабильный каталог;

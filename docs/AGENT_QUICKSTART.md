@@ -54,22 +54,30 @@ Token имеет ограниченный TTL и после использова
 ```powershell
 Set-Location C:\Install\TrueNas-Controller
 py -3 .\scripts\install_windows_agent.py `
-  --controller-url "https://<controller-host>" `
+  --controller-url "http://192.168.0.47:8000" `
   --station-id "<station-id-from-controller>" `
   --report "C:\Install\station-report.json" `
-  --command-verify-key "<base64url-public-ed25519-key>"
+  --allow-insecure-http
 ```
 
-Сценарий сам создаёт стабильную папку `%ProgramData%\TrueNasController\agent`,
-устанавливает locked dependencies, попросит скрыто ввести одноразовый token и
-пароль той же service account, зарегистрирует и запустит службу. Token не
-попадает в аргументы командной строки, машинные переменные или файлы.
+Для production с HTTPS укажите URL вида `https://controller.example` и уберите
+`--allow-insecure-http`. Сценарий сам создаёт стабильную папку
+`%ProgramData%\TrueNasController\agent`, устанавливает locked dependencies,
+попросит скрыто ввести одноразовый enrollment token и пароль той же service
+account, зарегистрирует и запустит службу. Token не попадает в аргументы
+командной строки, машинные переменные или файлы.
+
+`--command-verify-key` не нужен для первичной установки. Это публичный Ed25519
+ключ Controller для проверки подписанной команды `refresh_process_snapshot`; он
+не является enrollment token, Basic Auth-паролем или паролем Windows. Если его
+не передать, heartbeat и статусы работают, а удалённая refresh-команда отключена.
 
 Для проверки параметров без изменений используйте `--dry-run`. Для повторного
 запуска уже enrolled агента token не запрашивается, если защищённый credential
 на месте.
 
-`<controller-host>` — адрес Controller API, не адрес TrueNAS `/api/docs`.
+Адрес Controller API — не адрес TrueNAS `/api/docs`. Для текущего Docker Compose
+это обычно `http://<ip-адрес>:8000`.
 
 Подробности, troubleshooting и ручной recovery-путь остаются в
 [`docs/AGENT_INSTALL.md`](AGENT_INSTALL.md).

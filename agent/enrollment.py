@@ -60,7 +60,7 @@ class EnrollmentCoordinator:
 
 
 class HttpEnrollmentGateway:
-    """HTTPS implementation of the enrollment boundary; never logs secrets."""
+    """HTTP(S) enrollment boundary; HTTPS is the default and secrets are never logged."""
 
     def __init__(
         self,
@@ -92,7 +92,10 @@ class HttpEnrollmentGateway:
                 },
             )
         except HTTPError as exc:
-            raise EnrollmentError("agent enrollment request failed") from exc
+            raise EnrollmentError(
+                "agent enrollment request failed; check Controller URL, port, "
+                "HTTP/HTTPS and firewall"
+            ) from exc
         if response.status_code < 200 or response.status_code >= 300:
             raise EnrollmentError(f"agent enrollment rejected with status {response.status_code}")
         try:
