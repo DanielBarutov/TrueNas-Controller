@@ -1,7 +1,8 @@
 # Локальный запуск через Docker Compose
 
-Compose поднимает PostgreSQL, Redis, backend и frontend. Реальные TrueNAS,
-Windows-агенты и storage switch в этот профиль не подключаются.
+Compose поднимает PostgreSQL, Redis, backend, publish worker и frontend.
+Реальные TrueNAS, Windows-агенты и storage switch в этот профиль не
+подключаются: worker пока запускает только детерминированный fake executor.
 
 ## Первый запуск в PowerShell
 
@@ -10,7 +11,7 @@ Windows-агенты и storage switch в этот профиль не подк�
 ```powershell
 Copy-Item .env.example .env
 notepad .env
-docker compose up -d --build postgres redis backend frontend
+docker compose up -d --build postgres redis backend worker frontend
 ```
 
 В `.env` обязательно замените оба значения. Откройте:
@@ -19,6 +20,17 @@ docker compose up -d --build postgres redis backend frontend
 - backend docs: `http://127.0.0.1:8000/docs`;
 - PostgreSQL: `127.0.0.1:5432`;
 - Redis: `127.0.0.1:6379`.
+
+Проверить очередь и outbox можно так:
+
+```powershell
+docker compose ps
+docker compose logs --tail=100 worker
+```
+
+После dispatch в логах worker должен появиться `outbox poll` с
+`dispatched=1`. Если job была создана в `dry_run=true`, она завершится как
+`simulated`; это не означает, что TrueNAS был изменён.
 
 Basic Auth использует логин `admin` и значение `BASIC_AUTH_PASSWORD` из `.env`.
 Пароль из репозитория не подставляется и не должен попадать в git.

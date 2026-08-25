@@ -92,9 +92,7 @@ class PublishPrepareResponse(BaseModel):
                 reasons=list(result.gate.reasons),
             ),
             admin_report=(
-                None
-                if result.admin_report is None
-                else _preflight_response(result.admin_report)
+                None if result.admin_report is None else _preflight_response(result.admin_report)
             ),
             client_reports=[
                 _preflight_response(report) for report in result.client_reports.values()

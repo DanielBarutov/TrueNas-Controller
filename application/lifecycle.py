@@ -278,9 +278,7 @@ class BootstrapAgentUseCase:
                 await uow.stations.restore(station)
             else:
                 if station.role is not role:
-                    raise ProvisioningConflictError(
-                        "station exists with a different role"
-                    )
+                    raise ProvisioningConflictError("station exists with a different role")
                 if await uow.agents.get_by_station_id(station_id) is not None:
                     raise ProvisioningConflictError("station already has an enrolled agent")
                 await uow.stations.update_hostname(station_id, hostname)

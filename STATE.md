@@ -16,13 +16,14 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [33 — automatic onboarding и полный-disk clone](/home/daniel/tnas/plans/33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md).
-- **Текущая задача:** собрать native onboarding с provisioning token и убрать
-  обязательную admin station из TrueNAS snapshot/clone workflow.
-- **Следующий разрешённый шаг:** собрать/передать обновлённый
-  `TrueNasControllerAgent.exe`, применить новые Alembic migrations в Compose и
-  выполнить client smoke. Реальные TrueNAS write, mapping switch и cleanup
-  пока не включать.
+- **Активный план:** [34 — runtime worker и граница TrueNAS secret](/home/daniel/tnas/plans/34-worker-runtime/01-compose-worker-and-secret-boundary.md).
+- **Текущая задача:** замкнуть `dispatch → outbox → Dramatiq → executor`, чтобы
+  accepted job не оставалась на `0%`, и не выдавать fake executor за реальный
+  TrueNAS apply.
+- **Следующий разрешённый шаг:** обновить checkout на админском ПК,
+  пересобрать Compose и проверить логи `worker`; затем отдельно продолжить
+  TrueNAS read-only/write gate. Реальные TrueNAS write, mapping switch и
+  cleanup пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -64,6 +65,7 @@
 | [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, station delete/re-register, allowlisted Markdown reader, publish wizard, job read model и client station report prefill созданы; миграция и `/api/v1/stations` проверены | перейти к отдельному TrueNAS/Windows runtime gate |
 | [32 — Удаление station и агента](plans/32-station-removal/01-station-removal-and-agent-revocation.md) | `closed` | DELETE Basic Auth route, soft-delete, удаление agent/commands, отзыв token, сохранение истории и повторная регистрация по UUID реализованы и проверены | обновлять только при изменении политики удаления |
 | [33 — Automatic onboarding и полный-disk clone](plans/33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | `in_progress` | provisioning API/UI, native bootstrap contract, optional admin preflight и `source_dataset` contract добавлены; native publish/Compose smoke ещё впереди | собрать exe, применить migration и проверить client flow |
+| [34 — Runtime worker и TrueNAS secret](plans/34-worker-runtime/01-compose-worker-and-secret-boundary.md) | `in_progress` | Compose worker, outbox polling, Dramatiq consumer и fake executor mode добавлены; пользовательский runtime ещё не проверен | pull, rebuild и проверить accepted job по worker logs |
 
 ## Чекап решений
 
@@ -226,6 +228,12 @@
   вынесены из workspace в `/tmp/tnas-playwright-artifacts`.
 - [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
+- [x] Найдена и исправлена причина accepted job на `0%`: в Compose отсутствовал
+  runtime worker/relay; добавлен отдельный `worker` service.
+- [x] `TRUENAS_API_KEY` не добавлен в текущий Compose profile намеренно: fake
+  executor его не использует, а write-capable adapter ещё не прошёл apply gate.
+- [ ] Compose worker реально запущен на пользовательском админском ПК и
+  обработал новую publish job.
 - [x] Provisioning token domain/repository/UoW, migrations, Basic Auth issue route, bootstrap route, native client contract и UI button добавлены; backend `181 passed`, frontend `7 passed`, build/Ruff пройдены.
 - [ ] Обновлённый native exe опубликован и проверен на Windows-клиенте с автоматическим созданием station.
 - [ ] Alembic migrations `7f5d0f1c9b42`/`8a9c2d7e4f11` применены в пользовательском Compose runtime.
@@ -301,3 +309,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Уточнён Windows service password gate | пустой пароль отклоняется до SCM-регистрации; Basic Auth отделён от пароля входа Windows; добавлены подсказки для ошибок `1069` и `1385` |
 | 2026-08-24 | Переведён Windows agent на LocalSystem | удалён prompt пароля, включён machine-scope DPAPI, ACL для SYSTEM/Administrators и миграция старого user-scope credential |
 | 2026-08-25 | Добавлен native .NET Windows agent | устранение Python/pywin32 SCM проблем: self-contained Worker Service, native SCM, deferred startup, DPAPI/ACL и совместимый report; Windows smoke остаётся открытым |
+| 2026-08-25 | Добавлен план 34 и Compose worker runtime | accepted job сохранялась в outbox, но relay и Dramatiq consumer не запускались; TrueNAS API key пока не используется fake executor |

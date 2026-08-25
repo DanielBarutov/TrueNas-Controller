@@ -73,6 +73,7 @@
 | [31-frontend](31-frontend/01-operator-ui-and-knowledge-base.md) | Операторский React/Vite UI, Lucide/reusable components, пояснения полей и Markdown-база знаний | в работе |
 | [32-station-removal](32-station-removal/01-station-removal-and-agent-revocation.md) | Удаление station из реестра, отзыв agent binding и повторная регистрация по station report | завершён |
 | [33-bootstrap-and-zfs-workflow](33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | Автоматический onboarding, optional admin station и snapshot/clone полного dataset | в работе |
+| [34-worker-runtime](34-worker-runtime/01-compose-worker-and-secret-boundary.md) | Runtime Dramatiq worker, outbox relay и граница TrueNAS secret | в работе |
 
 ## Текущий этап
 

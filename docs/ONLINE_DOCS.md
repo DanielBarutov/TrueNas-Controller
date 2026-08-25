@@ -13,6 +13,8 @@
   содержит `TrueNAS API v25.10.5 (current)`. Сам адрес endpoint в репозитории
   не сохраняется.
 - WebSocket, API key, Redis и любые runtime/write-вызовы не выполнялись.
+- Текущий Compose worker не использует TrueNAS API key: его executor всё ещё
+  fake. Добавление `TRUENAS_API_KEY` в `.env` сейчас не включит clone или switch.
 
 ## Базовые документы
 
