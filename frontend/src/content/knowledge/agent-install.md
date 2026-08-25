@@ -13,9 +13,9 @@ Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```
 
-Передайте JSON оператору. Вставьте его в Controller UI → **Станции и агенты**,
-нажмите **Подставить данные отчёта** и создайте station. Используйте тот же
-`station-report.json` при установке: он содержит общий UUID станции и агента.
+Передайте JSON оператору. В Controller UI → **Станции и агенты** оператор
+выпускает provisioning token. Используйте тот же `station-report.json` при
+установке: backend создаст station по общему UUID станции и агента.
 
 ### Установить службу
 
@@ -27,11 +27,13 @@ Set-Location C:\Install
   --allow-insecure-http
 ```
 
-В production с HTTPS флаг `--allow-insecure-http` не используется. Token
+В production с HTTPS флаг `--allow-insecure-http` не используется. Provisioning token
 вводится видимо в консоли только после проверки локального DPAPI preflight. В
 аргументах и файлах не сохраняются token или credential. Служба работает от
 `LocalSystem`, DPAPI использует machine scope, пароль Windows не запрашивается.
 
+При необходимости token можно передать через `--provisioning-token`, а
+`--enrollment-token` оставлен для ручного сценария с заранее созданной station.
 Не передавайте native agent Basic Auth оператора, NAS API key или private
 signing key. `--command-verify-key` — только необязательный public key для
 проверки подписанного `refresh_process_snapshot`.

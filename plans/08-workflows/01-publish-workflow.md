@@ -10,29 +10,36 @@
 
 Для admin и client собрать:
 
-- agent online/fresh heartbeat;
+- agent online/fresh heartbeat for every selected client;
 - fresh process snapshot;
 - required closed rules;
 - `D:` present и free space threshold;
 - role/tag-specific rules;
-- target/initiator mapping;
+- target/initiator mapping for every selected client;
 - отсутствие участия в другом активном job;
 - отсутствие unknown/recovery state;
-- оператор подтвердил факт обновления игры; автоматический version/marker gate не используется.
+- оператор подтвердил запуск публикации; отдельная game/version marker модель не используется.
 
 Результат каждой проверки: `pass`, `block`, `unknown`, `warning`, code, human message, observed_at, source snapshot ID. `unknown` не превращается в pass.
 
 ## Stage 0: draft
 
-Создать job с label, description, game, mode, `dry_run=true`, `allow_hot_switch=false`. Сохранить operator и idempotency key. Выбранные station IDs материализуются в `publish_targets`, чтобы последующие изменения реестра не меняли историю job.
+Создать job с label, description, `source_dataset` (например,
+`games/master-games`), mode, `dry_run=true`, `allow_hot_switch=false`. Сохранить
+operator и idempotency key. Выбранные station IDs материализуются в
+`publish_targets`, чтобы последующие изменения реестра не меняли историю job.
 
-## Stage 1: admin
+## Stage 1: optional admin preflight
 
-Запросить refresh admin agent. Получить snapshot, применить rules role=admin. Показывать имя и PID каждого blocking процесса. При block wizard остаётся на шаге и не позволяет перейти дальше.
+Если оператор явно выбрал admin station, запросить её snapshot и применить rules
+role=admin. Отсутствие admin station не блокирует workflow: Controller не является
+клиентским storage target.
 
 ## Stage 2: human confirmation
 
-Показать «Все игровые клиенты/игры на выбранных ПК закрыты?». При `Нет` job остаётся blocked/awaiting confirmation. При `Да` записать actor, timestamp и exact confirmation result в audit. Human confirmation не заменяет agent preflight.
+Показать «Клиенты готовы к смене полного диска?». При `Нет` job остаётся
+blocked/awaiting confirmation. При `Да` записать actor, timestamp и exact
+confirmation result в audit. Human confirmation не заменяет agent preflight.
 
 ## Stage 3: client selection/preflight
 
@@ -42,13 +49,13 @@
 
 Под lock:
 
-1. Рассчитать canonical master label из job ID/validated label.
-2. Read-check master source.
+1. Зафиксировать validated `source_dataset` и canonical snapshot label из job ID.
+2. Read-check source dataset, например `games/master-games`.
 3. В dry-run только построить intended actions.
-4. В apply создать один snapshot master.
+4. В apply создать один snapshot source dataset.
 5. Read-back snapshot и сохранить opaque ref.
-6. Для каждой выбранной станции создать ровно один writable clone.
-7. Read-back clone metadata/ownership.
+6. Для каждой выбранной станции создать ровно один clone в новом dataset.
+7. Read-back clone dataset metadata/ownership.
 
 Сбой clone одной станции не уничтожает master и не меняет старые mappings других станций.
 
@@ -77,8 +84,8 @@ Hot switch требует explicit flag, permission, warning и audit; по ум
 - target→extent mapping соответствует созданной storage-публикации;
 - old mapping retained in history.
 
-Факт доступности обновлённой игры подтверждает оператор и не хранится как
-game-specific настройка или автоматическая проверка приложения.
+Факт доступности обновлённого полного диска подтверждает оператор и не хранится
+как game-specific настройка или автоматическая проверка приложения.
 
 При mismatch target остаётся `error`/`recovery_required`, old mapping сохраняется, успешные targets не откатываются автоматически.
 

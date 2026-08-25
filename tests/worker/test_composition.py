@@ -42,7 +42,7 @@ async def seed_job(
         idempotency_key="worker-key",
         correlation_id=uuid4(),
         label="build-001",
-        game_name="game",
+        source_dataset="game",
     )
     target = PublishTarget(id=uuid4(), job_id=job.id, station_id=station.station_id)
     async with factory() as uow:

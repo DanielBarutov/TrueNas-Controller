@@ -3,6 +3,7 @@ import agentOperations from "../../content/knowledge/agent-operations.md?raw";
 import agentBootstrap from "../../content/knowledge/agent-bootstrap.md?raw";
 import backendStart from "../../content/knowledge/backend-start.md?raw";
 import composeStart from "../../content/knowledge/compose-start.md?raw";
+import truenasFullDisk from "../../content/knowledge/truenas-full-disk.md?raw";
 
 export interface KnowledgeDocument {
   id: string;
@@ -41,5 +42,11 @@ export const knowledgeDocuments: KnowledgeDocument[] = [
     title: "Управление агентами",
     description: "Heartbeat, refresh-команды, статусы и диагностика.",
     content: agentOperations,
+  },
+  {
+    id: "truenas-full-disk",
+    title: "TrueNAS: полный диск и clone",
+    description: "Source dataset, snapshot/clone и роль admin station.",
+    content: truenasFullDisk,
   },
 ];

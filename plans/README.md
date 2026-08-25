@@ -72,6 +72,7 @@
 | [30-truenas-lan-gate](30-truenas-lan-gate/01-local-api-docs-and-connection.md) | Проверка версии и локальной схемы NAS перед opt-in LAN smoke check | открыт |
 | [31-frontend](31-frontend/01-operator-ui-and-knowledge-base.md) | Операторский React/Vite UI, Lucide/reusable components, пояснения полей и Markdown-база знаний | в работе |
 | [32-station-removal](32-station-removal/01-station-removal-and-agent-revocation.md) | Удаление station из реестра, отзыв agent binding и повторная регистрация по station report | завершён |
+| [33-bootstrap-and-zfs-workflow](33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | Автоматический onboarding, optional admin station и snapshot/clone полного dataset | в работе |
 
 ## Текущий этап
 

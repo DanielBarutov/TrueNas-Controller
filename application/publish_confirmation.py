@@ -21,7 +21,7 @@ class PublishPreflightResult:
 
     job: PublishJob
     gate: WizardGateResult
-    admin_report: PreflightReport
+    admin_report: PreflightReport | None
     client_reports: dict[UUID, PreflightReport]
 
 
@@ -40,7 +40,7 @@ class PreparePublishJobUseCase:
         self,
         *,
         job_id: UUID,
-        admin_station_id: UUID,
+        admin_station_id: UUID | None,
         confirmation: bool | None,
     ) -> PublishPreflightResult:
         async with self._uow_factory() as uow:
@@ -51,7 +51,11 @@ class PreparePublishJobUseCase:
 
         self._validate_status(job)
         selected_station_ids = tuple(target.station_id for target in targets if target.selected)
-        admin_report = await self._preflight_query.execute(station_id=admin_station_id)
+        admin_report = (
+            await self._preflight_query.execute(station_id=admin_station_id)
+            if admin_station_id is not None
+            else None
+        )
         client_reports = {
             station_id: await self._preflight_query.execute(station_id=station_id)
             for station_id in selected_station_ids

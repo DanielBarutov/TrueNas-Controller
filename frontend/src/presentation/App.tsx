@@ -174,7 +174,7 @@ function OverviewPage({ api, onOpenStations, onOpenPublish, onOpenKnowledge }: {
       </div>
       <InfoNote>Публикация обновлений пока не выполняется из UI: сначала проверяются backend, агент и preflight-политики.</InfoNote>
       <section className="info-grid info-grid-three">
-        <InfoCard title="Следующий шаг" text="Откройте раздел «Станции и агенты», создайте station и используйте одноразовый enrollment token." action="Открыть станции" onClick={onOpenStations} />
+        <InfoCard title="Следующий шаг" text="Откройте раздел «Станции и агенты», выпустите provisioning token и установите native agent на клиенте." action="Открыть станции" onClick={onOpenStations} />
         <InfoCard title="Готовы к publish?" text="Запустите server-side preflight, подтвердите gate и передайте job в outbox-backed worker path." action="Открыть publish wizard" onClick={onOpenPublish} />
         <InfoCard title="Нужна инструкция?" text="В базе знаний собраны запуск backend, установка агента и управление refresh-командами." action="Открыть базу знаний" onClick={onOpenKnowledge} />
       </section>
@@ -186,6 +186,8 @@ function StationsPage({ api }: { api: ControllerApi }) {
   const [stations, setStations] = useState<Station[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [provisioningToken, setProvisioningToken] = useState<{ token: string; expiresAt: string } | null>(null);
+  const [provisioningBusy, setProvisioningBusy] = useState(false);
   const [createdAgentUuid, setCreatedAgentUuid] = useState<string | null>(null);
   const [clientReport, setClientReport] = useState("");
   const [parsedReport, setParsedReport] = useState<StationSetupReport | null>(null);
@@ -242,6 +244,19 @@ function StationsPage({ api }: { api: ControllerApi }) {
     }
   }
 
+  async function createProvisioningToken() {
+    setProvisioningBusy(true);
+    setError(null);
+    try {
+      const result = await api.createProvisioningToken();
+      setProvisioningToken({ token: result.provisioning_token, expiresAt: result.expires_at });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось создать provisioning token.");
+    } finally {
+      setProvisioningBusy(false);
+    }
+  }
+
   function applyClientReport() {
     try {
       const report = parseStationSetupReport(clientReport);
@@ -270,7 +285,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
   }, {});
 
   return (
-    <PageHeader title="Станции и агенты" subtitle="Серверное состояние станций, enrollment и следующий heartbeat.">
+    <PageHeader title="Станции и агенты" subtitle="Серверное состояние станций, автоматический onboarding и heartbeat.">
       <SectionHeading title="Реестр станций" description="Offline и stale никогда не считаются готовыми к publish." action={<button className="secondary-button" onClick={loadStations}><RefreshCw aria-hidden size={15} /> Обновить</button>} />
       {error && <p className="error-message">{error}</p>}
       <div className="station-toolbar"><label className="search-field"><span><Search aria-hidden size={13} /> Поиск</span><input placeholder="Имя или hostname" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-field"><span><Filter aria-hidden size={13} /> Статус</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StationStatus | "all")}><option value="all">Все ({stations.length})</option><option value="online">Online ({statusCounts.online ?? 0})</option><option value="stale">Stale ({statusCounts.stale ?? 0})</option><option value="offline">Offline ({statusCounts.offline ?? 0})</option></select></label><div className="toolbar-note"><span className="pulse-dot" /> {visibleStations.length} в текущем списке</div></div>
@@ -280,7 +295,13 @@ function StationsPage({ api }: { api: ControllerApi }) {
         </table>
       </div>
       <section className="form-card">
-        <div className="section-heading"><div><h2>Добавить station</h2><p className="muted">Controller выдаст одноразовый token с ограниченным TTL.</p></div></div>
+        <div className="section-heading"><div><h2>Быстрый onboarding клиента</h2><p className="muted">Выпустите одноразовый provisioning token: клиентский exe сам создаст station по UUID из station-report и зарегистрирует агент.</p></div></div>
+        <HelpHint>Этот token не является Basic Auth и не даёт операторский доступ. Он действует ограниченное время, используется один раз и вводится на клиентском ПК видимым текстом.</HelpHint>
+        <button className="primary-button" type="button" onClick={() => void createProvisioningToken()} disabled={provisioningBusy}><KeyRound aria-hidden size={16} /> {provisioningBusy ? "Создаём…" : "Создать provisioning token"}</button>
+        {provisioningToken && <div className="secret-warning"><strong>Передайте token клиенту один раз.</strong><p><code>{provisioningToken.token}</code></p><p className="muted">Истекает: {new Date(provisioningToken.expiresAt).toLocaleString()}</p><button className="secondary-button" type="button" onClick={() => setProvisioningToken(null)}>Скрыть token</button></div>}
+      </section>
+      <section className="form-card">
+        <div className="section-heading"><div><h2>Добавить station вручную</h2><p className="muted">Резервный путь: сначала создаётся station, затем exe получает привязанный enrollment token.</p></div></div>
         <div className="station-report-card">
           <label>
             Отчёт с клиентского ПК
@@ -294,7 +315,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
           </label>
           <button className="secondary-button" type="button" onClick={applyClientReport} disabled={!clientReport.trim()}>Подставить данные отчёта</button>
           {reportError && <p className="error-message">{reportError}</p>}
-          {parsedReport && <InfoNote>Общий station/agent UUID: <code>{parsedReport.station.station_id}</code>. После создания station передайте одноразовый token клиенту для enrollment.</InfoNote>}
+          {parsedReport && <InfoNote>Общий station/agent UUID: <code>{parsedReport.station.station_id}</code>. Для автоматического пути используйте provisioning token выше; station вручную создавать не нужно.</InfoNote>}
         </div>
         <form className="station-form" onSubmit={createStation}>
           <label>Отображаемое имя<input required value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} /><HelpHint>Имя, которое оператор увидит в таблицах и wizard.</HelpHint></label>

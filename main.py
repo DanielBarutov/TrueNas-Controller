@@ -13,6 +13,8 @@ from application.agent_commands import (
     IssueAgentCommandUseCase,
 )
 from application.lifecycle import (
+    BootstrapAgentUseCase,
+    CreateProvisioningTokenUseCase,
     CreateStationUseCase,
     DeleteStationUseCase,
     EnrollAgentUseCase,
@@ -43,8 +45,10 @@ def build_app(database_url: str | None = None) -> FastAPI:
     return create_app(
         ListStationsUseCase(uow_factory),
         station_registry=CreateStationUseCase(uow_factory),
+        provisioning_token=CreateProvisioningTokenUseCase(uow_factory),
         delete_station=DeleteStationUseCase(uow_factory),
         enroll_agent=EnrollAgentUseCase(uow_factory),
+        bootstrap_agent=BootstrapAgentUseCase(uow_factory),
         receive_heartbeat=ReceiveHeartbeatUseCase(uow_factory),
         evaluate_preflight=preflight,
         create_publish_job=CreatePublishJobUseCase(uow_factory),

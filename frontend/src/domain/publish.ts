@@ -32,7 +32,7 @@ export interface PublishJobDraft {
   idempotency_key: string;
   correlation_id: string;
   label: string;
-  game_name: string;
+  source_dataset: string;
   status: PublishJobStatus;
   dry_run: boolean;
   allow_hot_switch: boolean;
@@ -51,7 +51,7 @@ export interface PublishPrepareResponse {
   status: PublishJobStatus;
   client_confirmation: boolean | null;
   gate: PublishGate;
-  admin_report: PreflightReport;
+  admin_report: PreflightReport | null;
   client_reports: PreflightReport[];
 }
 
@@ -77,7 +77,7 @@ export interface PublishJobReadModel {
   idempotency_key: string;
   correlation_id: string;
   label: string;
-  game_name: string;
+  source_dataset: string;
   description: string | null;
   status: PublishJobStatus;
   dry_run: boolean;

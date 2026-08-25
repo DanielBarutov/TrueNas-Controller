@@ -16,11 +16,15 @@ from application.agent_commands import (
 )
 from application.lifecycle import (
     AgentUnauthorizedError,
+    BootstrapAgentUseCase,
+    CreateProvisioningTokenUseCase,
     CreateStationUseCase,
     DeleteStationUseCase,
     EnrollAgentUseCase,
     EnrollmentRejectedError,
     HeartbeatRejectedError,
+    ProvisioningConflictError,
+    ProvisioningRejectedError,
     ReceiveHeartbeatUseCase,
     StationRegistrationConflictError,
 )
@@ -41,6 +45,7 @@ from application.publish_queries import GetPublishJobUseCase
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
 from presentation.lifecycle_schemas import (
+    AgentBootstrapRequest,
     AgentCommandIssueRequest,
     AgentCommandIssueResponse,
     AgentCommandResponse,
@@ -48,6 +53,7 @@ from presentation.lifecycle_schemas import (
     AgentEnrollResponse,
     HeartbeatRequest,
     HeartbeatResponse,
+    ProvisioningTokenResponse,
     StationCreateRequest,
     StationRegistrationResponse,
 )
@@ -66,8 +72,10 @@ from presentation.schemas import StationResponse
 def create_app(
     station_query: StationListQuery,
     station_registry: CreateStationUseCase | None = None,
+    provisioning_token: CreateProvisioningTokenUseCase | None = None,
     delete_station: DeleteStationUseCase | None = None,
     enroll_agent: EnrollAgentUseCase | None = None,
+    bootstrap_agent: BootstrapAgentUseCase | None = None,
     receive_heartbeat: ReceiveHeartbeatUseCase | None = None,
     evaluate_preflight: EvaluateStationPreflightUseCase | None = None,
     create_publish_job: CreatePublishJobUseCase | None = None,
@@ -122,6 +130,22 @@ def create_app(
                 enrollment_expires_at=result.enrollment_expires_at,
             )
 
+    if provisioning_token is not None:
+
+        @app.post(
+            "/api/v1/provisioning-tokens",
+            response_model=ProvisioningTokenResponse,
+            status_code=status.HTTP_201_CREATED,
+        )
+        async def create_provisioning_token(
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> ProvisioningTokenResponse:
+            result = await provisioning_token.execute()
+            return ProvisioningTokenResponse(
+                provisioning_token=result.token,
+                expires_at=result.expires_at,
+            )
+
     if delete_station is not None:
 
         @app.delete(
@@ -155,6 +179,40 @@ def create_app(
                     mac_addresses=tuple(payload.mac_addresses),
                 )
             except EnrollmentRejectedError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
+            return AgentEnrollResponse(
+                station_id=result.station_id,
+                credential=result.credential,
+                server_time=result.server_time,
+            )
+
+    if bootstrap_agent is not None:
+
+        @app.post("/api/v1/agents/bootstrap", response_model=AgentEnrollResponse)
+        async def bootstrap(
+            payload: AgentBootstrapRequest,
+        ) -> AgentEnrollResponse:
+            try:
+                result = await bootstrap_agent.execute(
+                    provisioning_token=payload.provisioning_token,
+                    station_id=payload.station_id,
+                    display_name=payload.display_name,
+                    hostname=payload.hostname,
+                    role=payload.role,
+                    agent_uuid=payload.agent_uuid,
+                    agent_version=payload.agent_version,
+                    ip_addresses=tuple(payload.ip_addresses),
+                    mac_addresses=tuple(payload.mac_addresses),
+                )
+            except ProvisioningConflictError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(error),
+                ) from error
+            except ProvisioningRejectedError as error:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=str(error),
@@ -339,7 +397,7 @@ def create_app(
             try:
                 draft = await create_publish_job.execute(
                     label=payload.label,
-                    game_name=payload.game_name,
+                    source_dataset=payload.source_dataset,
                     description=payload.description,
                     station_ids=tuple(payload.station_ids),
                     idempotency_key=payload.idempotency_key,

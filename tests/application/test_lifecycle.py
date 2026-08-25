@@ -9,11 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from application.lifecycle import (
     AgentUnauthorizedError,
+    BootstrapAgentUseCase,
+    CreateProvisioningTokenUseCase,
     CreateStationUseCase,
     DeleteStationUseCase,
     EnrollAgentUseCase,
     EnrollmentRejectedError,
     HeartbeatRejectedError,
+    ProvisioningRejectedError,
     ReceiveHeartbeatUseCase,
     hash_secret,
 )
@@ -26,6 +29,7 @@ from repository.models import (
     Base,
     EnrollmentTokenRecord,
     ProcessSnapshotRecord,
+    ProvisioningTokenRecord,
     StationRecord,
 )
 from repository.uow import SqlAlchemyUnitOfWorkFactory
@@ -90,6 +94,48 @@ async def test_create_station_preserves_report_station_uuid(engine: AsyncEngine)
     )
 
     assert registration.station.station_id == station_id
+
+
+async def test_provisioning_token_creates_and_enrolls_station_once(engine: AsyncEngine) -> None:
+    factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
+    now = datetime(2026, 8, 25, 12, tzinfo=UTC)
+    station_id = uuid4()
+    token = await CreateProvisioningTokenUseCase(factory).execute(now=now)
+
+    result = await BootstrapAgentUseCase(factory).execute(
+        provisioning_token=token.token,
+        station_id=station_id,
+        display_name="Client auto",
+        hostname="client-auto",
+        role=StationRole.CLIENT,
+        agent_uuid=station_id,
+        agent_version="1.0.0",
+        now=now + timedelta(seconds=1),
+    )
+
+    assert result.station_id == station_id
+    async with create_session_factory(engine)() as session:
+        station = await session.scalar(
+            select(StationRecord).where(StationRecord.station_id == station_id)
+        )
+        agent = await session.scalar(select(AgentRecord))
+        stored_token = await session.scalar(select(ProvisioningTokenRecord))
+    assert station is not None
+    assert station.display_name == "Client auto"
+    assert agent is not None and agent.agent_uuid == station_id
+    assert stored_token is not None and stored_token.used_at is not None
+
+    with pytest.raises(ProvisioningRejectedError):
+        await BootstrapAgentUseCase(factory).execute(
+            provisioning_token=token.token,
+            station_id=uuid4(),
+            display_name="Second client",
+            hostname="client-second",
+            role=StationRole.CLIENT,
+            agent_uuid=uuid4(),
+            agent_version="1.0.0",
+            now=now + timedelta(seconds=2),
+        )
 
 
 async def test_delete_station_hides_registry_and_removes_agent_binding(

@@ -18,7 +18,7 @@ class WizardGateStatus(StrEnum):
 class WizardGateInput:
     """Server-side reports and operator choice used for one gate evaluation."""
 
-    admin_report: PreflightReport
+    admin_report: PreflightReport | None
     client_reports: dict[UUID, PreflightReport]
     selected_station_ids: tuple[UUID, ...]
     confirmation: bool | None
@@ -41,7 +41,7 @@ def evaluate_wizard_gate(data: WizardGateInput) -> WizardGateResult:
     """Require every server-side precondition before publish-job creation."""
 
     reasons: list[str] = []
-    if not data.admin_report.can_publish:
+    if data.admin_report is not None and not data.admin_report.can_publish:
         reasons.append("admin_preflight_blocked")
     if data.confirmation is not True:
         reasons.append("operator_confirmation_required")

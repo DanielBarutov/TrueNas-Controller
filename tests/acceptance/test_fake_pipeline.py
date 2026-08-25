@@ -74,7 +74,7 @@ async def test_full_fake_publish_pipeline_is_persisted_and_idempotent(
 
     draft = await CreatePublishJobUseCase(factory).execute(
         label="build-acceptance",
-        game_name="game",
+        source_dataset="game",
         station_ids=(client.station_id,),
         idempotency_key="acceptance-key",
         correlation_id=uuid4(),

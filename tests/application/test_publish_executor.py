@@ -46,7 +46,7 @@ def make_job(
         idempotency_key=f"executor-{uuid4()}",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
         dry_run=dry_run,
         status=status,
         client_confirmation=True,

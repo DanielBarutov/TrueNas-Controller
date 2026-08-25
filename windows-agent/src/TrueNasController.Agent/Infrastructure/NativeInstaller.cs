@@ -26,6 +26,14 @@ public static class NativeInstaller
         var agentVersion = CommandLine.Value(args, "--agent-version") ?? report.Agent.AgentVersion;
         var allowInsecureHttp = CommandLine.Has(args, "--allow-insecure-http");
         var commandVerifyKey = CommandLine.Value(args, "--command-verify-key");
+        var provisioningTokenArgument = CommandLine.Value(args, "--provisioning-token");
+        var enrollmentTokenArgument = CommandLine.Value(args, "--enrollment-token");
+        if (!string.IsNullOrWhiteSpace(provisioningTokenArgument) &&
+            !string.IsNullOrWhiteSpace(enrollmentTokenArgument))
+        {
+            throw new InvalidOperationException(
+                "use only one of --provisioning-token and --enrollment-token");
+        }
         var sourceExecutable = CommandLine.Value(args, "--source-executable") ?? Environment.ProcessPath;
 
         if (string.IsNullOrWhiteSpace(sourceExecutable) || !File.Exists(sourceExecutable))
@@ -111,16 +119,32 @@ public static class NativeInstaller
 
         if (credential is null)
         {
-            Console.WriteLine("[2/5] Введите одноразовый enrollment-токен (ввод отображается)");
-            var token = Console.ReadLine()?.Trim();
+            var token = provisioningTokenArgument ?? enrollmentTokenArgument;
             if (string.IsNullOrWhiteSpace(token))
             {
-                throw new InvalidOperationException("enrollment token cannot be empty");
+                Console.WriteLine(
+                    "[2/5] Введите provisioning token (станция создастся автоматически; ввод отображается)");
+                token = Console.ReadLine()?.Trim();
+            }
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                throw new InvalidOperationException("provisioning/enrollment token cannot be empty");
             }
 
             var network = new NetworkSnapshotCollector().Collect();
             using var client = new ControllerClient(config);
-            var enrollment = await client.EnrollAsync(token, network.IpAddresses, network.MacAddresses, cancellationToken);
+            var enrollment = string.IsNullOrWhiteSpace(enrollmentTokenArgument)
+                ? await client.BootstrapAsync(
+                    token,
+                    report.Station.DisplayName,
+                    network.IpAddresses,
+                    network.MacAddresses,
+                    cancellationToken)
+                : await client.EnrollAsync(
+                    token,
+                    network.IpAddresses,
+                    network.MacAddresses,
+                    cancellationToken);
             if (enrollment.StationId != stationId)
             {
                 throw new InvalidOperationException(

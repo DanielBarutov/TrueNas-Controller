@@ -4,6 +4,8 @@
 сохраняет существующий Controller contract:
 
 - `POST /api/v1/agents/enroll` с одноразовым enrollment token;
+- `POST /api/v1/agents/bootstrap` с одноразовым provisioning token, который
+  может создать station автоматически;
 - `POST /api/v1/agents/heartbeat` с Bearer credential;
 - `POST /api/v1/agents/commands/{command_id}/ack`;
 - только подписанная команда `refresh_process_snapshot`.
@@ -38,8 +40,9 @@ Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```
 
-Вставьте report в Controller UI, создайте station и передайте полученный token
-на этот ПК. После этого:
+В Controller UI откройте **Станции и агенты** и создайте provisioning token.
+Station вручную создавать не нужно: сервер возьмёт UUID из report, создаст
+client station и сразу зарегистрирует агент. После этого на клиенте:
 
 ```powershell
 .\TrueNasControllerAgent.exe install `
@@ -48,12 +51,18 @@ Set-Location C:\Install
   --allow-insecure-http
 ```
 
-В production используйте HTTPS и уберите `--allow-insecure-http`. Token будет
-запрошен видимым `Console.ReadLine`; он не находится в аргументах, файле или
-machine environment. Повторный запуск с существующим credential пропускает
+В production используйте HTTPS и уберите `--allow-insecure-http`. Provisioning
+token будет запрошен видимым `Console.ReadLine`; он не находится в аргументах,
+файле или machine environment. Можно передать его явно через
+`--provisioning-token`, но для истории команд предпочтителен видимый prompt.
+Повторный запуск с существующим credential пропускает
 enrollment только после успешной проверки credential heartbeat-запросом для
 текущей station. Если credential относится к другой/удалённой station или
 сервер возвращает `401`, installer очистит его и запросит новый видимый token.
+
+Старый ручной сценарий остаётся совместимым: если station уже создана
+оператором, передайте `--enrollment-token` вместо provisioning token. Эти два
+режима нельзя смешивать.
 
 Перед изменениями можно выполнить `install ... --dry-run`. Не передавайте
 `--station-id`: UUID берётся из report и проверяется на совпадение.

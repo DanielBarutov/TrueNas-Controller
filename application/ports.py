@@ -17,6 +17,7 @@ from domain.agent_command import AgentCommand
 from domain.enrollment import EnrollmentToken
 from domain.outbox import OutboxEvent
 from domain.preflight import PreflightReport, ProcessRule
+from domain.provisioning import ProvisioningToken
 from domain.publish import PublishJob, PublishTarget
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole
@@ -61,6 +62,16 @@ class EnrollmentTokenRepository(Protocol):
         """Claim a valid token inside the current transaction."""
 
 
+class ProvisioningTokenRepository(Protocol):
+    """Atomic persistence boundary for station-less bootstrap tokens."""
+
+    async def add(self, token: ProvisioningToken) -> None:
+        """Stage a new provisioning token."""
+
+    async def consume(self, token_hash: str, now: datetime) -> ProvisioningToken | None:
+        """Claim a valid token inside the current transaction."""
+
+
 class AgentRepository(Protocol):
     """Agent binding and heartbeat persistence boundary."""
 
@@ -72,6 +83,9 @@ class AgentRepository(Protocol):
 
     async def get_by_agent_uuid(self, agent_uuid: UUID) -> AgentBinding | None:
         """Load an agent binding for operator command issuance."""
+
+    async def get_by_station_id(self, station_id: UUID) -> AgentBinding | None:
+        """Load an existing agent binding for one stable station identifier."""
 
     async def record_heartbeat(
         self,
@@ -283,6 +297,7 @@ class UnitOfWork(Protocol):
 
     stations: StationRepository
     enrollment_tokens: EnrollmentTokenRepository
+    provisioning_tokens: ProvisioningTokenRepository
     agents: AgentRepository
     agent_commands: AgentCommandRepository
     process_rules: ProcessRuleRepository

@@ -47,4 +47,19 @@ describe("ControllerApi", () => {
       method: "DELETE",
     }));
   });
+
+  it("requests a one-time provisioning token through the operator boundary", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ provisioning_token: "one-time", expires_at: "2026-08-25T12:15:00Z" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(new ControllerApi({ username: "admin", password: "secret" }).createProvisioningToken())
+      .resolves.toEqual({ provisioning_token: "one-time", expires_at: "2026-08-25T12:15:00Z" });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/provisioning-tokens", expect.objectContaining({
+      method: "POST",
+    }));
+  });
 });

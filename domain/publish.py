@@ -54,7 +54,7 @@ class PublishJob:
     idempotency_key: str
     correlation_id: UUID
     label: str
-    game_name: str
+    source_dataset: str
     dry_run: bool = True
     allow_hot_switch: bool = False
     status: PublishJobStatus = PublishJobStatus.DRAFT

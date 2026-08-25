@@ -90,3 +90,18 @@ def test_pass_and_warning_clients_with_confirmation_are_ready() -> None:
     assert result.status is WizardGateStatus.READY
     assert result.can_advance is True
     assert result.reasons == ()
+
+
+def test_true_nas_workflow_can_skip_admin_station() -> None:
+    client_id = uuid4()
+    result = evaluate_wizard_gate(
+        WizardGateInput(
+            admin_report=None,
+            client_reports={client_id: report(client_id, CheckStatus.PASS)},
+            selected_station_ids=(client_id,),
+            confirmation=True,
+        )
+    )
+
+    assert result.can_advance is True
+    assert result.reasons == ()

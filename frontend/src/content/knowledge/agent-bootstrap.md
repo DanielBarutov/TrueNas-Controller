@@ -24,12 +24,13 @@ Set-Location C:\Install
 py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
 ```
 
-## На админском ПК
+## В Controller UI
 
-В разделе **Станции и агенты** вставьте JSON в блок **Отчёт с клиентского ПК**,
-нажмите **Подставить данные отчёта**, проверьте поля и создайте station. После
-создания передайте клиенту одноразовый enrollment token. Basic Auth оператора
-клиентскому exe не нужен и не передаётся.
+В разделе **Станции и агенты** нажмите **Создать provisioning token** и передайте
+его клиенту. Вставлять report и создавать station вручную для нового клиента не
+нужно: native exe отправит UUID из report, а backend создаст station и agent
+binding одной транзакцией. Basic Auth оператора клиентскому exe не нужен и не
+передаётся.
 
 ## Установка одним native-сценарием
 
@@ -43,11 +44,13 @@ Set-Location C:\Install
   --allow-insecure-http
 ```
 
-Для HTTPS уберите `--allow-insecure-http`. Token вводится видимо и не
+Для HTTPS уберите `--allow-insecure-http`. Provisioning token вводится видимо и не
 передаётся как аргумент. Служба устанавливается как `LocalSystem`, поэтому
 пароль Windows не нужен. DPAPI machine-scope credential сохраняется в
 `%ProgramData%\TrueNasController\agent\agent.credential`.
 
+При необходимости token можно передать через `--provisioning-token`; для старого
+ручного сценария с заранее созданной station используйте `--enrollment-token`.
 Параметры можно проверить без изменений через `--dry-run`. Public Ed25519 key
 для signed refresh-команд задаётся отдельно через `--command-verify-key`; это
 не token и не пароль.

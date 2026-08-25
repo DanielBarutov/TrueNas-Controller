@@ -3,7 +3,12 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from application.lifecycle import EnrollmentResult, HeartbeatResult, StationRegistration
+from application.lifecycle import (
+    EnrollmentResult,
+    HeartbeatResult,
+    ProvisioningTokenRegistration,
+    StationRegistration,
+)
 from application.publish_commands import (
     PublishDraftValidationError,
     PublishIdempotencyConflictError,
@@ -55,6 +60,27 @@ class FakeStationDeletion:
     async def execute(self, **kwargs) -> bool:
         self.calls.append(kwargs)
         return self.result
+
+
+class FakeProvisioningToken:
+    async def execute(self, **kwargs) -> ProvisioningTokenRegistration:
+        return ProvisioningTokenRegistration(
+            token="provisioning-token-for-test",
+            expires_at=datetime.now(UTC),
+        )
+
+
+class FakeBootstrap:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    async def execute(self, **kwargs) -> EnrollmentResult:
+        self.calls.append(kwargs)
+        return EnrollmentResult(
+            station_id=kwargs["station_id"],
+            credential="credential-for-bootstrap-test",
+            server_time=datetime.now(UTC),
+        )
 
 
 class FakeEnrollment:
@@ -278,6 +304,42 @@ def test_agent_lifecycle_routes_use_their_auth_boundaries(monkeypatch) -> None:
     assert heartbeat.credential == "credential-for-test"
 
 
+def test_provisioning_token_is_operator_only_and_bootstrap_is_agent_boundary(monkeypatch) -> None:
+    monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
+    bootstrap = FakeBootstrap()
+    client = TestClient(
+        create_app(
+            FakeStationQuery([]),
+            provisioning_token=FakeProvisioningToken(),
+            bootstrap_agent=bootstrap,
+        )
+    )
+    station_id = uuid4()
+
+    assert client.post("/api/v1/provisioning-tokens").status_code == 401
+    token_response = client.post(
+        "/api/v1/provisioning-tokens",
+        auth=("admin", TEST_PASSWORD),
+    )
+    bootstrap_response = client.post(
+        "/api/v1/agents/bootstrap",
+        json={
+            "provisioning_token": "provisioning-token-for-test",
+            "station_id": str(station_id),
+            "display_name": "Client auto",
+            "hostname": "client-auto",
+            "agent_uuid": str(station_id),
+            "agent_version": "1.0.0",
+        },
+    )
+
+    assert token_response.status_code == 201
+    assert token_response.json()["provisioning_token"] == "provisioning-token-for-test"
+    assert bootstrap_response.status_code == 200
+    assert bootstrap_response.json()["station_id"] == str(station_id)
+    assert bootstrap.calls[0]["station_id"] == station_id
+
+
 def test_delete_station_route_requires_basic_auth_and_removes_registry_entry(monkeypatch) -> None:
     monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
     station_id = uuid4()
@@ -383,7 +445,7 @@ def test_publish_draft_route_requires_auth_and_returns_safe_summary(monkeypatch)
         idempotency_key="draft-key",
         correlation_id=uuid4(),
         label="build-001",
-        game_name="game",
+        source_dataset="game",
     )
     draft = PublishJobDraft(
         job=job,
@@ -393,7 +455,7 @@ def test_publish_draft_route_requires_auth_and_returns_safe_summary(monkeypatch)
     client = TestClient(create_app(FakeStationQuery([]), create_publish_job=use_case))
     payload = {
         "label": "build-001",
-        "game_name": "game",
+        "source_dataset": "game",
         "station_ids": [str(station_id)],
         "idempotency_key": "draft-key",
         "correlation_id": str(job.correlation_id),
@@ -412,7 +474,7 @@ def test_publish_draft_route_requires_auth_and_returns_safe_summary(monkeypatch)
         "idempotency_key": "draft-key",
         "correlation_id": str(job.correlation_id),
         "label": "build-001",
-        "game_name": "game",
+        "source_dataset": "game",
         "status": "draft",
         "dry_run": True,
         "allow_hot_switch": False,
@@ -426,7 +488,7 @@ def test_publish_draft_route_maps_application_errors(monkeypatch) -> None:
     monkeypatch.setenv("BASIC_AUTH_PASSWORD", TEST_PASSWORD)
     payload = {
         "label": "build-001",
-        "game_name": "game",
+        "source_dataset": "game",
         "station_ids": [str(uuid4())],
         "idempotency_key": "draft-key",
     }
@@ -465,7 +527,7 @@ def test_publish_job_route_returns_safe_target_status(monkeypatch) -> None:
         idempotency_key="query-key",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
         description="nightly",
     )
     target = PublishTarget(
@@ -548,7 +610,7 @@ def test_publish_prepare_route_returns_server_gate_and_reports(monkeypatch) -> N
         idempotency_key="prepare-key",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
         status=PublishJobStatus.AWAITING_CONFIRMATION,
         client_confirmation=True,
     )
@@ -613,7 +675,7 @@ def test_publish_dispatch_route_returns_publishing_status(monkeypatch) -> None:
         idempotency_key="dispatch-route-key",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
         status=PublishJobStatus.PUBLISHING,
     )
     dispatch = FakePublishDispatch(PublishDispatchResult(job=job))

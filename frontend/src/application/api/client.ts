@@ -45,6 +45,13 @@ export class ControllerApi {
     });
   }
 
+  async createProvisioningToken(): Promise<{ provisioning_token: string; expires_at: string }> {
+    return this.request("/api/v1/provisioning-tokens", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  }
+
   async deleteStation(stationId: string): Promise<void> {
     await this.request<void>(`/api/v1/stations/${stationId}`, {
       method: "DELETE",
@@ -65,7 +72,7 @@ export class ControllerApi {
 
   async createPublishJob(input: {
     label: string;
-    game_name: string;
+    source_dataset: string;
     description?: string;
     station_ids: string[];
     idempotency_key: string;
@@ -80,7 +87,7 @@ export class ControllerApi {
 
   async preparePublishJob(
     jobId: string,
-    input: { admin_station_id: string; confirmation: boolean | null },
+    input: { admin_station_id?: string | null; confirmation: boolean | null },
   ): Promise<PublishPrepareResponse> {
     return this.request(`/api/v1/publish/jobs/${jobId}/prepare`, {
       method: "POST",

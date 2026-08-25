@@ -16,12 +16,12 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [06.03 — native .NET Windows-агент](/home/daniel/tnas/plans/06-agent/03-native-dotnet-agent.md).
-- **Текущая задача:** заменить проблемный Python/pywin32 service runtime на
-  self-contained native .NET executable и закрыть Windows runtime gate.
-- **Следующий разрешённый шаг:** собрать/pередать `TrueNasControllerAgent.exe`
-  на клиент, выполнить report → station → visible token → LocalSystem →
-  heartbeat smoke. Real Redis worker execution, TrueNAS write и storage switch
+- **Активный план:** [33 — automatic onboarding и полный-disk clone](/home/daniel/tnas/plans/33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md).
+- **Текущая задача:** собрать native onboarding с provisioning token и убрать
+  обязательную admin station из TrueNAS snapshot/clone workflow.
+- **Следующий разрешённый шаг:** собрать/передать обновлённый
+  `TrueNasControllerAgent.exe`, применить новые Alembic migrations в Compose и
+  выполнить client smoke. Реальные TrueNAS write, mapping switch и cleanup
   пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
@@ -36,7 +36,7 @@
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
 | [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | Python runtime сохранён как legacy recovery; native .NET Worker Service, self-contained installer, report, DPAPI/ACL и native SCM добавлены | Windows native LocalSystem/ACL/heartbeat smoke |
-| [06.03 — Native .NET agent](plans/06-agent/03-native-dotnet-agent.md) | `in_progress` | Linux build прошёл; Python/uv/pywin32 для нового клиента больше не требуются | проверить native exe на клиентском Windows-ПК |
+| [06.03 — Native .NET agent](plans/06-agent/03-native-dotnet-agent.md) | `in_progress` | Linux build прошёл; native agent поддерживает проверку старого credential и fallback к enrollment | проверить обновлённый exe на клиентском Windows-ПК |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -63,6 +63,7 @@
 | [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
 | [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, station delete/re-register, allowlisted Markdown reader, publish wizard, job read model и client station report prefill созданы; миграция и `/api/v1/stations` проверены | перейти к отдельному TrueNAS/Windows runtime gate |
 | [32 — Удаление station и агента](plans/32-station-removal/01-station-removal-and-agent-revocation.md) | `closed` | DELETE Basic Auth route, soft-delete, удаление agent/commands, отзыв token, сохранение истории и повторная регистрация по UUID реализованы и проверены | обновлять только при изменении политики удаления |
+| [33 — Automatic onboarding и полный-disk clone](plans/33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | `in_progress` | provisioning API/UI, native bootstrap contract, optional admin preflight и `source_dataset` contract добавлены; native publish/Compose smoke ещё впереди | собрать exe, применить migration и проверить client flow |
 
 ## Чекап решений
 
@@ -75,6 +76,9 @@
 - [x] Официальная документация TrueNAS найдена и занесена в [docs/ONLINE_DOCS.md](docs/ONLINE_DOCS.md).
 - [x] Проверить фактическую версию `25.10.5` и live `/api/docs/current/` конкретного NAS через временный доступ; runtime smoke check отдельно.
 - [x] Автоматическая проверка версии игры через `game_version_marker` не входит в MVP; факт обновления подтверждает оператор.
+- [x] Публикация относится к полному исходному dataset/диску, например `games/master-games`; отдельная сущность игры не является источником TrueNAS-операции.
+- [x] Admin station не обязательна: Controller UI остаётся control plane, клиентские станции — targets, TrueNAS выполняет snapshot/clone.
+- [x] Для автоматического onboarding используется отдельный короткоживущий provisioning token; Basic Auth оператора в native agent не передаётся.
 - [x] Чистая архитектура: `presentation`, `application`, `repository`, `domain`.
 - [x] Порты через `Protocol`, без `abc.ABC`.
 - [x] UoW с новым экземпляром на каждый use case/Dramatiq task.
@@ -222,6 +226,10 @@
   вынесены из workspace в `/tmp/tnas-playwright-artifacts`.
 - [x] Общий набор тестов после command delivery/runtime/enrollment slice: `153 passed, 1 skipped` на Python 3.12/uv.
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
+- [x] Provisioning token domain/repository/UoW, migrations, Basic Auth issue route, bootstrap route, native client contract и UI button добавлены; backend `181 passed`, frontend `7 passed`, build/Ruff пройдены.
+- [ ] Обновлённый native exe опубликован и проверен на Windows-клиенте с автоматическим созданием station.
+- [ ] Alembic migrations `7f5d0f1c9b42`/`8a9c2d7e4f11` применены в пользовательском Compose runtime.
+- [ ] Реальный TrueNAS snapshot/clone apply не выполнялся; нужен отдельный согласованный write gate.
 
 ## Принятое решение по версии игры
 
@@ -278,6 +286,7 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-23 | Добавлен agent entrypoint | Protected credential loading и `PyWin32ServiceRuntime` composition; реальные SCM install/start/stop не выполнялись |
 | 2026-08-23 | Добавлен explicit one-shot agent enrollment command | `AGENT_UUID`/token проходят через runtime environment, credential сохраняется защищённо; controller, SCM и migration не запускались |
 | 2026-08-23 | Добавлена Windows staging-инструкция | Зафиксированы controller enrollment, DPAPI/service account порядок, SCM-команды и smoke checks; фактическая Windows-проверка не выполнялась |
+| 2026-08-25 | Добавлен план 33 | Provisioning token автоматически создаёт station/agent; admin station сделана optional; publish terminology переведена с `game_name` на `source_dataset` для полного диска |
 | 2026-08-23 | Исправлен SCM credential lifecycle | `install`/`start` не требуют расшифровки под администратором; credential загружается при `SvcDoRun` под service account |
 | 2026-08-23 | Начат план 31 frontend | Добавлены React/Vite shell, in-memory Basic Auth, station read/create и Markdown knowledge base; полный workflow отложен на следующие подшаги |
 | 2026-08-23 | Продолжен план 31 frontend | Подключён lucide-react, добавлены reusable UI-компоненты и подтверждены production build/visual login smoke-check |

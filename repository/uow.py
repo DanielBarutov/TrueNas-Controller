@@ -16,6 +16,7 @@ from repository.agent_commands import SqlAlchemyAgentCommandRepository
 from repository.agents import SqlAlchemyAgentRepository
 from repository.enrollment_tokens import SqlAlchemyEnrollmentTokenRepository
 from repository.outbox import SqlAlchemyOutboxRepository
+from repository.provisioning_tokens import SqlAlchemyProvisioningTokenRepository
 from repository.publish_jobs import SqlAlchemyPublishJobRepository
 from repository.publish_targets import SqlAlchemyPublishTargetRepository
 from repository.rules import SqlAlchemyProcessRuleRepository
@@ -31,6 +32,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._session: AsyncSession | None = None
         self._stations: StationRepository | None = None
         self._enrollment_tokens: SqlAlchemyEnrollmentTokenRepository | None = None
+        self._provisioning_tokens: SqlAlchemyProvisioningTokenRepository | None = None
         self._agents: SqlAlchemyAgentRepository | None = None
         self._agent_commands: AgentCommandRepository | None = None
         self._process_rules: SqlAlchemyProcessRuleRepository | None = None
@@ -50,6 +52,12 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         if self._enrollment_tokens is None:
             raise RuntimeError("unit of work must be entered before accessing repositories")
         return self._enrollment_tokens
+
+    @property
+    def provisioning_tokens(self) -> SqlAlchemyProvisioningTokenRepository:
+        if self._provisioning_tokens is None:
+            raise RuntimeError("unit of work must be entered before accessing repositories")
+        return self._provisioning_tokens
 
     @property
     def agents(self) -> SqlAlchemyAgentRepository:
@@ -99,6 +107,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._session = self._session_factory()
         self._stations = SqlAlchemyStationRepository(self._session)
         self._enrollment_tokens = SqlAlchemyEnrollmentTokenRepository(self._session)
+        self._provisioning_tokens = SqlAlchemyProvisioningTokenRepository(self._session)
         self._agents = SqlAlchemyAgentRepository(self._session)
         self._agent_commands = SqlAlchemyAgentCommandRepository(self._session)
         self._process_rules = SqlAlchemyProcessRuleRepository(self._session)
@@ -125,6 +134,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             self._session = None
             self._stations = None
             self._enrollment_tokens = None
+            self._provisioning_tokens = None
             self._agents = None
             self._agent_commands = None
             self._process_rules = None

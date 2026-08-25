@@ -45,7 +45,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
   const [selectedStationIds, setSelectedStationIds] = useState<string[]>([]);
   const [form, setForm] = useState({
     label: "",
-    game_name: "",
+    source_dataset: "games/master-games",
     description: "",
     dry_run: true,
     allow_hot_switch: false,
@@ -99,10 +99,6 @@ export function PublishPage({ api }: { api: ControllerApi }) {
   async function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    if (!adminStationId) {
-      setError("Выберите online admin station: её snapshot нужен для server-side gate.");
-      return;
-    }
     if (selectedStationIds.length === 0) {
       setError("Выберите хотя бы одну online client station.");
       return;
@@ -116,7 +112,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
         idempotency_key: makeIdempotencyKey(),
       });
       const result = await api.preparePublishJob(draft.id, {
-        admin_station_id: adminStationId,
+        admin_station_id: adminStationId || null,
         confirmation: null,
       });
       setJob(draft);
@@ -137,7 +133,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
     setBusy("confirming");
     try {
       const result = await api.preparePublishJob(job.id, {
-        admin_station_id: adminStationId,
+        admin_station_id: adminStationId || null,
         confirmation: true,
       });
       setPrepared(result);
@@ -247,7 +243,7 @@ function ConfigurationStep({
 }: {
   form: {
     label: string;
-    game_name: string;
+    source_dataset: string;
     description: string;
     dry_run: boolean;
     allow_hot_switch: boolean;
@@ -279,9 +275,9 @@ function ConfigurationStep({
             <HelpHint>Человекочитаемый label для job и аудита.</HelpHint>
           </label>
           <label>
-            Игра
-            <input required value={form.game_name} onChange={(event) => setForm({ ...form, game_name: event.target.value })} placeholder="Game Name" />
-            <HelpHint>Идентификатор игры для job и аудита; факт обновления подтверждает оператор.</HelpHint>
+            Исходный dataset
+            <input required value={form.source_dataset} onChange={(event) => setForm({ ...form, source_dataset: event.target.value })} placeholder="games/master-games" />
+            <HelpHint>Полный источник данных для snapshot: например, `games/master-games`. TrueNAS snapshot/clone работает со всем dataset, а не с отдельными играми.</HelpHint>
           </label>
           <label className="wide-field">
             Описание
@@ -303,15 +299,15 @@ function ConfigurationStep({
       </div>
       <div className="wizard-selection-grid">
         <section className="wizard-card form-card">
-          <SectionHeading eyebrow="ADMIN CHECK" title="Admin station" description="Свежий snapshot админского ПК нужен для общего gate." />
+          <SectionHeading eyebrow="OPTIONAL ADMIN CHECK" title="Админский ПК не обязателен" description="Основная операция выполняется на TrueNAS: snapshot master dataset и clone в новый dataset." />
           <label>
             Админский ПК
-            <select required value={adminStationId} onChange={(event) => setAdminStationId(event.target.value)}>
-              <option value="">Выберите online station</option>
+            <select value={adminStationId} onChange={(event) => setAdminStationId(event.target.value)}>
+              <option value="">Не использовать admin station</option>
               {adminStations.map((station) => <option key={station.station_id} value={station.station_id}>{station.display_name} · {station.hostname}</option>)}
             </select>
           </label>
-          {adminStations.length === 0 && <InfoNote>Нет online admin station. Сначала зарегистрируйте агент и дождитесь свежего heartbeat.</InfoNote>}
+          {adminStations.length === 0 && <InfoNote>Admin station не зарегистрирована — это допустимо для TrueNAS snapshot/clone workflow.</InfoNote>}
         </section>
         <section className="wizard-card form-card">
           <SectionHeading eyebrow="CLIENT TARGETS" title="Станции для публикации" description="Offline и stale недоступны для выбора." />
@@ -324,7 +320,7 @@ function ConfigurationStep({
         </section>
       </div>
       <InfoNote><ShieldCheck aria-hidden size={16} /> Browser не вычисляет готовность самостоятельно: после создания draft backend повторно выполнит preflight и сохранит результат.</InfoNote>
-      <div className="wizard-actions"><span className="muted">{selectedStationIds.length} client station выбрано</span><button className="primary-button" type="submit" disabled={busy !== null || !adminStationId || selectedStationIds.length === 0}><ClipboardCheck aria-hidden size={16} /> {busy === "preparing" ? "Проверяем…" : "Создать draft и проверить" } <ArrowRight aria-hidden size={16} /></button></div>
+      <div className="wizard-actions"><span className="muted">{selectedStationIds.length} client station выбрано</span><button className="primary-button" type="submit" disabled={busy !== null || selectedStationIds.length === 0}><ClipboardCheck aria-hidden size={16} /> {busy === "preparing" ? "Проверяем…" : "Создать draft и проверить" } <ArrowRight aria-hidden size={16} /></button></div>
     </form>
   );
 }
@@ -347,7 +343,7 @@ function PreflightStep({
       <SectionHeading eyebrow="02 / SERVER PREFLIGHT" title="Проверки получены от backend" description="Каждый report привязан к station и snapshot. UNKNOWN не трактуется как PASS." />
       <GateBanner gate={prepared.gate} />
       <div className="report-grid">
-        <ReportCard title="Admin station" report={prepared.admin_report} stationName={findStationName(stations, prepared.admin_report.station_id)} />
+        {prepared.admin_report && <ReportCard title="Admin station" report={prepared.admin_report} stationName={findStationName(stations, prepared.admin_report.station_id)} />}
         {prepared.client_reports.map((report) => <ReportCard key={report.station_id} title="Client station" report={report} stationName={findStationName(stations, report.station_id)} />)}
       </div>
       <div className="wizard-actions"><button className="ghost-button" type="button" onClick={onBack}><ArrowLeft aria-hidden size={15} /> Изменить draft</button><button className="primary-button" type="button" disabled={busy !== null || !canRequestConfirmation(prepared.gate)} onClick={onConfirm}><ShieldCheck aria-hidden size={16} /> {busy === "confirming" ? "Подтверждаем…" : "Подтвердить preflight"} <ArrowRight aria-hidden size={16} /></button></div>
@@ -386,7 +382,7 @@ function ConfirmationStep({
         <span><strong>Станций</strong>{prepared.gate.selected_station_ids.length}</span>
       </div>
       <div className="report-grid compact-reports">
-        <ReportCard title="Admin" report={prepared.admin_report} stationName={findStationName(stations, prepared.admin_report.station_id)} />
+        {prepared.admin_report && <ReportCard title="Admin" report={prepared.admin_report} stationName={findStationName(stations, prepared.admin_report.station_id)} />}
         {prepared.client_reports.map((report) => <ReportCard key={report.station_id} title="Client" report={report} stationName={findStationName(stations, report.station_id)} />)}
       </div>
       <InfoNote><LockKeyhole aria-hidden size={16} /> После dispatch worker продолжит по durable outbox; UI не сообщает fake success о завершении TrueNAS workflow.</InfoNote>

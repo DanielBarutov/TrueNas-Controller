@@ -43,7 +43,7 @@ def make_job() -> PublishJob:
         idempotency_key="query-key",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
     )
 
 

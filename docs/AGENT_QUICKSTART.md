@@ -30,16 +30,16 @@ UUID. Native и Python report используют совместимый пут
 Передайте `C:\Install\station-report.json` оператору. В отчёте нет Basic Auth,
 enrollment token, credential или TrueNAS API key.
 
-## 2. Создать station на админском ПК
+## 2. Выпустить provisioning token в Controller UI
 
 1. Откройте Controller UI → **Станции и агенты**.
-2. Вставьте содержимое `station-report.json` в поле отчёта.
-3. Нажмите **Подставить данные отчёта**, проверьте hostname и UUID.
-4. Нажмите **Создать station**.
-5. Передайте показанный один раз enrollment token на тот же клиентский ПК.
+2. Нажмите **Создать provisioning token**.
+3. Передайте показанный один раз token на тот же клиентский ПК.
 
-Операторский Basic Auth используется только на админском ПК. Token действует
-ограниченное время и используется один раз.
+Station вручную создавать не нужно: installer отправит серверу UUID из
+`station-report.json`, и backend атомарно создаст client station и agent
+binding. Операторский Basic Auth используется только в UI. Provisioning token
+действует ограниченное время и используется один раз.
 
 ## 3. Установить native-агент на клиенте
 
@@ -59,7 +59,7 @@ Set-Location C:\Install
 
 - копирует exe в `%ProgramData%\TrueNasController\agent`;
 - сохраняет несекретный `agent.json`;
-- просит enrollment token **видимым вводом** в текущей консоли;
+- просит provisioning token **видимым вводом** в текущей консоли;
 - сохраняет credential через DPAPI machine-scope;
 - регистрирует `TrueNasControllerAgent` как `LocalSystem` без пароля;
 - запускает службу и ждёт её состояния `Running`.
@@ -76,6 +76,10 @@ Station UUID и agent UUID берутся из report и проверяются 
   --allow-insecure-http `
   --dry-run
 ```
+
+`--provisioning-token` — необязательный способ передать token явно; по умолчанию
+installer спрашивает его видимым prompt. Для старого ручного сценария, где
+station уже создана, используйте `--enrollment-token`.
 
 `--command-verify-key` — необязательный URL-safe base64 public Ed25519 key для
 подписанной команды `refresh_process_snapshot`. Это не token, не Basic Auth и

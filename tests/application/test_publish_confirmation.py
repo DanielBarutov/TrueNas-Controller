@@ -87,7 +87,7 @@ def make_job(*, status: PublishJobStatus = PublishJobStatus.DRAFT) -> PublishJob
         idempotency_key="confirmation-key",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
     )
     if status is PublishJobStatus.DRAFT:
         return job
@@ -168,6 +168,21 @@ async def test_missing_confirmation_moves_ready_reports_to_waiting_state() -> No
     assert result.job.status is PublishJobStatus.AWAITING_CONFIRMATION
     assert result.job.status_reason == "operator_confirmation_required"
     assert result.job.client_confirmation is None
+
+
+async def test_prepare_can_skip_admin_station_for_true_nas_workflow() -> None:
+    store, _, client_id = make_store()
+    query = FakePreflightQuery({client_id: report(client_id, CheckStatus.PASS)})
+
+    result = await PreparePublishJobUseCase(store.factory, query).execute(
+        job_id=store.job.id,  # type: ignore[union-attr]
+        admin_station_id=None,
+        confirmation=True,
+    )
+
+    assert result.admin_report is None
+    assert result.gate.can_advance is True
+    assert query.calls == [client_id]
 
 
 async def test_prepare_rejects_terminal_job_before_preflight() -> None:

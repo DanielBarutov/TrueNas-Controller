@@ -22,10 +22,27 @@ class StationRegistrationResponse(StationResponse):
     enrollment_expires_at: datetime
 
 
+class ProvisioningTokenResponse(BaseModel):
+    provisioning_token: str
+    expires_at: datetime
+
+
 class AgentEnrollRequest(BaseModel):
     enrollment_token: str = Field(min_length=1, max_length=256)
     agent_uuid: UUID
     hostname: str = Field(min_length=1, max_length=255)
+    agent_version: str = Field(min_length=1, max_length=64)
+    ip_addresses: list[str] = Field(default_factory=list, max_length=16)
+    mac_addresses: list[str] = Field(default_factory=list, max_length=16)
+
+
+class AgentBootstrapRequest(BaseModel):
+    provisioning_token: str = Field(min_length=1, max_length=256)
+    station_id: UUID
+    display_name: str = Field(min_length=1, max_length=120)
+    hostname: str = Field(min_length=1, max_length=255)
+    role: StationRole = StationRole.CLIENT
+    agent_uuid: UUID
     agent_version: str = Field(min_length=1, max_length=64)
     ip_addresses: list[str] = Field(default_factory=list, max_length=16)
     mac_addresses: list[str] = Field(default_factory=list, max_length=16)

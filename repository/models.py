@@ -197,6 +197,20 @@ class EnrollmentTokenRecord(Base):
     station: Mapped[StationRecord] = relationship(back_populates="enrollment_tokens")
 
 
+class ProvisioningTokenRecord(Base):
+    """Short-lived operator token used to create and enroll a new station."""
+
+    __tablename__ = "provisioning_tokens"
+    __table_args__ = (Index("ix_provisioning_tokens_expires_at", "expires_at"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class ProcessSnapshotRecord(Base):
     """Normalized process/drive snapshot received from a station agent."""
 
@@ -250,7 +264,7 @@ class PublishJobRecord(Base):
     idempotency_key: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    game_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_dataset: Mapped[str] = mapped_column(String(255), nullable=False)
     dry_run: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
     )

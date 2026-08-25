@@ -58,6 +58,46 @@ public sealed class ControllerClient : IDisposable
         return result;
     }
 
+    public async Task<EnrollmentResponse> BootstrapAsync(
+        string provisioningToken,
+        string displayName,
+        IReadOnlyList<string> ipAddresses,
+        IReadOnlyList<string> macAddresses,
+        CancellationToken cancellationToken)
+    {
+        var request = new
+        {
+            provisioning_token = provisioningToken,
+            station_id = _config.StationId,
+            display_name = displayName,
+            hostname = _config.Hostname,
+            role = "client",
+            agent_uuid = _config.AgentUuid,
+            agent_version = _config.AgentVersion,
+            ip_addresses = ipAddresses,
+            mac_addresses = macAddresses,
+        };
+        using var response = await PostJsonAsync(
+            $"{_config.ControllerUrl.TrimEnd('/')}/api/v1/agents/bootstrap",
+            request,
+            bearer: null,
+            cancellationToken);
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException(
+                "automatic station bootstrap rejected: provisioning token is invalid, expired, already used, or the station already has an agent");
+        }
+
+        await EnsureSuccessAsync(response, "station bootstrap");
+        var result = await DeserializeAsync<EnrollmentResponse>(response, "station bootstrap response");
+        if (string.IsNullOrWhiteSpace(result.Credential))
+        {
+            throw new InvalidOperationException("station bootstrap response contains an empty credential");
+        }
+
+        return result;
+    }
+
     public async Task<HeartbeatResponse> SendHeartbeatAsync(
         HeartbeatPayload payload,
         string credential,

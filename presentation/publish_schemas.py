@@ -16,7 +16,7 @@ class PublishJobCreateRequest(BaseModel):
     """Operator input for one durable draft and its station selection."""
 
     label: str = Field(min_length=1, max_length=255)
-    game_name: str = Field(min_length=1, max_length=255)
+    source_dataset: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     station_ids: list[UUID] = Field(min_length=1)
     idempotency_key: str = Field(min_length=1, max_length=200)
@@ -28,7 +28,7 @@ class PublishJobCreateRequest(BaseModel):
 class PublishPrepareRequest(BaseModel):
     """Operator input for the server-side preflight and confirmation gate."""
 
-    admin_station_id: UUID
+    admin_station_id: UUID | None = None
     confirmation: bool | None = None
 
 
@@ -39,7 +39,7 @@ class PublishJobDraftResponse(BaseModel):
     idempotency_key: str
     correlation_id: UUID
     label: str
-    game_name: str
+    source_dataset: str
     status: PublishJobStatus
     dry_run: bool
     allow_hot_switch: bool
@@ -52,7 +52,7 @@ class PublishJobDraftResponse(BaseModel):
             idempotency_key=draft.job.idempotency_key,
             correlation_id=draft.job.correlation_id,
             label=draft.job.label,
-            game_name=draft.job.game_name,
+            source_dataset=draft.job.source_dataset,
             status=draft.job.status,
             dry_run=draft.job.dry_run,
             allow_hot_switch=draft.job.allow_hot_switch,
@@ -76,7 +76,7 @@ class PublishPrepareResponse(BaseModel):
     status: PublishJobStatus
     client_confirmation: bool | None
     gate: PublishGateResponse
-    admin_report: PreflightResponse
+    admin_report: PreflightResponse | None
     client_reports: list[PreflightResponse]
 
     @classmethod
@@ -91,7 +91,11 @@ class PublishPrepareResponse(BaseModel):
                 selected_station_ids=list(result.gate.selected_station_ids),
                 reasons=list(result.gate.reasons),
             ),
-            admin_report=_preflight_response(result.admin_report),
+            admin_report=(
+                None
+                if result.admin_report is None
+                else _preflight_response(result.admin_report)
+            ),
             client_reports=[
                 _preflight_response(report) for report in result.client_reports.values()
             ],
@@ -145,7 +149,7 @@ class PublishJobResponse(BaseModel):
     idempotency_key: str
     correlation_id: UUID
     label: str
-    game_name: str
+    source_dataset: str
     description: str | None
     status: PublishJobStatus
     dry_run: bool
@@ -159,7 +163,7 @@ class PublishJobResponse(BaseModel):
             idempotency_key=view.job.idempotency_key,
             correlation_id=view.job.correlation_id,
             label=view.job.label,
-            game_name=view.job.game_name,
+            source_dataset=view.job.source_dataset,
             description=view.job.description,
             status=view.job.status,
             dry_run=view.job.dry_run,

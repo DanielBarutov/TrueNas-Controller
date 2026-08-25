@@ -12,11 +12,13 @@ from application.ports import UnitOfWorkFactory
 from domain.agent import AgentBinding
 from domain.agent_command import AgentCommand
 from domain.enrollment import EnrollmentToken
+from domain.provisioning import ProvisioningToken
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole, StationStatus
 from domain.time import ensure_utc
 
 ENROLLMENT_TOKEN_TTL = timedelta(minutes=10)
+PROVISIONING_TOKEN_TTL = timedelta(minutes=15)
 HEARTBEAT_CLOCK_SKEW = timedelta(minutes=5)
 AGENT_COMMAND_LEASE = timedelta(seconds=30)
 AGENT_COMMAND_BATCH_SIZE = 16
@@ -24,6 +26,14 @@ AGENT_COMMAND_BATCH_SIZE = 16
 
 class EnrollmentRejectedError(ValueError):
     """Raised when an enrollment token cannot be claimed."""
+
+
+class ProvisioningRejectedError(ValueError):
+    """Raised when a station bootstrap token cannot be claimed."""
+
+
+class ProvisioningConflictError(ValueError):
+    """Raised when bootstrap would replace an existing agent binding."""
 
 
 class StationRegistrationConflictError(ValueError):
@@ -45,6 +55,14 @@ class StationRegistration:
     station: Station
     enrollment_token: str
     enrollment_expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ProvisioningTokenRegistration:
+    """Provisioning token shown to an operator exactly once."""
+
+    token: str
+    expires_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +137,27 @@ class CreateStationUseCase:
         return StationRegistration(station, raw_token, token_expires_at)
 
 
+class CreateProvisioningTokenUseCase:
+    """Issue a short-lived token for automatic station creation on a client PC."""
+
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self._uow_factory = uow_factory
+
+    async def execute(self, *, now: datetime | None = None) -> ProvisioningTokenRegistration:
+        created_at = ensure_utc(now or datetime.now(UTC))
+        raw_token = secrets.token_urlsafe(32)
+        expires_at = created_at + PROVISIONING_TOKEN_TTL
+        token = ProvisioningToken(
+            id=uuid4(),
+            token_hash=hash_secret(raw_token),
+            expires_at=expires_at,
+        )
+        async with self._uow_factory() as uow:
+            await uow.provisioning_tokens.add(token)
+            await uow.commit()
+        return ProvisioningTokenRegistration(raw_token, expires_at)
+
+
 class DeleteStationUseCase:
     """Remove a station from the active registry and invalidate its agent."""
 
@@ -172,6 +211,93 @@ class EnrollAgentUseCase:
             await uow.agents.add(agent)
             await uow.commit()
         return EnrollmentResult(token.station_id, raw_credential, enrolled_at)
+
+
+class BootstrapAgentUseCase:
+    """Create a client station when absent and enroll its agent atomically."""
+
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self._uow_factory = uow_factory
+
+    async def execute(
+        self,
+        *,
+        provisioning_token: str,
+        station_id: UUID,
+        display_name: str,
+        hostname: str,
+        role: StationRole,
+        agent_uuid: UUID,
+        agent_version: str,
+        ip_addresses: tuple[str, ...] = (),
+        mac_addresses: tuple[str, ...] = (),
+        now: datetime | None = None,
+    ) -> EnrollmentResult:
+        enrolled_at = ensure_utc(now or datetime.now(UTC))
+        if role is not StationRole.CLIENT:
+            raise ProvisioningRejectedError(
+                "automatic bootstrap is allowed only for client stations"
+            )
+        if station_id != agent_uuid:
+            raise ProvisioningRejectedError(
+                "station_id and agent_uuid must be the same stable UUID"
+            )
+        raw_credential = secrets.token_urlsafe(32)
+        async with self._uow_factory() as uow:
+            token = await uow.provisioning_tokens.consume(
+                hash_secret(provisioning_token), enrolled_at
+            )
+            if token is None:
+                raise ProvisioningRejectedError("provisioning token is invalid or expired")
+
+            existing_agent = await uow.agents.get_by_agent_uuid(agent_uuid)
+            if existing_agent is not None:
+                raise ProvisioningConflictError("agent UUID is already enrolled")
+
+            station = await uow.stations.get(station_id)
+            if station is None:
+                station = Station(
+                    id=uuid4(),
+                    station_id=station_id,
+                    display_name=display_name,
+                    hostname=hostname,
+                    role=role,
+                    status=StationStatus.OFFLINE,
+                )
+                await uow.stations.add(station)
+            elif station.deleted_at is not None:
+                station = replace(
+                    station,
+                    display_name=display_name,
+                    hostname=hostname,
+                    role=role,
+                    status=StationStatus.OFFLINE,
+                    enabled=True,
+                    deleted_at=None,
+                )
+                await uow.stations.restore(station)
+            else:
+                if station.role is not role:
+                    raise ProvisioningConflictError(
+                        "station exists with a different role"
+                    )
+                if await uow.agents.get_by_station_id(station_id) is not None:
+                    raise ProvisioningConflictError("station already has an enrolled agent")
+                await uow.stations.update_hostname(station_id, hostname)
+
+            agent = AgentBinding(
+                id=uuid4(),
+                station_id=station_id,
+                agent_uuid=agent_uuid,
+                agent_version=agent_version,
+                credential_hash=hash_secret(raw_credential),
+                credential_created_at=enrolled_at,
+                last_ip_addresses=ip_addresses,
+                last_mac_addresses=mac_addresses,
+            )
+            await uow.agents.add(agent)
+            await uow.commit()
+        return EnrollmentResult(station_id, raw_credential, enrolled_at)
 
 
 class ReceiveHeartbeatUseCase:

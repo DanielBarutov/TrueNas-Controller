@@ -63,7 +63,7 @@ async def test_create_publish_job_materializes_dynamic_selection_and_safe_defaul
 
     draft = await CreatePublishJobUseCase(uow_factory).execute(
         label="build-001",
-        game_name="game",
+        source_dataset="game",
         station_ids=(first.station_id, second.station_id),
         idempotency_key="draft-key",
         correlation_id=correlation_id,
@@ -96,7 +96,7 @@ async def test_create_publish_job_rejects_unknown_disabled_and_duplicate_selecti
     with pytest.raises(PublishDraftValidationError, match="station selection"):
         await use_case.execute(
             label="build",
-            game_name="game",
+            source_dataset="game",
             station_ids=(enabled.station_id, enabled.station_id),
             idempotency_key="duplicate-selection",
             correlation_id=uuid4(),
@@ -104,7 +104,7 @@ async def test_create_publish_job_rejects_unknown_disabled_and_duplicate_selecti
     with pytest.raises(PublishDraftValidationError, match="station not found"):
         await use_case.execute(
             label="build",
-            game_name="game",
+            source_dataset="game",
             station_ids=(uuid4(),),
             idempotency_key="missing-station",
             correlation_id=uuid4(),
@@ -112,7 +112,7 @@ async def test_create_publish_job_rejects_unknown_disabled_and_duplicate_selecti
     with pytest.raises(PublishDraftValidationError, match="station is disabled"):
         await use_case.execute(
             label="build",
-            game_name="game",
+            source_dataset="game",
             station_ids=(disabled.station_id,),
             idempotency_key="disabled-station",
             correlation_id=uuid4(),
@@ -127,7 +127,7 @@ async def test_same_idempotency_request_returns_existing_draft_without_duplicate
     use_case = CreatePublishJobUseCase(uow_factory)
     values = {
         "label": "build",
-        "game_name": "game",
+        "source_dataset": "game",
         "station_ids": (station.station_id,),
         "idempotency_key": "same-request",
         "correlation_id": UUID(int=1),
@@ -165,7 +165,7 @@ async def test_enqueue_reloads_job_and_sends_minimal_payload(
     await add_stations(uow_factory, (station,))
     draft = await CreatePublishJobUseCase(uow_factory).execute(
         label="build",
-        game_name="game",
+        source_dataset="game",
         station_ids=(station.station_id,),
         idempotency_key="enqueue-key",
         correlation_id=UUID(int=2),

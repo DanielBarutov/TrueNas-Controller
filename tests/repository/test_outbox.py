@@ -44,7 +44,7 @@ def make_job_and_target() -> tuple[Station, PublishJob, PublishTarget]:
         idempotency_key="outbox-job",
         correlation_id=uuid4(),
         label="build",
-        game_name="game",
+        source_dataset="game",
         status=PublishJobStatus.AWAITING_CONFIRMATION,
         client_confirmation=True,
     )

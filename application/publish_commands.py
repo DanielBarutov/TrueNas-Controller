@@ -41,7 +41,7 @@ class CreatePublishJobUseCase:
         self,
         *,
         label: str,
-        game_name: str,
+        source_dataset: str,
         station_ids: tuple[UUID, ...],
         idempotency_key: str,
         correlation_id: UUID,
@@ -50,7 +50,7 @@ class CreatePublishJobUseCase:
         allow_hot_switch: bool = False,
         operator_id: UUID | None = None,
     ) -> PublishJobDraft:
-        self._validate_request(label, game_name, station_ids, idempotency_key)
+        self._validate_request(label, source_dataset, station_ids, idempotency_key)
 
         async with self._uow_factory() as uow:
             existing = await uow.publish_jobs.get_by_idempotency_key(idempotency_key)
@@ -60,7 +60,7 @@ class CreatePublishJobUseCase:
                     existing,
                     existing_targets,
                     label=label,
-                    game_name=game_name,
+                    source_dataset=source_dataset,
                     station_ids=station_ids,
                     correlation_id=correlation_id,
                     description=description,
@@ -85,7 +85,7 @@ class CreatePublishJobUseCase:
                 idempotency_key=idempotency_key,
                 correlation_id=correlation_id,
                 label=label,
-                game_name=game_name,
+                source_dataset=source_dataset,
                 dry_run=dry_run,
                 allow_hot_switch=allow_hot_switch,
                 description=description,
@@ -103,14 +103,14 @@ class CreatePublishJobUseCase:
     @staticmethod
     def _validate_request(
         label: str,
-        game_name: str,
+        source_dataset: str,
         station_ids: tuple[UUID, ...],
         idempotency_key: str,
     ) -> None:
         if not label.strip():
             raise PublishDraftValidationError("label must not be blank")
-        if not game_name.strip():
-            raise PublishDraftValidationError("game_name must not be blank")
+        if not source_dataset.strip():
+            raise PublishDraftValidationError("source_dataset must not be blank")
         if not station_ids:
             raise PublishDraftValidationError("at least one station is required")
         if len(set(station_ids)) != len(station_ids):
@@ -124,7 +124,7 @@ class CreatePublishJobUseCase:
         targets: tuple[PublishTarget, ...],
         *,
         label: str,
-        game_name: str,
+        source_dataset: str,
         station_ids: tuple[UUID, ...],
         correlation_id: UUID,
         description: str | None,
@@ -134,7 +134,7 @@ class CreatePublishJobUseCase:
     ) -> bool:
         return (
             job.label == label
-            and job.game_name == game_name
+            and job.source_dataset == source_dataset
             and job.description == description
             and job.dry_run == dry_run
             and job.allow_hot_switch == allow_hot_switch

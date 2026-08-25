@@ -35,7 +35,7 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
                 idempotency_key=job.idempotency_key,
                 label=job.label,
                 description=job.description,
-                game_name=job.game_name,
+                source_dataset=job.source_dataset,
                 dry_run=job.dry_run,
                 allow_hot_switch=job.allow_hot_switch,
                 step=job.status.value,
@@ -56,7 +56,7 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
         previous_status = record.status
         record.label = job.label
         record.description = job.description
-        record.game_name = job.game_name
+        record.source_dataset = job.source_dataset
         record.dry_run = job.dry_run
         record.allow_hot_switch = job.allow_hot_switch
         record.step = job.status.value
@@ -83,7 +83,7 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
             idempotency_key=record.idempotency_key,
             correlation_id=record.correlation_id,
             label=record.label,
-            game_name=record.game_name,
+            source_dataset=record.source_dataset,
             dry_run=record.dry_run,
             allow_hot_switch=record.allow_hot_switch,
             status=PublishJobStatus(record.status),

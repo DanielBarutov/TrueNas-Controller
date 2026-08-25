@@ -40,7 +40,7 @@ def make_job(*, idempotency_key: str = "job-key") -> PublishJob:
         idempotency_key=idempotency_key,
         correlation_id=uuid4(),
         label="build-001",
-        game_name="game",
+        source_dataset="game",
         description="nightly build",
         client_confirmation=True,
     )

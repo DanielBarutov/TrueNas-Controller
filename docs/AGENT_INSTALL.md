@@ -17,8 +17,9 @@ Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```
 
-После вставки report в Controller UI и создания station с тем же UUID передайте
-одноразовый token на клиент и запустите elevated PowerShell:
+В Controller UI → **Станции и агенты** нажмите **Создать provisioning token** и
+передайте его клиенту. Station вручную создавать не нужно: backend создаст её по
+UUID из report вместе с agent binding. Затем запустите elevated PowerShell:
 
 ```powershell
 Set-Location C:\Install
@@ -28,9 +29,11 @@ Set-Location C:\Install
   --allow-insecure-http
 ```
 
-Для HTTPS уберите `--allow-insecure-http`. Token вводится видимо, не попадает
-в argv или постоянное окружение. Installer использует station/agent UUID из
-одного report, DPAPI machine-scope и Windows Service `LocalSystem` без пароля.
+Для HTTPS уберите `--allow-insecure-http`. Provisioning token вводится видимо,
+не попадает в argv или постоянное окружение. Installer использует station/agent
+UUID из одного report, DPAPI machine-scope и Windows Service `LocalSystem` без
+пароля. Для legacy ручного сценария с заранее созданной station передайте
+`--enrollment-token` вместо provisioning token.
 
 Проверка и диагностика:
 
@@ -104,7 +107,11 @@ token. Команда installer больше не запрашивает пар�
 Агент не получает TrueNAS API key, а credential остаётся ограничен этим
 клиентом и его station binding.
 
-## 2. Создать station и получить одноразовый token
+## Legacy recovery: вручную создать station и получить enrollment token
+
+Этот раздел нужен только для старого Python/manual сценария. Для нового native
+exe используйте provisioning token в верхнем разделе: station вручную создавать
+не требуется.
 
 Выполнить в PowerShell администратора или оператора. Пароль вводится через
 защищённый prompt и не попадает в командную строку:

@@ -52,8 +52,8 @@
 
 | Метод | Назначение | Статус |
 |---|---|---|
-| `pool.snapshot.create` | создать один master snapshot на job | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.create.html) |
-| `pool.snapshot.clone` | создать clone snapshot в новый dataset/zvol | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.clone.html) |
+| `pool.snapshot.create` | создать snapshot исходного dataset, например `games/master-games` | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.create.html) |
+| `pool.snapshot.clone` | создать clone полного диска в новый dataset/zvol | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.clone.html) |
 
 ### Кандидат на mapping switch
 
