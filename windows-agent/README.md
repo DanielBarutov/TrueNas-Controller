@@ -50,8 +50,10 @@ Set-Location C:\Install
 
 В production используйте HTTPS и уберите `--allow-insecure-http`. Token будет
 запрошен видимым `Console.ReadLine`; он не находится в аргументах, файле или
-machine environment. Повторный запуск с существующим credential не делает
-новый enrollment.
+machine environment. Повторный запуск с существующим credential пропускает
+enrollment только после успешной проверки credential heartbeat-запросом для
+текущей station. Если credential относится к другой/удалённой station или
+сервер возвращает `401`, installer очистит его и запросит новый видимый token.
 
 Перед изменениями можно выполнить `install ... --dry-run`. Не передавайте
 `--station-id`: UUID берётся из report и проверяется на совпадение.
@@ -78,5 +80,7 @@ Set-Location C:\ProgramData\TrueNasController\agent
   snapshot процесса `services.exe`.
 - `WindowsServiceManager` вызывает SCM native API и не использует
   `pythonservice.exe`.
+- Повторная установка не доверяет одному наличию `agent.credential`: binding
+  проверяется на Controller до пропуска enrollment.
 - Публичный verify key опционален: без него heartbeat работает, но команды
   Controller не исполняются.

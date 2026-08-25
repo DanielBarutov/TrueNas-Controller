@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Cryptography;
 using TrueNasController.Agent.Application;
 using TrueNasController.Agent.Domain;
 
@@ -74,15 +75,41 @@ public static class NativeInstaller
         string? credential = null;
         if (store.Exists)
         {
-            Console.WriteLine("[2/5] Найден существующий credential; enrollment пропущен");
-            credential = store.Load(out var legacyUserScope);
-            if (legacyUserScope)
+            try
             {
-                Console.WriteLine("[2/5] Переписываю старый credential в область LocalMachine");
-                store.Save(credential);
+                credential = store.Load(out var legacyUserScope);
+                using var client = new ControllerClient(config);
+                var probe = new SnapshotCollector().Collect(config);
+                await client.SendHeartbeatAsync(probe, credential, cancellationToken);
+                Console.WriteLine("[2/5] Существующий credential подтверждён для этой station");
+                if (legacyUserScope)
+                {
+                    Console.WriteLine("[2/5] Переписываю старый credential в область LocalMachine");
+                    store.Save(credential);
+                }
+            }
+            catch (ControllerUnauthorizedException)
+            {
+                Console.WriteLine(
+                    "[2/5] Старый credential отклонён для этой station; требуется новый enrollment");
+                store.Clear();
+                credential = null;
+            }
+            catch (CryptographicException)
+            {
+                Console.WriteLine("[2/5] Старый credential повреждён; требуется новый enrollment");
+                store.Clear();
+                credential = null;
+            }
+            catch (InvalidOperationException exception) when (exception.Message.Contains("stored agent credential", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("[2/5] Старый credential повреждён; требуется новый enrollment");
+                store.Clear();
+                credential = null;
             }
         }
-        else
+
+        if (credential is null)
         {
             Console.WriteLine("[2/5] Введите одноразовый enrollment-токен (ввод отображается)");
             var token = Console.ReadLine()?.Trim();

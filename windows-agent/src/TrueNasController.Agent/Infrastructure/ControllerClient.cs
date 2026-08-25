@@ -132,6 +132,12 @@ public sealed class ControllerClient : IDisposable
             detail = detail[..300];
         }
 
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            throw new ControllerUnauthorizedException(
+                $"{operation} rejected with HTTP {(int)response.StatusCode}: {detail}");
+        }
+
         throw new InvalidOperationException(
             $"{operation} rejected with HTTP {(int)response.StatusCode}: {detail}");
     }
@@ -162,4 +168,12 @@ public sealed class ControllerClient : IDisposable
     }
 
     public void Dispose() => _httpClient.Dispose();
+}
+
+public sealed class ControllerUnauthorizedException : InvalidOperationException
+{
+    public ControllerUnauthorizedException(string message)
+        : base(message)
+    {
+    }
 }

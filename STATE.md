@@ -168,6 +168,9 @@
 - [x] Native .NET Worker Service добавлен как рекомендуемый runtime: config в
   `agent.json`, native SCM API, видимый token prompt, report и self-contained
   `win-x64` publish path; Linux build прошёл.
+- [x] Native installer больше не пропускает enrollment только из-за наличия
+  старого `agent.credential`: binding проверяется heartbeat, при `401`
+  запрашивается новый token.
 - [x] SCM process не читает environment/DPAPI до входа в dispatcher; credential
   и AgentService создаются внутри `SvcDoRun`, а `debug`/`foreground` используют
   консольный режим без pywin32 `pythonservice.exe`.

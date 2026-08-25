@@ -36,6 +36,8 @@ Service, сохранив существующий HTTP-контракт аге�
 - [x] Worker Service с deferred startup и foreground режимом.
 - [x] Ed25519 URL-safe base64 verifier с canonical command payload.
 - [x] Self-contained installer и совместимый station report.
+- [x] Existing credential проверяется heartbeat для текущей station; при `401`
+  installer запрашивает новый видимый enrollment token.
 - [x] Frontend/docs переведены на native путь; Python оставлен legacy recovery.
 - [x] Linux-side build прошёл через .NET 10 SDK.
 - [ ] Windows client smoke: report → station → visible token → LocalSystem → heartbeat.
