@@ -82,7 +82,12 @@ credential защищается DPAPI machine-scope, а файл огранич�
 локальных администраторов. Это passwordless-решение с явно принятым локальным
 компромиссом доступа администратора к machine-scope credential.
 
-Для staging onboarding реализован единый
+Для новых Windows-клиентов основным deployment является native .NET план
+[`03-native-dotnet-agent.md`](03-native-dotnet-agent.md): self-contained
+`TrueNasControllerAgent.exe`, native SCM API и Worker Service. Python installer
+ниже сохраняется только как legacy recovery до закрытия Windows smoke gate.
+
+Для legacy staging onboarding реализован единый
 [`scripts/install_windows_agent.py`](../../scripts/install_windows_agent.py): он
 читает station report, копирует release checkout в стабильную папку, запускает
 `uv sync --locked --no-dev`, выполняет one-shot enrollment с открытым вводом token и
@@ -156,5 +161,8 @@ credential защищается DPAPI machine-scope, а файл огранич�
   диагностику без pywin32 `pythonservice.exe`;
 - [x] installer мигрирует существующий user-scope credential в machine-scope
   без повторного enrollment и применяет ACL для `SYSTEM`/Administrators;
+- [x] native .NET Worker Service, self-contained installer, DPAPI/ACL store,
+  native SCM registration и compatible report добавлены планом
+  [`03-native-dotnet-agent.md`](03-native-dotnet-agent.md);
 - [ ] фактическая проверка installer/service registration, ACL и heartbeat под
-  `LocalSystem` после обновления checkout на Windows;
+  `LocalSystem` для native exe после обновления checkout на Windows;

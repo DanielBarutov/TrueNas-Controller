@@ -1,5 +1,24 @@
 # Windows-agent deployment boundary
 
+Для новых Windows-клиентов основной runtime — self-contained native .NET agent:
+`windows-agent/src/TrueNasController.Agent`. Он публикуется одним exe, не
+зависит от Python/uv/pywin32 и регистрирует службу через native SCM API. Полный
+путь запуска находится в [`AGENT_QUICKSTART.md`](AGENT_QUICKSTART.md).
+
+```powershell
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe report --output .\station-report.json
+.\TrueNasControllerAgent.exe install `
+  --controller-url "http://192.168.0.47:8000" `
+  --report "C:\Install\station-report.json" `
+  --allow-insecure-http
+```
+
+Token вводится видимо только в интерактивной консоли. Native agent использует
+тот же enrollment/heartbeat/ack API, совместимый station UUID из report,
+DPAPI machine-scope и `LocalSystem`. Python flow ниже сохранён как legacy
+recovery и не является рекомендуемым новым способом установки.
+
 Пошаговая staging-инструкция находится в
 [`AGENT_INSTALL.md`](AGENT_INSTALL.md).
 

@@ -1,77 +1,79 @@
 # Быстрый onboarding Windows-клиента
 
-## Что делает скрипт
-
-На клиентском ПК запускается `scripts/agent_station_report.py`. Это один файл
-на стандартной библиотеке Python 3.12+, без установки пакетов и без доступа к
-сети. Скрипт собирает hostname, IP/MAC, состояние `D:` и создаёт локальный
-несекретный общий UUID `station.station_id` и `agent.agent_uuid`.
-
-Он не содержит Basic Auth, пароль Controller, enrollment token или agent
-credential. Поэтому файл можно передать клиенту отдельно от админского доступа.
-
 ## На клиентском ПК
 
-Скопируйте файл в `C:\Install` на Windows и выполните в PowerShell:
+Передайте клиенту один self-contained файл `TrueNasControllerAgent.exe` и
+выполните в PowerShell из папки, где он лежит:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path C:\Install | Out-Null
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe report --output .\station-report.json
+```
+
+Команда не требует Python, uv или доступа к сети. Она сохраняет стабильный
+UUID в `%LOCALAPPDATA%\TrueNasController\agent\identity.json` и печатает
+безопасный JSON station/agent/network/drive report.
+
+Передайте оператору файл `C:\Install\station-report.json`. Не изменяйте
+`station.station_id` и `agent.agent_uuid`: это одна identity станции.
+
+Если native exe временно недоступен, legacy-команда из той же папки:
+
+```powershell
 Set-Location C:\Install
 py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
 ```
 
-Передайте оператору файл `C:\Install\station-report.json`. Для повторного запуска оставляйте файл
-identity на месте: `%LOCALAPPDATA%\TrueNasController\agent\identity.json`.
-Иначе будет создан новый UUID, который не совпадёт с последующим enrollment.
-
 ## На админском ПК
 
-В разделе **Станции и агенты** вставьте JSON в блок **Отчёт с клиентского ПК**
-и нажмите **Подставить данные отчёта**. UI заполнит поля `display_name`,
-`hostname`, `role` и передаст общий UUID для station/agent, после чего позволит
-создать station.
+В разделе **Станции и агенты** вставьте JSON в блок **Отчёт с клиентского ПК**,
+нажмите **Подставить данные отчёта**, проверьте поля и создайте station. После
+создания передайте клиенту одноразовый enrollment token. Basic Auth оператора
+клиентскому exe не нужен и не передаётся.
 
-После создания station Controller показывает одноразовый enrollment token.
-Передайте его клиенту по защищённому каналу. Token ограничен по времени и
-может быть использован только один раз.
+## Установка одним native-сценарием
 
-## Установка одним сценарием
-
-После создания station скопируйте согласованный checkout/release-пакет проекта
-на Windows-клиент, установите `uv` и запустите elevated PowerShell:
+В elevated PowerShell клиента, из папки с exe и report:
 
 ```powershell
-Set-Location C:\Install\TrueNas-Controller
-py -3 .\scripts\install_windows_agent.py `
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
   --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
-Для production с HTTPS замените URL на `https://controller.example` и уберите
-`--allow-insecure-http`. Сценарий создаёт стабильную папку агента, устанавливает
-зависимости, открыто запрашивает enrollment token, регистрирует службу от
-`LocalSystem` без пароля и проверяет её состояние. Token не передаётся в
-аргументах командной строки и не сохраняется.
+Для HTTPS уберите `--allow-insecure-http`. Token вводится видимо и не
+передаётся как аргумент. Служба устанавливается как `LocalSystem`, поэтому
+пароль Windows не нужен. DPAPI machine-scope credential сохраняется в
+`%ProgramData%\TrueNasController\agent\agent.credential`.
 
-`--station-id` не нужен: station UUID берётся из `station-report.json`.
+Параметры можно проверить без изменений через `--dry-run`. Public Ed25519 key
+для signed refresh-команд задаётся отдельно через `--command-verify-key`; это
+не token и не пароль.
 
-Пароль после token не запрашивается: служба работает от `LocalSystem`. Если
-обновляется старая установка с user-scope credential, installer автоматически
-перепротектит credential в machine-scope.
+## Проверка
 
-`--command-verify-key` необязателен. Это публичный Ed25519-ключ Controller для
-проверки подписанной команды refresh, а не enrollment token и не пароль. Без
-него heartbeat работает, но удалённая refresh-команда отключена.
-`--dry-run` проверяет параметры без изменений. Адрес Controller не должен быть
-адресом TrueNAS `/api/docs`.
+```powershell
+Get-Service -Name TrueNasControllerAgent
+sc.exe qc TrueNasControllerAgent
+```
 
-Если внешний `py -3` не видит `win32service`, обновите checkout и повторите
-installer: актуальная версия регистрирует и запускает службу через target
-`.venv\Scripts\python.exe`, где `uv sync` установил pywin32.
+Если служба не запускается, выполнить foreground без Python:
 
-Ручной recovery-путь и troubleshooting описаны в
-[подробной инструкции установки](../../../docs/AGENT_INSTALL.md).
+```powershell
+Set-Location C:\ProgramData\TrueNasController\agent
+.\TrueNasControllerAgent.exe foreground --config .\agent.json
+```
 
-Не передавайте клиенту пароль Basic Auth и не вставляйте token в общий чат,
-issue tracker или Markdown-файл.
+## Удаление
+
+После удаления station в Controller на клиенте выполнить elevated:
+
+```powershell
+Set-Location C:\ProgramData\TrueNasController\agent
+.\TrueNasControllerAgent.exe remove
+```
+
+Это удаляет регистрацию службы. Повторный enrollment выполняется с тем же
+report и новым token.

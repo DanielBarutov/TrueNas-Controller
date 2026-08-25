@@ -102,7 +102,9 @@ def start_windows_service() -> None:
                     "configuration is invalid; rerun the installer"
                 ) from exc
             else:
-                raise RuntimeError("could not start the Windows Service") from exc
+                raise RuntimeError(
+                    f"could not start the Windows Service (Windows error {error_code}: {exc})"
+                ) from exc
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             status = win32service.QueryServiceStatus(service)[1]

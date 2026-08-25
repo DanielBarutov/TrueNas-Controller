@@ -1,75 +1,63 @@
 # Установка агента на клиентский ПК
 
-## Рекомендуемый порядок
+## Рекомендуемый native-путь
 
-Для нового клиента сначала сформируй отчёт через
-`scripts/agent_station_report.py`, создай station в UI, а затем запусти
-`scripts/install_windows_agent.py`. Он сам ставит зависимости, выполняет
-enrollment с открытым вводом token, регистрирует службу и проверяет её запуск.
+Native .NET agent — self-contained single-file Windows executable. На клиенте
+не нужны Python, uv, pywin32 или пароль Windows. Сначала скопируйте exe в
+`C:\Install`, затем выполняйте команды из этого каталога.
 
-Ручной порядок ниже используй только для recovery или диагностики.
-
-## Ручной порядок
-
-1. В Controller создай station с ролью `client` или `admin`.
-2. Сохрани одноразовый enrollment token только в защищённом канале.
-3. На Windows-клиенте задай `AGENT_API_BASE_URL`, `AGENT_STATION_ID`,
-   `AGENT_UUID`, `AGENT_VERSION`, `AGENT_HOSTNAME` и
-   `AGENT_CREDENTIAL_PATH`. `AGENT_COMMAND_VERIFY_KEY` необязателен: это
-   публичный ключ проверки подписанных refresh-команд.
-4. Выполни enrollment из elevated PowerShell. Windows Service работает от
-   `LocalSystem`, поэтому пароль Windows не нужен. В автоматическом сценарии
-   передай `--report
-   C:\Install\station-report.json`: station UUID берётся из отчёта. Installer
-   сначала проверяет локальные DPAPI/ACL и только после успешной проверки
-   просит одноразовый token.
+### Получить report
 
 ```powershell
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe report --output .\station-report.json
+```
+
+Передайте JSON оператору. Вставьте его в Controller UI → **Станции и агенты**,
+нажмите **Подставить данные отчёта** и создайте station. Используйте тот же
+`station-report.json` при установке: он содержит общий UUID станции и агента.
+
+### Установить службу
+
+```powershell
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe install `
+  --controller-url "http://192.168.0.47:8000" `
+  --report "C:\Install\station-report.json" `
+  --allow-insecure-http
+```
+
+В production с HTTPS флаг `--allow-insecure-http` не используется. Token
+вводится видимо в консоли только после проверки локального DPAPI preflight. В
+аргументах и файлах не сохраняются token или credential. Служба работает от
+`LocalSystem`, DPAPI использует machine scope, пароль Windows не запрашивается.
+
+Не передавайте native agent Basic Auth оператора, NAS API key или private
+signing key. `--command-verify-key` — только необязательный public key для
+проверки подписанного `refresh_process_snapshot`.
+
+### Диагностика и операции
+
+```powershell
+Get-Service -Name TrueNasControllerAgent
+sc.exe qc TrueNasControllerAgent
+
 Set-Location C:\ProgramData\TrueNasController\agent
-$env:AGENT_ENROLLMENT_TOKEN = $null
-$Python = Join-Path (Get-Location) ".venv\Scripts\python.exe"
-& $Python -m agent.entrypoint check-credential-store
-if ($LASTEXITCODE -ne 0) { throw "Local protected credential store check failed" }
-$env:AGENT_ENROLLMENT_TOKEN = Read-Host "One-shot enrollment token (visible)"
-& $Python -m agent.entrypoint enroll
-Remove-Item Env:AGENT_ENROLLMENT_TOKEN
+.\TrueNasControllerAgent.exe foreground --config .\agent.json
 ```
 
-Token вводится видимо только в локальном PowerShell. Никогда не вставляй token или credential в issue,
-лог, README или frontend.
+Foreground запускайте вместо службы и останавливайте `Ctrl+C`. Дополнительные
+команды: `.\TrueNasControllerAgent.exe start`, `stop`, `remove`.
 
-## Credential и LocalSystem
+### Удаление station и агента
 
-Windows production store использует DPAPI machine scope и ACL только для
-`SYSTEM` и локальных администраторов. Installer больше не запрашивает пароль
-Windows и регистрирует службу от `LocalSystem`. Старый user-scope credential при
-повторной установке автоматически перепротектится в machine-scope. Локальный
-администратор сможет получить machine-scope credential — это осознанный
-компромисс passwordless-сценария. Private signing key на клиент не устанавливается.
-Если preflight сообщает об ошибке определения защищённых Windows principals,
-нужна актуальная копия checkout и рабочий `pywin32`; одноразовый token до
-успешного preflight не запрашивается.
+Кнопка **Удалить** в UI удаляет активную server-side station/agent binding и
+отзывает токены, но не может остановить Windows Service удалённо. После неё на
+клиенте выполните elevated `remove`. Для повторной установки используйте тот
+же report и новый token.
 
-## Регистрация службы
+## Legacy Python recovery
 
-Из стабильной папки проекта выполни в elevated PowerShell:
-
-```powershell
-python -m agent.entrypoint install
-```
-
-В `services.msc` проверь, что `TrueNAS Controller Agent` работает от
-`LocalSystem`, и запусти службу. Полная инструкция находится в
-`docs/AGENT_INSTALL.md`.
-
-Если служба завершается с ошибкой 1053/7009, не используй встроенный pywin32
-`debug`: запусти агент в консоли из установленной папки:
-
-```powershell
-$Python = "C:\ProgramData\TrueNasController\agent\.venv\Scripts\python.exe"
-$Runner = "C:\ProgramData\TrueNasController\agent\scripts\windows_agent_service.py"
-& $Python $Runner foreground
-```
-
-Останови проверку через `Ctrl+C`. Foreground-режим показывает traceback
-конфигурации/DPAPI и не выводит credential.
+Python installer и ручной `uv`-путь сохранены для совместимости со старыми
+checkout. Они больше не являются рекомендуемым способом для нового клиента.
+Подробности находятся в `docs/AGENT_INSTALL.md`.

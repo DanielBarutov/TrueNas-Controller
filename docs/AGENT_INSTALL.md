@@ -1,5 +1,58 @@
 # Инструкция установки Windows-агента
 
+> Для новых Windows-клиентов используйте native .NET agent из
+> [`windows-agent/README.md`](../windows-agent/README.md) и короткую
+> [`AGENT_QUICKSTART.md`](AGENT_QUICKSTART.md). Он не требует Python, uv,
+> pywin32 или пароля Windows. Разделы ниже сохранены как подробный troubleshooting
+> и legacy Python recovery.
+
+## Рекомендуемый native .NET сценарий
+
+Скопируйте опубликованный `TrueNasControllerAgent.exe` и report в `C:\Install`.
+Команды выполняйте последовательно из папки, где действительно находятся эти
+файлы:
+
+```powershell
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe report --output .\station-report.json
+```
+
+После вставки report в Controller UI и создания station с тем же UUID передайте
+одноразовый token на клиент и запустите elevated PowerShell:
+
+```powershell
+Set-Location C:\Install
+.\TrueNasControllerAgent.exe install `
+  --controller-url "http://192.168.0.47:8000" `
+  --report "C:\Install\station-report.json" `
+  --allow-insecure-http
+```
+
+Для HTTPS уберите `--allow-insecure-http`. Token вводится видимо, не попадает
+в argv или постоянное окружение. Installer использует station/agent UUID из
+одного report, DPAPI machine-scope и Windows Service `LocalSystem` без пароля.
+
+Проверка и диагностика:
+
+```powershell
+Get-Service -Name TrueNasControllerAgent
+sc.exe qc TrueNasControllerAgent
+Set-Location C:\ProgramData\TrueNasController\agent
+.\TrueNasControllerAgent.exe foreground --config .\agent.json
+```
+
+Foreground запускается вместо службы и останавливается через `Ctrl+C`. Для
+операций доступны `.\TrueNasControllerAgent.exe start`, `stop`, `remove`.
+`--command-verify-key` — необязательный public Ed25519 key для signed refresh,
+а не enrollment token, Basic Auth или пароль Windows.
+
+Подробности сборки, публикации и проверки native exe находятся в
+[`windows-agent/README.md`](../windows-agent/README.md).
+
+---
+
+## Legacy Python recovery
+
 Для нового клиентского ПК сначала используйте короткий сценарий
 [`docs/AGENT_QUICKSTART.md`](AGENT_QUICKSTART.md): он собирает данные одним
 stdlib-only Python-скриптом и заполняет форму station в UI. Текущая инструкция
