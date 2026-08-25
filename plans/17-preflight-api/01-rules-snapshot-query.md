@@ -15,8 +15,8 @@
 ## API routes
 
 - `POST /api/v1/preflight` — Basic Auth, station ID и read-only policy параметры;
-- response содержит `pass/block/unknown/warning`, `can_publish`, check code/message
-  и observed timestamp;
+- response содержит `pass/block/unknown/warning`, `can_publish`, check code/message,
+  observed timestamp и совпавшие process instances для process-check;
 - publish/switch/cleanup routes не добавляются.
 
 ## Migration plan
@@ -34,6 +34,7 @@
 - отсутствие snapshot возвращает unknown;
 - unknown не даёт `can_publish=True`;
 - API требует Basic Auth и преобразует report в стабильный response.
+- Process-check возвращает имя, PID и executable path совпавших процессов.
 
 ## Запреты
 

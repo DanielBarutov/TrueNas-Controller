@@ -25,7 +25,8 @@
   `TRUENAS_CLEANUP_APPLY_ENABLED`. В native EXE исправлено автоматическое
   создание каталогов identity для чистого Windows-ПК; root EXE пересобран.
   Во frontend добавлена единая настройка сортировки станций для реестра и
-  publish wizard.
+  publish wizard. Preflight теперь возвращает и показывает конкретные
+  совпавшие процессы с PID и executable path.
 - **Следующий разрешённый шаг:** проверить обновлённый EXE на Windows-ПК,
   применить две новые Alembic migrations и проверить Compose/UI на одной
   тестовой станции.

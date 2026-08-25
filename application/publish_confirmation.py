@@ -159,6 +159,14 @@ def _serialize_report(report: PreflightReport) -> dict[str, object]:
                 "source_snapshot_id": (
                     None if check.source_snapshot_id is None else str(check.source_snapshot_id)
                 ),
+                "matched_processes": [
+                    {
+                        "name": process.name,
+                        "pid": process.pid,
+                        "path": process.path,
+                    }
+                    for process in check.matched_processes
+                ],
             }
             for check in report.checks
         ],

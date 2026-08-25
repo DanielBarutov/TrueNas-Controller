@@ -1,11 +1,18 @@
 export type CheckStatus = "pass" | "block" | "unknown" | "warning";
 
+export interface MatchedProcess {
+  name: string;
+  pid: number | null;
+  path: string | null;
+}
+
 export interface PreflightCheck {
   status: CheckStatus;
   code: string;
   message: string;
   observed_at: string;
   source_snapshot_id: string | null;
+  matched_processes: MatchedProcess[];
 }
 
 export interface PreflightReport {

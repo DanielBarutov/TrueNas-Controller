@@ -27,6 +27,7 @@ from domain.publish import (
     PublishTarget,
     StorageArtifactStatus,
 )
+from domain.snapshot import ProcessInfo
 from domain.station import Station, StationRole, StationStatus
 from domain.wizard import WizardGateResult, WizardGateStatus
 from presentation.http import create_app
@@ -138,6 +139,7 @@ class FakePreflight:
                     code="blocking_process",
                     message="game is running",
                     observed_at=now,
+                    matched_processes=(ProcessInfo("game.exe", 42, "D:\\Games\\game.exe"),),
                 ),
             ),
             evaluated_at=now,
@@ -444,6 +446,9 @@ def test_preflight_route_requires_operator_auth_and_returns_report(monkeypatch) 
     assert authorized.status_code == 200
     assert authorized.json()["status"] == "block"
     assert authorized.json()["can_publish"] is False
+    assert authorized.json()["checks"][0]["matched_processes"] == [
+        {"name": "game.exe", "pid": 42, "path": "D:\\Games\\game.exe"},
+    ]
 
 
 def test_publish_draft_route_requires_auth_and_returns_safe_summary(monkeypatch) -> None:

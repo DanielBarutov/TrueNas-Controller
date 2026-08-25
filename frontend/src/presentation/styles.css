@@ -151,6 +151,9 @@ textarea:focus { border-color: #8ea4ff; box-shadow: 0 0 0 3px #718bff22; }
 .report-card > .muted { margin: 8px 0 14px; font-size: 12px; }
 .check-list { display: grid; gap: 8px; }
 .check-row { display: flex; align-items: flex-start; gap: 9px; border-top: 1px solid #263852; padding-top: 9px; font-size: 12px; }
+.matched-processes { display: grid; gap: 5px; margin-top: 7px; }
+.matched-processes b { color: #d5def0; font-size: 11px; }
+.matched-processes code { overflow-wrap: anywhere; color: #f0cf8d; font-size: 10px; font-weight: 500; }
 .check-row .lucide { flex: 0 0 auto; margin-top: 1px; }
 .check-row span { display: grid; gap: 3px; }
 .check-row small { line-height: 1.4; }

@@ -556,7 +556,7 @@ function ReportCard({ title, report, stationName }: { title: string; report: Pre
 
 function CheckRow({ check }: { check: PreflightCheck }) {
   const Icon = checkIcons[check.status];
-  return <div className={"check-row check-" + check.status}><Icon aria-hidden size={16} /><span><strong>{check.code}</strong><small>{check.message}</small></span></div>;
+  return <div className={"check-row check-" + check.status}><Icon aria-hidden size={16} /><span><strong>{check.code}</strong><small>{check.message}</small>{check.matched_processes.length > 0 && <span className="matched-processes"><b>Обнаружено:</b>{check.matched_processes.map((process) => <code key={`${process.name}-${process.pid ?? "unknown"}-${process.path ?? ""}`}>{process.name}{process.pid === null ? "" : ` · PID ${process.pid}`}{process.path ? ` · ${process.path}` : ""}</code>)}</span>}</span></div>;
 }
 
 function GateBanner({ gate }: { gate: PublishGate }) {

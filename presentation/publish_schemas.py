@@ -121,6 +121,14 @@ def _preflight_response(report: PreflightReport) -> PreflightResponse:
                 message=check.message,
                 observed_at=check.observed_at,
                 source_snapshot_id=check.source_snapshot_id,
+                matched_processes=[
+                    {
+                        "name": process.name,
+                        "pid": process.pid,
+                        "path": process.path,
+                    }
+                    for process in check.matched_processes
+                ],
             )
             for check in report.checks
         ],

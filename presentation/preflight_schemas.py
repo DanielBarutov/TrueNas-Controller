@@ -13,12 +13,21 @@ class PreflightRequest(BaseModel):
     min_free_bytes: int = Field(default=0, ge=0)
 
 
+class MatchedProcessResponse(BaseModel):
+    """A process instance that matched an active close-before-publish rule."""
+
+    name: str
+    pid: int | None = None
+    path: str | None = None
+
+
 class CheckResponse(BaseModel):
     status: str
     code: str
     message: str
     observed_at: datetime
     source_snapshot_id: UUID | None = None
+    matched_processes: list[MatchedProcessResponse] = Field(default_factory=list)
 
 
 class PreflightResponse(BaseModel):

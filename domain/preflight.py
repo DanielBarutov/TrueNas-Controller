@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
-from domain.snapshot import ProcessSnapshot
+from domain.snapshot import ProcessInfo, ProcessSnapshot
 from domain.station import Station, StationRole
 from domain.time import ensure_utc
 
@@ -64,6 +64,7 @@ class CheckResult:
     message: str
     observed_at: datetime
     source_snapshot_id: UUID | None = None
+    matched_processes: tuple[ProcessInfo, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,11 +181,16 @@ def _process_check(
     rules: tuple[ProcessRule, ...],
     observed_at: datetime,
 ) -> CheckResult:
+    required_rules = tuple(rule for rule in rules if rule.required_closed)
+    matched_processes = tuple(
+        process
+        for process in snapshot.processes
+        if any(rule.matches(station, process.name) for rule in required_rules)
+    )
     violations = [
         rule
-        for rule in rules
-        if rule.required_closed
-        and any(rule.matches(station, process.name) for process in snapshot.processes)
+        for rule in required_rules
+        if any(rule.matches(station, process.name) for process in snapshot.processes)
     ]
     if not violations:
         return CheckResult(
@@ -192,6 +198,7 @@ def _process_check(
             "processes_closed",
             "required processes are closed",
             observed_at,
+            matched_processes=matched_processes,
         )
     if any(rule.severity is RuleSeverity.BLOCKING for rule in violations):
         return CheckResult(
@@ -199,12 +206,14 @@ def _process_check(
             "blocking_process",
             "a required process is still running",
             observed_at,
+            matched_processes=matched_processes,
         )
     return CheckResult(
         CheckStatus.WARNING,
         "warning_process",
         "a warning-level process rule matched",
         observed_at,
+        matched_processes=matched_processes,
     )
 
 

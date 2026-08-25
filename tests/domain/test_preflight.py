@@ -50,6 +50,10 @@ def test_blocking_process_prevents_publish() -> None:
         "drive_ready",
         "blocking_process",
     }
+    process_check = next(check for check in report.checks if check.code == "blocking_process")
+    assert [(item.name, item.pid, item.path) for item in process_check.matched_processes] == [
+        ("game.exe", 42, "D:\\Games\\game.exe"),
+    ]
 
 
 def test_warning_process_does_not_block_publish() -> None:
@@ -72,6 +76,8 @@ def test_warning_process_does_not_block_publish() -> None:
 
     assert report.status is CheckStatus.WARNING
     assert report.can_publish is True
+    process_check = next(check for check in report.checks if check.code == "warning_process")
+    assert [item.name for item in process_check.matched_processes] == ["helper.exe"]
 
 
 def test_missing_or_stale_snapshot_is_unknown() -> None:
