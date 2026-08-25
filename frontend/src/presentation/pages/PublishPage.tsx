@@ -20,7 +20,8 @@ import type { LucideIcon } from "lucide-react";
 import type { ControllerApi } from "../../application/api/client";
 import type { PreflightCheck, PreflightReport, PublishDispatchResponse, PublishGate, PublishHistoryItem, PublishJobDraft, PublishJobReadModel, PublishPrepareResponse, PublishTargetReadModel } from "../../domain/publish";
 import { publishStatusLabel } from "../../domain/publish";
-import { isStationSelectableForPublish, type Station } from "../../domain/station";
+import { isStationSelectableForPublish, sortStations, type SortDirection, type Station, type StationSortField } from "../../domain/station";
+import { StationSortControls } from "../components/StationSortControls";
 import { HelpHint, InfoNote, SectionHeading, StatusBadge } from "../components/ui";
 
 type WizardStep = 1 | 2 | 3 | 4;
@@ -56,14 +57,20 @@ export function PublishPage({ api }: { api: ControllerApi }) {
   const [busy, setBusy] = useState<"loading" | "preparing" | "confirming" | "dispatching" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<PublishHistoryItem[]>([]);
+  const [sortField, setSortField] = useState<StationSortField>("display_name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const onlineAdminStations = useMemo(
     () => stations.filter((station) => station.role === "admin" && station.status === "online"),
     [stations],
   );
   const clientStations = useMemo(
-    () => stations.filter((station) => station.role === "client"),
-    [stations],
+    () => sortStations(stations.filter((station) => station.role === "client"), sortField, sortDirection),
+    [sortDirection, sortField, stations],
+  );
+  const sortedAdminStations = useMemo(
+    () => sortStations(onlineAdminStations, sortField, sortDirection),
+    [onlineAdminStations, sortDirection, sortField],
   );
 
   useEffect(() => {
@@ -218,7 +225,11 @@ export function PublishPage({ api }: { api: ControllerApi }) {
           form={form}
           setForm={setForm}
           stations={clientStations}
-          adminStations={onlineAdminStations}
+          adminStations={sortedAdminStations}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          setSortField={setSortField}
+          setSortDirection={setSortDirection}
           adminStationId={adminStationId}
           setAdminStationId={setAdminStationId}
           selectedStationIds={selectedStationIds}
@@ -262,6 +273,10 @@ function ConfigurationStep({
   setForm,
   stations,
   adminStations,
+  sortField,
+  sortDirection,
+  setSortField,
+  setSortDirection,
   adminStationId,
   setAdminStationId,
   selectedStationIds,
@@ -280,6 +295,10 @@ function ConfigurationStep({
   setForm: (value: typeof form) => void;
   stations: Station[];
   adminStations: Station[];
+  sortField: StationSortField;
+  sortDirection: SortDirection;
+  setSortField: (value: StationSortField) => void;
+  setSortDirection: (value: SortDirection) => void;
   adminStationId: string;
   setAdminStationId: (value: string) => void;
   selectedStationIds: string[];
@@ -340,6 +359,7 @@ function ConfigurationStep({
         </section>
         <section className="wizard-card form-card">
           <SectionHeading eyebrow="CLIENT TARGETS" title="Станции для публикации" description="Offline и stale недоступны для выбора." />
+          <StationSortControls field={sortField} direction={sortDirection} onFieldChange={setSortField} onDirectionChange={setSortDirection} />
           <div className="station-choice-list">
             {stations.length === 0 && <p className="empty-cell">Нет зарегистрированных client stations.</p>}
             {stations.map((station) => (

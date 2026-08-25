@@ -1,5 +1,7 @@
 export type StationRole = "admin" | "client";
 export type StationStatus = "online" | "stale" | "offline" | "disabled";
+export type StationSortField = "display_name" | "hostname" | "role" | "status";
+export type SortDirection = "asc" | "desc";
 
 export interface Station {
   id: string;
@@ -52,6 +54,36 @@ export const statusDescription: Record<StationStatus, string> = {
   offline: "Агент не отвечает; выбор станции для publish заблокирован.",
   disabled: "Станция отключена оператором и не должна использоваться.",
 };
+
+export const stationSortFieldLabel: Record<StationSortField, string> = {
+  display_name: "Имя станции",
+  hostname: "Hostname",
+  role: "Роль",
+  status: "Статус",
+};
+
+const statusSortOrder: Record<StationStatus, number> = {
+  online: 0,
+  stale: 1,
+  offline: 2,
+  disabled: 3,
+};
+
+export function sortStations(
+  stations: Station[],
+  field: StationSortField,
+  direction: SortDirection,
+): Station[] {
+  const collator = new Intl.Collator("ru", { numeric: true, sensitivity: "base" });
+  const multiplier = direction === "asc" ? 1 : -1;
+
+  return [...stations].sort((left, right) => {
+    const comparison = field === "status"
+      ? statusSortOrder[left.status] - statusSortOrder[right.status]
+      : collator.compare(left[field], right[field]);
+    return comparison * multiplier || collator.compare(left.station_id, right.station_id);
+  });
+}
 
 export function isStationSelectableForPublish(station: Station): boolean {
   return station.role === "client" && station.status === "online";

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isStationSelectableForPublish,
   parseStationSetupReport,
+  sortStations,
   type Station,
 } from "./station";
 
@@ -23,6 +24,31 @@ describe("isStationSelectableForPublish", () => {
     expect(isStationSelectableForPublish(station({ status: "stale" }))).toBe(false);
     expect(isStationSelectableForPublish(station({ role: "admin" }))).toBe(false);
     expect(isStationSelectableForPublish(station({ status: "offline" }))).toBe(false);
+  });
+});
+
+describe("sortStations", () => {
+  it("sorts a copy by numeric station name and keeps the source order intact", () => {
+    const stations = [
+      station({ station_id: "station-10", display_name: "PC 10" }),
+      station({ station_id: "station-2", display_name: "PC 2" }),
+      station({ station_id: "station-1", display_name: "PC 1" }),
+    ];
+
+    expect(sortStations(stations, "display_name", "asc").map((item) => item.display_name))
+      .toEqual(["PC 1", "PC 2", "PC 10"]);
+    expect(stations.map((item) => item.display_name)).toEqual(["PC 10", "PC 2", "PC 1"]);
+  });
+
+  it("puts online stations first by default status order", () => {
+    const stations = [
+      station({ station_id: "offline", status: "offline" }),
+      station({ station_id: "online", status: "online" }),
+      station({ station_id: "stale", status: "stale" }),
+    ];
+
+    expect(sortStations(stations, "status", "asc").map((item) => item.station_id))
+      .toEqual(["online", "stale", "offline"]);
   });
 });
 

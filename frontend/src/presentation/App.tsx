@@ -24,11 +24,15 @@ import { ApiError, ControllerApi, type Credentials } from "../application/api/cl
 import { knowledgeDocuments } from "../application/knowledge/registry";
 import {
   parseStationSetupReport,
+  sortStations,
   type Station,
   type StationSetupReport,
   type StationRole,
+  type SortDirection,
+  type StationSortField,
   type StationStatus,
 } from "../domain/station";
+import { StationSortControls } from "./components/StationSortControls";
 import { HelpHint, InfoNote, MetricCard, SectionHeading, StatusBadge } from "./components/ui";
 import { PublishPage } from "./pages/PublishPage";
 import { ProcessRulesPage } from "./pages/ProcessRulesPage";
@@ -198,6 +202,8 @@ function StationsPage({ api }: { api: ControllerApi }) {
   const [reportError, setReportError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StationStatus | "all">("all");
+  const [sortField, setSortField] = useState<StationSortField>("display_name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [deletingStationId, setDeletingStationId] = useState<string | null>(null);
   const [mappingStationId, setMappingStationId] = useState("");
   const [mappingForm, setMappingForm] = useState({ target_name: "", target_iqn: "", initiator_iqn: "" });
@@ -343,10 +349,10 @@ function StationsPage({ api }: { api: ControllerApi }) {
     }
   }
 
-  const visibleStations = stations.filter((station) => {
+  const visibleStations = useMemo(() => sortStations(stations.filter((station) => {
     const matchesQuery = `${station.display_name} ${station.hostname}`.toLowerCase().includes(query.toLowerCase());
     return matchesQuery && (statusFilter === "all" || station.status === statusFilter);
-  });
+  }), sortField, sortDirection), [query, sortDirection, sortField, stations, statusFilter]);
   const statusCounts = stations.reduce<Record<string, number>>((counts, station) => {
     counts[station.status] = (counts[station.status] ?? 0) + 1;
     return counts;
@@ -356,7 +362,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
     <PageHeader title="Станции и агенты" subtitle="Серверное состояние станций, автоматический onboarding и heartbeat.">
       <SectionHeading title="Реестр станций" description="Offline и stale никогда не считаются готовыми к publish." action={<button className="secondary-button" onClick={loadStations}><RefreshCw aria-hidden size={15} /> Обновить</button>} />
       {error && <p className="error-message">{error}</p>}
-      <div className="station-toolbar"><label className="search-field"><span><Search aria-hidden size={13} /> Поиск</span><input placeholder="Имя или hostname" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-field"><span><Filter aria-hidden size={13} /> Статус</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StationStatus | "all")}><option value="all">Все ({stations.length})</option><option value="online">Online ({statusCounts.online ?? 0})</option><option value="stale">Stale ({statusCounts.stale ?? 0})</option><option value="offline">Offline ({statusCounts.offline ?? 0})</option></select></label><div className="toolbar-note"><span className="pulse-dot" /> {visibleStations.length} в текущем списке</div></div>
+      <div className="station-toolbar"><label className="search-field"><span><Search aria-hidden size={13} /> Поиск</span><input placeholder="Имя или hostname" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-field"><span><Filter aria-hidden size={13} /> Статус</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StationStatus | "all")}><option value="all">Все ({stations.length})</option><option value="online">Online ({statusCounts.online ?? 0})</option><option value="stale">Stale ({statusCounts.stale ?? 0})</option><option value="offline">Offline ({statusCounts.offline ?? 0})</option></select></label><StationSortControls field={sortField} direction={sortDirection} onFieldChange={setSortField} onDirectionChange={setSortDirection} /><div className="toolbar-note"><span className="pulse-dot" /> {visibleStations.length} в текущем списке</div></div>
       <div className="table-card">
         <table><thead><tr><th>Станция</th><th>Роль</th><th>Статус</th><th>Пояснение</th><th aria-label="Действия" /></tr></thead>
           <tbody>{visibleStations.length === 0 ? <tr><td colSpan={5} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td><td><div className="inline-actions"><button className="secondary-button" type="button" onClick={() => selectEditStation(station.station_id)} title="Редактировать станцию"><Pencil aria-hidden size={15} /> Изменить</button><button className="danger-button" type="button" onClick={() => void deleteStation(station)} disabled={deletingStationId === station.station_id} title="Удалить станцию и агентскую привязку"><Trash2 aria-hidden size={15} />{deletingStationId === station.station_id ? "Удаляем…" : "Удалить"}</button></div></td></tr>)}</tbody>
