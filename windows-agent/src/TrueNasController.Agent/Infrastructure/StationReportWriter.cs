@@ -78,7 +78,7 @@ public static class StationReportWriter
             var path = Path.GetFullPath(outputPath);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, json + Environment.NewLine);
-            Console.WriteLine($"Station report written to: {path}");
+            Console.Error.WriteLine($"Station report written to: {path}");
         }
 
         if (text)
@@ -93,6 +93,25 @@ public static class StationReportWriter
 
         Console.WriteLine(json);
         return json;
+    }
+
+    public static StationReport CreateReport(
+        string? identityPath,
+        string agentVersion,
+        bool persistIdentity = true)
+    {
+        var hostname = Environment.MachineName;
+        var agentUuid = persistIdentity
+            ? LoadOrCreateIdentity(identityPath)
+            : Guid.NewGuid();
+        return new StationReport(
+            "1",
+            new StationReportStation(agentUuid.ToString("D"), hostname, hostname, "client"),
+            new StationReportAgent(
+                agentUuid.ToString("D"),
+                agentVersion,
+                hostname,
+                $"{Environment.OSVersion.Platform} {Environment.OSVersion.Version}".Trim()));
     }
 
     public static string DefaultIdentityPath()

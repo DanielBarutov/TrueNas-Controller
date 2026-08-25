@@ -14,6 +14,11 @@ def test_runtime_config_has_safe_local_fake_defaults() -> None:
     assert config.executor_mode == "fake"
     assert config.poll_interval_seconds == 1
     assert config.worker_threads == 2
+    assert config.dataset_cleanup_enabled is False
+    assert config.dataset_cleanup_interval_seconds == 604800
+    assert config.dataset_cleanup_retention_days == 30
+    assert config.dataset_cleanup_batch_size == 10
+    assert config.truenas_cleanup_apply_enabled is False
 
 
 def test_embedded_broker_does_not_enable_uninitialized_prometheus_middleware() -> None:
@@ -67,3 +72,32 @@ def test_truenas_runtime_accepts_explicit_apply_configuration() -> None:
     )
 
     assert config.executor_mode == "truenas"
+
+
+def test_runtime_config_accepts_weekly_cleanup_schedule_without_apply() -> None:
+    config = WorkerRuntimeConfig.from_env(
+        {
+            "DATABASE_URL": "postgresql://db",
+            "REDIS_URL": "redis://redis:6379/0",
+            "DATASET_CLEANUP_ENABLED": "true",
+            "DATASET_CLEANUP_INTERVAL_SECONDS": "3600",
+            "DATASET_CLEANUP_RETENTION_DAYS": "14",
+            "DATASET_CLEANUP_BATCH_SIZE": "4",
+        }
+    )
+
+    assert config.dataset_cleanup_enabled is True
+    assert config.dataset_cleanup_interval_seconds == 3600
+    assert config.dataset_cleanup_retention_days == 14
+    assert config.dataset_cleanup_batch_size == 4
+
+
+def test_runtime_config_does_not_allow_cleanup_apply_in_fake_mode() -> None:
+    with pytest.raises(WorkerRuntimeConfigError, match="PUBLISH_EXECUTOR_MODE"):
+        WorkerRuntimeConfig.from_env(
+            {
+                "DATABASE_URL": "postgresql://db",
+                "REDIS_URL": "redis://redis:6379/0",
+                "TRUENAS_CLEANUP_APPLY_ENABLED": "true",
+            }
+        )

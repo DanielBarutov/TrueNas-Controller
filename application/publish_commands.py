@@ -1,6 +1,7 @@
 """Application commands for creating and enqueueing publish jobs."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from application.ports import PublishTaskQueue, UnitOfWorkFactory
@@ -46,7 +47,7 @@ class CreatePublishJobUseCase:
         idempotency_key: str,
         correlation_id: UUID,
         description: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         allow_hot_switch: bool = False,
         operator_id: UUID | None = None,
     ) -> PublishJobDraft:
@@ -90,6 +91,7 @@ class CreatePublishJobUseCase:
                 allow_hot_switch=allow_hot_switch,
                 description=description,
                 operator_id=operator_id,
+                created_at=datetime.now(UTC),
             )
             targets = tuple(
                 PublishTarget(id=uuid4(), job_id=job.id, station_id=station_id)

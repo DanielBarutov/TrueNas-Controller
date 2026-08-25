@@ -7,7 +7,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports import StationRepository
-from domain.station import Station, StationStatus
+from domain.station import Station, StationRole, StationStatus
 from repository.models import AgentCommandRecord, AgentRecord, EnrollmentTokenRecord, StationRecord
 
 
@@ -88,6 +88,33 @@ class SqlAlchemyStationRepository(StationRepository):
         record.target_name = target_name
         record.target_iqn = target_iqn
         record.initiator_iqn = initiator_iqn
+        return self._to_domain(record)
+
+    async def update_details(
+        self,
+        station_id: UUID,
+        *,
+        display_name: str,
+        hostname: str,
+        role: StationRole,
+        enabled: bool,
+    ) -> Station | None:
+        statement = select(StationRecord).where(
+            StationRecord.station_id == station_id,
+            StationRecord.deleted_at.is_(None),
+        )
+        record = await self._session.scalar(statement)
+        if record is None:
+            return None
+        record.display_name = display_name
+        record.hostname = hostname
+        record.role = role
+        record.enabled = enabled
+        record.state = (
+            StationStatus.OFFLINE
+            if enabled and record.state == StationStatus.DISABLED
+            else (StationStatus.DISABLED if not enabled else record.state)
+        )
         return self._to_domain(record)
 
     async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:

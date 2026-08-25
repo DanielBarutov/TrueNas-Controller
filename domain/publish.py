@@ -1,6 +1,6 @@
 """Publish job state machine and target results."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
@@ -27,6 +27,15 @@ class TargetStatus(StrEnum):
     VERIFIED = "verified"
     ERROR = "error"
     RECOVERY_REQUIRED = "recovery_required"
+
+
+class StorageArtifactStatus(StrEnum):
+    """Lifecycle of a dataset/clone created by a publish job."""
+
+    CURRENT = "current"
+    RETIRED = "retired"
+    DELETED = "deleted"
+    CLEANUP_FAILED = "cleanup_failed"
 
 
 ALLOWED_TRANSITIONS: dict[PublishJobStatus, frozenset[PublishJobStatus]] = {
@@ -57,7 +66,7 @@ class PublishJob:
     correlation_id: UUID
     label: str
     source_dataset: str
-    dry_run: bool = True
+    dry_run: bool = False
     allow_hot_switch: bool = False
     status: PublishJobStatus = PublishJobStatus.DRAFT
     description: str | None = None
@@ -65,6 +74,9 @@ class PublishJob:
     operator_id: UUID | None = None
     client_confirmation: bool | None = None
     client_confirmation_at: datetime | None = None
+    created_at: datetime | None = field(default=None, compare=False)
+    started_at: datetime | None = field(default=None, compare=False)
+    completed_at: datetime | None = field(default=None, compare=False)
 
     def transition(self, target: PublishJobStatus) -> "PublishJob":
         if target not in ALLOWED_TRANSITIONS[self.status]:
@@ -121,3 +133,22 @@ class PublishTargetResult:
     new_mapping: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+    storage_created: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class PublishArtifact:
+    """A TrueNAS dataset clone owned by one publish target."""
+
+    id: UUID
+    job_id: UUID
+    station_id: UUID
+    source_dataset: str
+    dataset_name: str
+    snapshot_ref: str
+    mapping_ref: str
+    created_at: datetime
+    status: StorageArtifactStatus = StorageArtifactStatus.RETIRED
+    is_current: bool = False
+    deleted_at: datetime | None = None
+    last_error: str | None = None

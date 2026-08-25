@@ -15,6 +15,7 @@ import logging
 import os
 import signal
 import socket
+from time import monotonic
 
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
@@ -33,9 +34,13 @@ from truenas_adapter.runtime import (
     build_read_only_client,
     build_write_client,
 )
-from worker.composition import PublishTaskApplicationHandler
+from worker.composition import DatasetCleanupApplicationHandler, PublishTaskApplicationHandler
 from worker.outbox_relay import PublishOutboxRelay
-from worker.tasks import DramatiqPublishTaskQueue, build_publish_actor
+from worker.tasks import (
+    DramatiqPublishTaskQueue,
+    build_dataset_cleanup_actor,
+    build_publish_actor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +61,11 @@ class WorkerRuntimeConfig:
         poll_interval_seconds: float,
         worker_threads: int,
         executor_mode: str,
+        dataset_cleanup_enabled: bool,
+        dataset_cleanup_interval_seconds: int,
+        dataset_cleanup_retention_days: int,
+        dataset_cleanup_batch_size: int,
+        truenas_cleanup_apply_enabled: bool,
     ) -> None:
         self.database_url = database_url
         self.redis_url = redis_url
@@ -63,6 +73,11 @@ class WorkerRuntimeConfig:
         self.poll_interval_seconds = poll_interval_seconds
         self.worker_threads = worker_threads
         self.executor_mode = executor_mode
+        self.dataset_cleanup_enabled = dataset_cleanup_enabled
+        self.dataset_cleanup_interval_seconds = dataset_cleanup_interval_seconds
+        self.dataset_cleanup_retention_days = dataset_cleanup_retention_days
+        self.dataset_cleanup_batch_size = dataset_cleanup_batch_size
+        self.truenas_cleanup_apply_enabled = truenas_cleanup_apply_enabled
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> WorkerRuntimeConfig:
@@ -97,6 +112,18 @@ class WorkerRuntimeConfig:
                 raise WorkerRuntimeConfigError(
                     "TRUENAS_APPLY_ENABLED=true is required for PUBLISH_EXECUTOR_MODE=truenas"
                 )
+        dataset_cleanup_enabled = _boolean(
+            source.get("DATASET_CLEANUP_ENABLED", "false"),
+            "DATASET_CLEANUP_ENABLED",
+        )
+        truenas_cleanup_apply_enabled = _boolean(
+            source.get("TRUENAS_CLEANUP_APPLY_ENABLED", "false"),
+            "TRUENAS_CLEANUP_APPLY_ENABLED",
+        )
+        if truenas_cleanup_apply_enabled and executor_mode != "truenas":
+            raise WorkerRuntimeConfigError(
+                "TRUENAS_CLEANUP_APPLY_ENABLED=true requires PUBLISH_EXECUTOR_MODE=truenas"
+            )
         return cls(
             database_url=database_url,
             redis_url=redis_url,
@@ -104,6 +131,20 @@ class WorkerRuntimeConfig:
             poll_interval_seconds=poll_interval_seconds,
             worker_threads=worker_threads,
             executor_mode=executor_mode,
+            dataset_cleanup_enabled=dataset_cleanup_enabled,
+            dataset_cleanup_interval_seconds=_positive_int(
+                source.get("DATASET_CLEANUP_INTERVAL_SECONDS", "604800"),
+                "DATASET_CLEANUP_INTERVAL_SECONDS",
+            ),
+            dataset_cleanup_retention_days=_positive_int(
+                source.get("DATASET_CLEANUP_RETENTION_DAYS", "30"),
+                "DATASET_CLEANUP_RETENTION_DAYS",
+            ),
+            dataset_cleanup_batch_size=_positive_int(
+                source.get("DATASET_CLEANUP_BATCH_SIZE", "10"),
+                "DATASET_CLEANUP_BATCH_SIZE",
+            ),
+            truenas_cleanup_apply_enabled=truenas_cleanup_apply_enabled,
         )
 
 
@@ -121,6 +162,7 @@ class PublishWorkerRuntime:
         broker = _configure_broker(config.redis_url)
         self._worker = Worker(broker, worker_threads=config.worker_threads)
         self._actor: dramatiq.Actor | None = None
+        self._cleanup_actor: dramatiq.Actor | None = None
         self._relay: PublishOutboxRelay | None = None
 
     def _handler_factory(self) -> PublishTaskApplicationHandler:
@@ -142,6 +184,24 @@ class PublishWorkerRuntime:
 
         return PublishTaskApplicationHandler(self._uow_factory, executor_factory)
 
+    def _cleanup_handler_factory(self) -> DatasetCleanupApplicationHandler:
+        write_client_factory = None
+        if self._config.truenas_cleanup_apply_enabled:
+            if self._truenas_config is None:
+                raise WorkerRuntimeConfigError("TrueNAS cleanup config is not initialized")
+            config = self._truenas_config
+
+            def write_client_factory():
+                return build_write_client(config)
+
+        return DatasetCleanupApplicationHandler(
+            self._uow_factory,
+            retention_days=self._config.dataset_cleanup_retention_days,
+            batch_size=self._config.dataset_cleanup_batch_size,
+            apply_enabled=self._config.truenas_cleanup_apply_enabled,
+            write_client_factory=write_client_factory,
+        )
+
     async def run(self) -> None:
         """Start Dramatiq and keep polling the durable outbox until shutdown."""
 
@@ -152,6 +212,8 @@ class PublishWorkerRuntime:
         # Declare the actor afterwards so after_declare_queue can attach the
         # consumer to the already-running worker.
         self._actor = build_publish_actor(self._handler_factory)
+        if self._config.dataset_cleanup_enabled:
+            self._cleanup_actor = build_dataset_cleanup_actor(self._cleanup_handler_factory)
         self._relay = PublishOutboxRelay(
             self._uow_factory,
             DramatiqPublishTaskQueue(self._actor),
@@ -167,8 +229,29 @@ class PublishWorkerRuntime:
             self._config.executor_mode,
             self._config.poll_interval_seconds,
         )
+        next_cleanup_at = (
+            monotonic() + self._config.dataset_cleanup_interval_seconds
+            if self._cleanup_actor is not None
+            else None
+        )
+        if self._cleanup_actor is not None:
+            logger.info(
+                "dataset cleanup scheduled: interval=%ss retention=%sd batch=%s apply=%s",
+                self._config.dataset_cleanup_interval_seconds,
+                self._config.dataset_cleanup_retention_days,
+                self._config.dataset_cleanup_batch_size,
+                self._config.truenas_cleanup_apply_enabled,
+            )
         try:
             while not stop_event.is_set():
+                if (
+                    self._cleanup_actor is not None
+                    and next_cleanup_at is not None
+                    and monotonic() >= next_cleanup_at
+                ):
+                    self._cleanup_actor.send()
+                    next_cleanup_at = monotonic() + self._config.dataset_cleanup_interval_seconds
+                    logger.info("dataset cleanup task enqueued")
                 try:
                     result = await self._relay.run_once()
                     if result.claimed:
@@ -236,6 +319,13 @@ def _positive_int(raw_value: str, name: str) -> int:
     if value < 1:
         raise WorkerRuntimeConfigError(f"{name} must be a positive integer")
     return value
+
+
+def _boolean(raw_value: str, name: str) -> bool:
+    normalized = raw_value.strip().lower()
+    if normalized not in {"true", "false"}:
+        raise WorkerRuntimeConfigError(f"{name} must be true or false")
+    return normalized == "true"
 
 
 def main() -> None:

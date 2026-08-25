@@ -18,14 +18,13 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     false,
-    true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from domain.agent_command import AgentCommandStatus
 from domain.outbox import OutboxEventStatus
 from domain.preflight import RuleSeverity
-from domain.publish import PublishJobStatus
+from domain.publish import PublishJobStatus, StorageArtifactStatus
 from domain.station import StationRole, StationStatus
 
 NAMING_CONVENTION = {
@@ -266,7 +265,7 @@ class PublishJobRecord(Base):
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     source_dataset: Mapped[str] = mapped_column(String(255), nullable=False)
     dry_run: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=true()
+        Boolean, nullable=False, default=False, server_default=false()
     )
     allow_hot_switch: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
@@ -333,6 +332,43 @@ class PublishTargetRecord(Base):
 
     job: Mapped[PublishJobRecord] = relationship(back_populates="targets")
     station: Mapped[StationRecord] = relationship(back_populates="publish_targets")
+
+
+class PublishArtifactRecord(Base):
+    """Dataset/clone created by a publish job and retained for cleanup."""
+
+    __tablename__ = "publish_artifacts"
+    __table_args__ = (
+        UniqueConstraint("job_id", "station_id", name="uq_publish_artifacts_job_station"),
+        Index("ix_publish_artifacts_cleanup", "is_current", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("publish_jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    station_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("stations.station_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_dataset: Mapped[str] = mapped_column(String(255), nullable=False)
+    dataset_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    snapshot_ref: Mapped[str] = mapped_column(String(512), nullable=False)
+    mapping_ref: Mapped[str] = mapped_column(String(512), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    status: Mapped[StorageArtifactStatus] = mapped_column(
+        enum_column(StorageArtifactStatus),
+        nullable=False,
+        default=StorageArtifactStatus.RETIRED,
+    )
+    is_current: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
 
 class OutboxEventRecord(Base):

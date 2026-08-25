@@ -4,7 +4,7 @@
 ПК не нужны Python, uv, pywin32 и пароль Windows. Python-скрипты остаются в
 репозитории только как legacy/recovery-вариант.
 
-## 1. Получить station report на клиентском ПК
+## 1. Передать один native EXE
 
 После `git pull` возьмите подготовленный
 [`TrueNasControllerAgent.exe`](../TrueNasControllerAgent.exe) из корня проекта,
@@ -18,17 +18,9 @@ Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```
 
-Если native exe ещё не выдан и используется временный Python-report, команда
-должна выполняться из той же папки, где лежит скрипт:
-
-```powershell
-Set-Location C:\Install
-py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
-```
-
 Не редактируйте `station.station_id` и `agent.agent_uuid`: это один стабильный
-UUID. Native и Python report используют совместимый путь identity:
-`%LOCALAPPDATA%\TrueNasController\agent\identity.json`.
+UUID. Native identity хранится в `%LOCALAPPDATA%\TrueNasController\agent` для
+команды report и в `%ProgramData%\TrueNasController\agent` после установки.
 
 Передайте `C:\Install\station-report.json` оператору. В отчёте нет Basic Auth,
 enrollment token, credential или TrueNAS API key.
@@ -39,9 +31,8 @@ enrollment token, credential или TrueNAS API key.
 2. Нажмите **Создать provisioning token**.
 3. Передайте показанный один раз token на тот же клиентский ПК.
 
-Station вручную создавать не нужно: installer отправит серверу UUID из
-`station-report.json`, и backend атомарно создаст client station и agent
-binding. Операторский Basic Auth используется только в UI. Provisioning token
+Station вручную создавать не нужно: installer отправит серверу UUID из native
+identity, и backend атомарно создаст client station и agent binding. Операторский Basic Auth используется только в UI. Provisioning token
 действует ограниченное время и используется один раз.
 
 ## 3. Установить native-агент на клиенте
@@ -53,7 +44,6 @@ binding. Операторский Basic Auth используется тольк
 Set-Location C:\Install
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
@@ -67,19 +57,19 @@ Set-Location C:\Install
 - регистрирует `TrueNasControllerAgent` как `LocalSystem` без пароля;
 - запускает службу и ждёт её состояния `Running`.
 
-Station UUID и agent UUID берутся из report и проверяются на совпадение. В
-командной строке нет token, credential или пароля Windows.
+Station UUID и agent UUID берутся из native identity и проверяются на
+совпадение. В командной строке нет token, credential или пароля Windows.
 
 Перед установкой можно проверить параметры без изменений:
 
 ```powershell
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http `
   --dry-run
 ```
 
+`--report` — необязательный legacy-параметр для заранее сохранённого JSON.
 `--provisioning-token` — необязательный способ передать token явно; по умолчанию
 installer спрашивает его видимым prompt. Для старого ручного сценария, где
 station уже создана, используйте `--enrollment-token`.

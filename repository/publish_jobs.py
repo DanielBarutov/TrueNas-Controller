@@ -53,6 +53,7 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
                 operator_id=job.operator_id,
                 client_confirmation=job.client_confirmation,
                 client_confirmation_at=job.client_confirmation_at,
+                created_at=job.created_at or utc_now(),
                 correlation_id=job.correlation_id,
             )
         )
@@ -105,6 +106,9 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
                 if record.client_confirmation_at is None
                 else ensure_utc(record.client_confirmation_at)
             ),
+            created_at=ensure_utc(record.created_at),
+            started_at=None if record.started_at is None else ensure_utc(record.started_at),
+            completed_at=None if record.completed_at is None else ensure_utc(record.completed_at),
         )
 
     @staticmethod

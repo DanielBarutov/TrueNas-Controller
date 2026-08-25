@@ -94,7 +94,7 @@ internal static class NativeAgentProgram
     {
         Console.WriteLine("TrueNasControllerAgent");
         Console.WriteLine("  report [--output PATH] [--identity-path PATH] [--text]");
-        Console.WriteLine("  install --controller-url URL --report PATH [--allow-insecure-http]");
+        Console.WriteLine("  install --controller-url URL [--report PATH] [--allow-insecure-http]");
         Console.WriteLine("          [--command-verify-key KEY] [--install-dir PATH]");
         Console.WriteLine("  foreground --config PATH");
         Console.WriteLine("  start | stop | remove");

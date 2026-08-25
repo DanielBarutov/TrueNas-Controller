@@ -59,6 +59,7 @@
 | `pool.snapshot.create` | создать snapshot исходного dataset, например `games/master-games` | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.create.html) |
 | `pool.snapshot.clone` | создать clone полного диска в новый dataset/zvol | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.clone.html) |
 | `iscsi.extent.update` | обновить `device/file` существующего extent, сохранив его имя, target association и LUN | `docs-verified`; fake workflow и read-back пройдены, live apply одной станции остаётся отдельным gate — [документ](https://api.truenas.com/v25.10/api_methods_iscsi.extent.update.html) |
+| `pool.dataset.delete` | удалить один неактуальный dataset clone после retention-проверки | `docs-verified`; вызывается только отдельным cleanup apply gate с `recursive=false` и `force=false` — [документ](https://api.truenas.com/v25.10.0/api_methods_pool.dataset.delete.html) |
 
 В текущей схеме пользователя новый extent создавать не нужно. Для каждого ПК
 сохраняется существующий extent, а его поле `Device/File` переводится на

@@ -48,13 +48,13 @@ Set-Location C:\Install
 ```
 
 В Controller UI откройте **Станции и агенты** и создайте provisioning token.
-Station вручную создавать не нужно: сервер возьмёт UUID из report, создаст
-client station и сразу зарегистрирует агент. После этого на клиенте:
+Station вручную создавать не нужно: сервер возьмёт стабильный UUID из native
+identity, создаст client station и сразу зарегистрирует агент. Report можно
+сохранить для оператора, но для установки он больше не обязателен:
 
 ```powershell
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
@@ -72,7 +72,9 @@ enrollment только после успешной проверки credential 
 режима нельзя смешивать.
 
 Перед изменениями можно выполнить `install ... --dry-run`. Не передавайте
-`--station-id`: UUID берётся из report и проверяется на совпадение.
+`--station-id`: UUID берётся из сохранённой native identity. `--report` остаётся
+совместимым параметром для старого сценария и явно проверяется на совпадение
+station/agent UUID.
 
 ## Проверка и диагностика
 

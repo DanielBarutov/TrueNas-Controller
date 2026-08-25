@@ -2,8 +2,14 @@
 
 import asyncio
 from collections.abc import Callable
+import logging
 
-from application.ports import PublishTaskExecutor, UnitOfWorkFactory
+from application.dataset_cleanup import DatasetCleanupUseCase
+from application.ports import (
+    PublishTaskExecutor,
+    TrueNASWriteClient,
+    UnitOfWorkFactory,
+)
 from domain.publish import PublishJob
 from worker.tasks import PublishTaskPayload
 
@@ -13,6 +19,7 @@ class PublishTaskStateError(ValueError):
 
 
 PublishTaskExecutorFactory = Callable[[], PublishTaskExecutor]
+TrueNASWriteClientFactory = Callable[[], TrueNASWriteClient]
 
 
 class PublishTaskApplicationHandler:
@@ -52,7 +59,54 @@ class PublishTaskApplicationHandler:
             raise PublishTaskStateError("task correlation ID does not match publish job")
 
 
+class DatasetCleanupApplicationHandler:
+    """Run one bounded retention pass behind the Dramatiq sync boundary."""
+
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        *,
+        retention_days: int,
+        batch_size: int,
+        apply_enabled: bool,
+        write_client_factory: TrueNASWriteClientFactory | None = None,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._retention_days = retention_days
+        self._batch_size = batch_size
+        self._apply_enabled = apply_enabled
+        self._write_client_factory = write_client_factory
+
+    def __call__(self) -> None:
+        asyncio.run(self.handle())
+
+    async def handle(self) -> None:
+        write_client = None
+        if self._apply_enabled:
+            if self._write_client_factory is None:
+                raise ValueError("TrueNAS write client factory is required for cleanup apply")
+            write_client = self._write_client_factory()
+        try:
+            result = await DatasetCleanupUseCase(
+                self._uow_factory,
+                retention_days=self._retention_days,
+                batch_size=self._batch_size,
+                apply_enabled=self._apply_enabled,
+            ).execute(write_client=write_client)
+            logging.getLogger(__name__).info(
+                "dataset cleanup pass: inspected=%s deleted=%s failed=%s dry_run=%s",
+                result.inspected,
+                result.deleted,
+                result.failed,
+                result.dry_run,
+            )
+        finally:
+            if write_client is not None:
+                await write_client.close()
+
+
 __all__ = [
+    "DatasetCleanupApplicationHandler",
     "PublishTaskApplicationHandler",
     "PublishTaskExecutorFactory",
     "PublishTaskStateError",

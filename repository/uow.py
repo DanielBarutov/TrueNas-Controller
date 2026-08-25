@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from application.ports import (
     AgentCommandRepository,
     OutboxRepository,
+    PublishArtifactRepository,
     PublishJobRepository,
     PublishTargetRepository,
     StationRepository,
@@ -17,6 +18,7 @@ from repository.agents import SqlAlchemyAgentRepository
 from repository.enrollment_tokens import SqlAlchemyEnrollmentTokenRepository
 from repository.outbox import SqlAlchemyOutboxRepository
 from repository.provisioning_tokens import SqlAlchemyProvisioningTokenRepository
+from repository.publish_artifacts import SqlAlchemyPublishArtifactRepository
 from repository.publish_jobs import SqlAlchemyPublishJobRepository
 from repository.publish_targets import SqlAlchemyPublishTargetRepository
 from repository.rules import SqlAlchemyProcessRuleRepository
@@ -39,6 +41,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._process_snapshots: SqlAlchemyProcessSnapshotRepository | None = None
         self._publish_jobs: PublishJobRepository | None = None
         self._publish_targets: PublishTargetRepository | None = None
+        self._publish_artifacts: PublishArtifactRepository | None = None
         self._outbox_events: OutboxRepository | None = None
 
     @property
@@ -96,6 +99,12 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         return self._publish_targets
 
     @property
+    def publish_artifacts(self) -> PublishArtifactRepository:
+        if self._publish_artifacts is None:
+            raise RuntimeError("unit of work must be entered before accessing repositories")
+        return self._publish_artifacts
+
+    @property
     def outbox_events(self) -> OutboxRepository:
         if self._outbox_events is None:
             raise RuntimeError("unit of work must be entered before accessing repositories")
@@ -114,6 +123,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self._process_snapshots = SqlAlchemyProcessSnapshotRepository(self._session)
         self._publish_jobs = SqlAlchemyPublishJobRepository(self._session)
         self._publish_targets = SqlAlchemyPublishTargetRepository(self._session)
+        self._publish_artifacts = SqlAlchemyPublishArtifactRepository(self._session)
         self._outbox_events = SqlAlchemyOutboxRepository(self._session)
         return self
 
@@ -141,6 +151,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
             self._process_snapshots = None
             self._publish_jobs = None
             self._publish_targets = None
+            self._publish_artifacts = None
             self._outbox_events = None
 
     async def commit(self) -> None:

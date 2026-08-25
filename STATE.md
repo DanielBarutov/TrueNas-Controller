@@ -15,17 +15,20 @@
 
 ## Текущая стадия
 
-- **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [36 — TrueNAS write adapter](/home/daniel/tnas/plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md).
-- **Текущая задача:** локальный adapter/worker contract завершён и проверен
-  fake read-back; для каждого ПК обновляется `device/file` существующего extent.
-- **Последнее исправление:** TrueNAS API key теперь подключается только через
-  `wss://`; добавлены явные настройки TLS verification/CA и диагностика
-  сертификата без раскрытия ключа.
-- **Следующий разрешённый шаг:** выполнить read-only LAN smoke с реальным
-  TrueNAS, затем отдельно согласовать apply на одной выделенной станции.
-  Cleanup и удаление storage-объектов по-прежнему не включать.
-- **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
+- **Стадия:** 3 — операторские правки после live smoke.
+- **Активный план:** [37 — operator follow-up](plans/37-operator-follow-up/01-history-station-edit.md).
+- **Текущая задача:** история ограничена 10 jobs и раскрывает сохранённые
+  target/artifact details; station и TrueNAS mapping редактируются через UI;
+  native EXE может bootstrap station без Python и `--report`.
+- **Последнее исправление:** добавлены `publish_artifacts`, retention worker и
+  allowlisted `pool.dataset.delete`; фактическое удаление закрыто отдельным
+  `TRUENAS_CLEANUP_APPLY_ENABLED`.
+- **Следующий разрешённый шаг:** пересобрать self-contained win-x64 EXE,
+  применить две новые Alembic migrations и проверить Compose/UI на одной
+  тестовой станции.
+- **Запрещено сейчас:** включать cleanup apply или live NAS cleanup без
+  отдельного подтверждения оператором; текущие dataset должны оставаться
+  защищены от удаления.
 
 ## Статус планов
 
@@ -69,6 +72,9 @@
 | [34 — Runtime worker и TrueNAS secret](plans/34-worker-runtime/01-compose-worker-and-secret-boundary.md) | `in_progress` | Compose worker, outbox polling, Dramatiq consumer и fake executor mode добавлены; пользовательский runtime ещё не проверен | pull, rebuild и проверить accepted job по worker logs |
 | [35 — История и process policy](plans/35-update-history-and-process-policy/01-history-process-policy.md) | `closed` | история publish, CRUD process rules, экран политики и retry preflight реализованы; `196 passed, 1 skipped`, frontend tests/build и Ruff пройдены | пользовательский Compose/UI smoke |
 | [36 — TrueNAS write adapter](plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | `in_progress` | snapshot → clone → update `device/file` старого extent → association/LUN read-back, station mapping, Dramatiq executor, fake acceptance и TLS runtime boundary добавлены; backend `204 passed, 1 skipped`, Ruff/Compose пройдены | read-only LAN smoke, затем отдельный one-station apply gate |
+| [37.01 — История и station edit](plans/37-operator-follow-up/01-history-station-edit.md) | `closed` | history default 10, details read model, `dry_run=false`, PATCH station и mapping edit добавлены; targeted tests прошли | пользовательский UI smoke |
+| [37.02 — Native agent EXE](plans/37-operator-follow-up/02-native-agent-exe.md) | `in_progress` | source installer принимает provisioning token без `--report`, identity создаётся native EXE, stdout report сохраняется JSON-only; root EXE пересобран | проверить обновлённый EXE на Windows |
+| [37.03 — Dataset retention](plans/37-operator-follow-up/03-dataset-retention.md) | `in_progress` | `publish_artifacts`, migration, cleanup use case, Dramatiq schedule и TrueNAS delete allow-list добавлены; apply gate выключен | применить migration и сделать dry-run cleanup в Compose |
 
 ## Чекап решений
 
@@ -340,3 +346,7 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Завершён локальный чек-ап плана 36 | backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены; следующий шаг — read-only LAN smoke |
 | 2026-08-25 | Исправлен TrueNAS TLS runtime | `ws://` запрещён для API key, добавлены `wss://`, CA/verification settings и диагностируемые TLS/WebSocket ошибки; реальный NAS не запускался |
 | 2026-08-25 | Исправлен live extent switch после one-station теста | TrueNAS API использует `disk=zvol/...`, а `/dev` добавляется middleware; обновлены adapter, read-back, fake/fixtures и инструкция, recovery теперь сохраняет причину исходного сбоя |
+| 2026-08-25 | Добавлен план 37 operator follow-up | История ограничена 10 jobs, добавлены details, station/mapping edit и default `dry_run=false` |
+| 2026-08-25 | Добавлен реестр publish artifacts и retention worker | Создана migration, Dramatiq schedule и отдельный fail-closed TrueNAS `pool.dataset.delete`; apply gate выключен по умолчанию |
+| 2026-08-25 | Native installer упрощён | `--report` стал необязательным, identity и bootstrap выполняются self-contained EXE без Python; root EXE требует пересборки из обновлённого source |
+| 2026-08-25 | Локальный чек-ап плана 37 | `213 passed, 1 skipped`, Ruff/format/compileall, Alembic head, frontend `8 passed` и production build; реальный NAS cleanup и Windows smoke не выполнялись |

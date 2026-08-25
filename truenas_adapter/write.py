@@ -61,6 +61,19 @@ class TrueNASWriteAdapter(TrueNASWriteClient):
         record = _mapping_result(result, "extent update")
         return TrueNASReadOnlyAdapter._map_extent(record)
 
+    async def delete_dataset(self, dataset: str) -> None:
+        """Delete a tracked clone without recursive or forceful destruction."""
+
+        _validate_dataset(dataset)
+        result = await self._transport.request(
+            self._registry.resolve("delete_dataset"),
+            [dataset, {"recursive": False, "force": False}],
+        )
+        # TrueNAS returns null when the dataset is already absent. Treat that
+        # response as idempotent success so a DB retry cannot block cleanup.
+        if result is not True and result is not None:
+            raise TrueNASAdapterError("TrueNAS dataset delete returned an unexpected result")
+
     async def close(self) -> None:
         await self._transport.close()
 

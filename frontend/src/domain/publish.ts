@@ -70,6 +70,9 @@ export interface PublishTargetReadModel {
   error_code: string | null;
   error_message: string | null;
   progress_percent: number;
+  preflight_result: Record<string, unknown> | null;
+  old_mapping: { ref: string } | null;
+  new_mapping: { ref: string } | null;
 }
 
 export interface PublishJobReadModel {
@@ -82,7 +85,25 @@ export interface PublishJobReadModel {
   status: PublishJobStatus;
   dry_run: boolean;
   allow_hot_switch: boolean;
+  status_reason: string | null;
+  created_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
   targets: PublishTargetReadModel[];
+  artifacts: PublishArtifactReadModel[];
+}
+
+export interface PublishArtifactReadModel {
+  id: string;
+  station_id: string;
+  dataset_name: string;
+  snapshot_ref: string;
+  mapping_ref: string;
+  status: string;
+  is_current: boolean;
+  created_at: string;
+  deleted_at: string | null;
+  last_error: string | null;
 }
 
 export interface PublishHistoryItem {

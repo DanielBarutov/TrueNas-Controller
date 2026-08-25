@@ -10,9 +10,8 @@
 
 После `git pull` возьмите подготовленный
 [`TrueNasControllerAgent.exe`](../TrueNasControllerAgent.exe) из корня проекта и
-скопируйте его вместе с report в `C:\Install`.
-Команды выполняйте последовательно из папки, где действительно находятся эти
-файлы:
+скопируйте его в `C:\Install`. Команды выполняйте последовательно из папки,
+где находится exe:
 
 ```powershell
 Set-Location C:\Install
@@ -21,20 +20,20 @@ Set-Location C:\Install
 
 В Controller UI → **Станции и агенты** нажмите **Создать provisioning token** и
 передайте его клиенту. Station вручную создавать не нужно: backend создаст её по
-UUID из report вместе с agent binding. Затем запустите elevated PowerShell:
+native identity вместе с agent binding. Report нужен только для просмотра и
+передачи оператору. Затем запустите elevated PowerShell:
 
 ```powershell
 Set-Location C:\Install
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
 Для HTTPS уберите `--allow-insecure-http`. Provisioning token вводится видимо,
 не попадает в argv или постоянное окружение. Installer использует station/agent
-UUID из одного report, DPAPI machine-scope и Windows Service `LocalSystem` без
-пароля. Для legacy ручного сценария с заранее созданной station передайте
+native station/agent identity, DPAPI machine-scope и Windows Service `LocalSystem` без
+пароля. `--report` можно передать для совместимости. Для legacy ручного сценария с заранее созданной station передайте
 `--enrollment-token` вместо provisioning token.
 
 Проверка и диагностика:

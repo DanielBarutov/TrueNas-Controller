@@ -20,7 +20,13 @@ from application.publish_dispatch import PublishDispatchResult
 from application.publish_queries import PublishJobView
 from domain.agent_command import AgentCommand, AgentCommandName
 from domain.preflight import CheckResult, CheckStatus, PreflightReport
-from domain.publish import PublishJob, PublishJobStatus, PublishTarget
+from domain.publish import (
+    PublishArtifact,
+    PublishJob,
+    PublishJobStatus,
+    PublishTarget,
+    StorageArtifactStatus,
+)
 from domain.station import Station, StationRole, StationStatus
 from domain.wizard import WizardGateResult, WizardGateStatus
 from presentation.http import create_app
@@ -479,7 +485,7 @@ def test_publish_draft_route_requires_auth_and_returns_safe_summary(monkeypatch)
         "label": "build-001",
         "source_dataset": "game",
         "status": "draft",
-        "dry_run": True,
+        "dry_run": False,
         "allow_hot_switch": False,
         "station_ids": [str(station_id)],
     }
@@ -542,12 +548,25 @@ def test_publish_job_route_returns_safe_target_status(monkeypatch) -> None:
         verify_status="pending",
         error_code=None,
         progress_percent=25,
-        old_mapping={"secret": "must-not-leak"},
+        old_mapping={"ref": "zvol/games/old"},
+        new_mapping={"secret": "must-not-leak"},
+    )
+    artifact = PublishArtifact(
+        id=uuid4(),
+        job_id=job.id,
+        station_id=station_id,
+        source_dataset="game",
+        dataset_name="game-client-job",
+        snapshot_ref="game@snapshot",
+        mapping_ref="zvol/game-client-job",
+        created_at=datetime.now(UTC),
+        status=StorageArtifactStatus.CURRENT,
+        is_current=True,
     )
     client = TestClient(
         create_app(
             FakeStationQuery([]),
-            get_publish_job=FakePublishJobQuery(PublishJobView(job, (target,))),
+            get_publish_job=FakePublishJobQuery(PublishJobView(job, (target,), (artifact,))),
         )
     )
 
@@ -567,9 +586,14 @@ def test_publish_job_route_returns_safe_target_status(monkeypatch) -> None:
             "error_code": None,
             "error_message": None,
             "progress_percent": 25,
+            "preflight_result": None,
+            "old_mapping": {"ref": "zvol/games/old"},
+            "new_mapping": None,
         }
     ]
     assert "must-not-leak" not in response.text
+    assert response.json()["artifacts"][0]["dataset_name"] == "game-client-job"
+    assert response.json()["artifacts"][0]["mapping_ref"] == "zvol/game-client-job"
     assert client.get(f"/api/v1/publish/jobs/{job.id}").status_code == 401
 
 

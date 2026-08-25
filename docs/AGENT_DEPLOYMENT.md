@@ -10,12 +10,11 @@ Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
 Token вводится видимо только в интерактивной консоли. Native agent использует
-тот же enrollment/heartbeat/ack API, совместимый station UUID из report,
+тот же enrollment/heartbeat/ack API, station UUID из native identity,
 DPAPI machine-scope и `LocalSystem`. Python flow ниже сохранён как legacy
 recovery и не является рекомендуемым новым способом установки.
 

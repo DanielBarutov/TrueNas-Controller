@@ -50,6 +50,7 @@ from application.publish_queries import GetPublishJobUseCase, ListPublishJobsUse
 from application.stations import (
     StationNotFoundError as StationMappingNotFoundError,
     UpdateStationStorageMappingUseCase,
+    UpdateStationUseCase,
 )
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
@@ -66,6 +67,7 @@ from presentation.lifecycle_schemas import (
     StationCreateRequest,
     StationRegistrationResponse,
     StationStorageMappingRequest,
+    StationUpdateRequest,
 )
 from presentation.preflight_schemas import CheckResponse, PreflightRequest, PreflightResponse
 from presentation.process_rule_schemas import ProcessRuleCreateRequest, ProcessRuleResponse
@@ -100,6 +102,7 @@ def create_app(
     create_process_rule: CreateProcessRuleUseCase | None = None,
     delete_process_rule: DeleteProcessRuleUseCase | None = None,
     list_publish_jobs: ListPublishJobsUseCase | None = None,
+    update_station: UpdateStationUseCase | None = None,
     update_station_storage_mapping: UpdateStationStorageMappingUseCase | None = None,
 ) -> FastAPI:
     """Create the HTTP application from application-layer dependencies."""
@@ -165,6 +168,32 @@ def create_app(
                 provisioning_token=result.token,
                 expires_at=result.expires_at,
             )
+
+    if update_station is not None:
+
+        @app.patch(
+            "/api/v1/stations/{station_id}",
+            response_model=StationResponse,
+        )
+        async def update_station_route(
+            station_id: UUID,
+            payload: StationUpdateRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> StationResponse:
+            try:
+                station = await update_station.execute(
+                    station_id=station_id,
+                    display_name=payload.display_name,
+                    hostname=payload.hostname,
+                    role=payload.role,
+                    enabled=payload.enabled,
+                )
+            except StationMappingNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            return StationResponse.from_domain(station)
 
     if update_station_storage_mapping is not None:
 
@@ -521,7 +550,7 @@ def create_app(
 
         @app.get("/api/v1/publish/jobs", response_model=list[PublishHistoryItemResponse])
         async def list_publish_jobs_route(
-            limit: int = Query(default=50, ge=1, le=100),
+            limit: int = Query(default=10, ge=1, le=100),
             _: Annotated[str, Depends(require_basic_auth)] = "",
         ) -> list[PublishHistoryItemResponse]:
             jobs = await list_publish_jobs.execute(limit=limit)

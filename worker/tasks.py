@@ -1,4 +1,4 @@
-"""Dramatiq task boundary for publish jobs."""
+"""Dramatiq task boundaries for publish and retention jobs."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -28,6 +28,8 @@ class PublishTaskPayload:
 
 PublishTaskHandler = Callable[[PublishTaskPayload], None]
 PublishTaskHandlerFactory = Callable[[], PublishTaskHandler]
+DatasetCleanupTaskHandler = Callable[[], None]
+DatasetCleanupTaskHandlerFactory = Callable[[], DatasetCleanupTaskHandler]
 
 
 class DramatiqPublishTaskQueue(PublishTaskQueue):
@@ -59,3 +61,17 @@ def build_publish_actor(
         handler_factory()(payload)
 
     return publish_job
+
+
+def build_dataset_cleanup_actor(
+    handler_factory: DatasetCleanupTaskHandlerFactory,
+    *,
+    actor_name: str = "dataset_cleanup",
+) -> dramatiq.Actor:
+    """Build a scheduled actor with no user-controlled message payload."""
+
+    @dramatiq.actor(actor_name=actor_name, max_retries=0)
+    def dataset_cleanup() -> None:
+        handler_factory()()
+
+    return dataset_cleanup

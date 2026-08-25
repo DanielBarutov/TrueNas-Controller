@@ -26,6 +26,13 @@ class StationStorageMappingRequest(BaseModel):
     initiator_iqn: str | None = Field(default=None, min_length=1, max_length=255)
 
 
+class StationUpdateRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+    hostname: str = Field(min_length=1, max_length=255)
+    role: StationRole
+    enabled: bool = True
+
+
 class StationRegistrationResponse(StationResponse):
     enrollment_token: str
     enrollment_expires_at: datetime

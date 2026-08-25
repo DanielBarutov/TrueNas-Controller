@@ -30,6 +30,12 @@ class FakeUow:
         self.publish_jobs = FakePublishJobs(job)
         self.publish_targets = FakePublishTargets(targets)
 
+        class EmptyArtifacts:
+            async def list_for_job(self, job_id: UUID) -> tuple[()]:
+                return ()
+
+        self.publish_artifacts = EmptyArtifacts()
+
     async def __aenter__(self) -> "FakeUow":
         return self
 

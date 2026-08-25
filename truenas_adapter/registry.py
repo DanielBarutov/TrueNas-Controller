@@ -40,6 +40,7 @@ class TrueNASMethodRegistry:
                     "create_snapshot": "pool.snapshot.create",
                     "clone_snapshot": "pool.snapshot.clone",
                     "update_extent_device": "iscsi.extent.update",
+                    "delete_dataset": "pool.dataset.delete",
                 }
             )
         self._methods = MappingProxyType(methods)

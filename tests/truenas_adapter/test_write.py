@@ -25,6 +25,8 @@ class RecordingTransport:
                 "type": "DISK",
                 "disk": "zvol/games/master-games-v002-clone-pc1",
             }
+        if method == "pool.dataset.delete":
+            return True
         raise AssertionError(f"unexpected method: {method}")
 
     async def close(self) -> None:
@@ -42,6 +44,7 @@ async def test_write_adapter_uses_existing_extent_and_preserves_association() ->
         12,
         "/dev/zvol/games/master-games-v002-clone-pc1",
     )
+    await adapter.delete_dataset("games/master-games-v002-clone-pc1")
 
     assert snapshot.dataset == "games/master-games"
     assert extent.id == 12
@@ -50,10 +53,15 @@ async def test_write_adapter_uses_existing_extent_and_preserves_association() ->
         "pool.snapshot.create",
         "pool.snapshot.clone",
         "iscsi.extent.update",
+        "pool.dataset.delete",
     ]
     assert transport.calls[2][1] == [
         12,
         {"disk": "zvol/games/master-games-v002-clone-pc1"},
+    ]
+    assert transport.calls[3][1] == [
+        "games/master-games-v002-clone-pc1",
+        {"recursive": False, "force": False},
     ]
 
 
@@ -64,6 +72,7 @@ async def test_write_adapter_uses_existing_extent_and_preserves_association() ->
         ("snapshot", ("games/master-games", "build/001")),
         ("clone", ("games/master-games@build-001", "games/../clone")),
         ("extent", (12, "zvol/games/../clone")),
+        ("dataset", ("games/../clone",)),
     ],
 )
 @pytest.mark.asyncio
@@ -82,4 +91,7 @@ async def test_write_adapter_rejects_unsafe_paths(
         elif operation == "clone":
             await adapter.clone_snapshot(*arguments)  # type: ignore[arg-type]
         else:
-            await adapter.update_extent_device(*arguments)  # type: ignore[arg-type]
+            if operation == "extent":
+                await adapter.update_extent_device(*arguments)  # type: ignore[arg-type]
+            else:
+                await adapter.delete_dataset(*arguments)  # type: ignore[arg-type]

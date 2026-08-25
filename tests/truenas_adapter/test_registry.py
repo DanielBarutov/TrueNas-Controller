@@ -36,5 +36,6 @@ def test_write_enabled_registry_resolves_only_approved_storage_writes() -> None:
     assert registry.resolve("create_snapshot") == "pool.snapshot.create"
     assert registry.resolve("clone_snapshot") == "pool.snapshot.clone"
     assert registry.resolve("update_extent_device") == "iscsi.extent.update"
+    assert registry.resolve("delete_dataset") == "pool.dataset.delete"
     with pytest.raises(UnsupportedTrueNASOperation):
         registry.resolve("iscsi.extent.delete")

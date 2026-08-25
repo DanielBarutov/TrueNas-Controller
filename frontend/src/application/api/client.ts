@@ -75,6 +75,16 @@ export class ControllerApi {
     });
   }
 
+  async updateStation(
+    stationId: string,
+    input: { display_name: string; hostname: string; role: StationRole; enabled: boolean },
+  ): Promise<Station> {
+    return this.request(`/api/v1/stations/${stationId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
   async updateStationStorageMapping(
     stationId: string,
     input: { target_name?: string | null; target_iqn?: string | null; initiator_iqn?: string | null },
@@ -132,7 +142,7 @@ export class ControllerApi {
     return this.request(`/api/v1/publish/jobs/${jobId}`);
   }
 
-  async listPublishJobs(limit = 50): Promise<PublishHistoryItem[]> {
+  async listPublishJobs(limit = 10): Promise<PublishHistoryItem[]> {
     return this.request(`/api/v1/publish/jobs?limit=${limit}`);
   }
 

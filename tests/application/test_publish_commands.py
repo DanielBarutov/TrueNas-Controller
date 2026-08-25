@@ -69,7 +69,7 @@ async def test_create_publish_job_materializes_dynamic_selection_and_safe_defaul
         correlation_id=correlation_id,
     )
 
-    assert draft.job.dry_run is True
+    assert draft.job.dry_run is False
     assert draft.job.allow_hot_switch is False
     assert draft.job.status.value == "draft"
     assert [target.station_id for target in draft.targets] == [

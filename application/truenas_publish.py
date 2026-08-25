@@ -171,10 +171,12 @@ class TrueNASPublishWorkflow:
         plan: _StationPlan,
     ) -> PublishTargetResult:
         write_attempted = False
+        storage_created = False
         try:
             datasets = await self._read_client.query_datasets()
             if not any(item.name == plan.destination_dataset for item in datasets):
                 await self._write_client.clone_snapshot(snapshot_ref, plan.destination_dataset)
+            storage_created = True
             if plan.mapping.old_device != plan.destination_device:
                 write_attempted = True
                 await self._write_client.update_extent_device(
@@ -197,12 +199,14 @@ class TrueNASPublishWorkflow:
                             "extent update outcome is unknown; read-back did not confirm it; "
                             f"initial operation failed: {_safe_error_detail(error)}"
                         ),
+                        storage_created=storage_created,
                     )
                 return PublishTargetResult(
                     plan.station.station_id,
                     TargetStatus.VERIFIED,
                     plan.mapping.old_device,
                     new_mapping=plan.destination_device,
+                    storage_created=storage_created,
                 )
             return PublishTargetResult(
                 plan.station.station_id,
@@ -211,12 +215,14 @@ class TrueNASPublishWorkflow:
                 new_mapping=plan.destination_device,
                 error_code="target_failed",
                 error_message=str(error),
+                storage_created=storage_created,
             )
         return PublishTargetResult(
             plan.station.station_id,
             TargetStatus.VERIFIED,
             plan.mapping.old_device,
             new_mapping=plan.destination_device,
+            storage_created=storage_created,
         )
 
     async def _verify_read_back(self, plan: _StationPlan) -> None:

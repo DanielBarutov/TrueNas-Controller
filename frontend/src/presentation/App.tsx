@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   MonitorCog,
+  Pencil,
   RefreshCw,
   Rocket,
   Search,
@@ -201,6 +202,9 @@ function StationsPage({ api }: { api: ControllerApi }) {
   const [mappingStationId, setMappingStationId] = useState("");
   const [mappingForm, setMappingForm] = useState({ target_name: "", target_iqn: "", initiator_iqn: "" });
   const [mappingBusy, setMappingBusy] = useState(false);
+  const [editingStationId, setEditingStationId] = useState("");
+  const [editForm, setEditForm] = useState({ display_name: "", hostname: "", role: "client" as StationRole, enabled: true });
+  const [editBusy, setEditBusy] = useState(false);
   const [form, setForm] = useState({ display_name: "", hostname: "", role: "client" as StationRole, target_name: "", target_iqn: "", initiator_iqn: "" });
 
   useEffect(() => { void loadStations(); }, []);
@@ -239,6 +243,32 @@ function StationsPage({ api }: { api: ControllerApi }) {
       target_iqn: station?.target_iqn ?? "",
       initiator_iqn: station?.initiator_iqn ?? "",
     });
+  }
+
+  function selectEditStation(stationId: string) {
+    const station = stations.find((item) => item.station_id === stationId);
+    setEditingStationId(stationId);
+    setEditForm({
+      display_name: station?.display_name ?? "",
+      hostname: station?.hostname ?? "",
+      role: station?.role ?? "client",
+      enabled: station?.enabled ?? true,
+    });
+  }
+
+  async function saveStation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingStationId) return;
+    setEditBusy(true);
+    setError(null);
+    try {
+      const updated = await api.updateStation(editingStationId, editForm);
+      setStations((current) => current.map((item) => item.station_id === updated.station_id ? updated : item));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить станцию.");
+    } finally {
+      setEditBusy(false);
+    }
   }
 
   async function saveMapping(event: FormEvent<HTMLFormElement>) {
@@ -329,9 +359,20 @@ function StationsPage({ api }: { api: ControllerApi }) {
       <div className="station-toolbar"><label className="search-field"><span><Search aria-hidden size={13} /> Поиск</span><input placeholder="Имя или hostname" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-field"><span><Filter aria-hidden size={13} /> Статус</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StationStatus | "all")}><option value="all">Все ({stations.length})</option><option value="online">Online ({statusCounts.online ?? 0})</option><option value="stale">Stale ({statusCounts.stale ?? 0})</option><option value="offline">Offline ({statusCounts.offline ?? 0})</option></select></label><div className="toolbar-note"><span className="pulse-dot" /> {visibleStations.length} в текущем списке</div></div>
       <div className="table-card">
         <table><thead><tr><th>Станция</th><th>Роль</th><th>Статус</th><th>Пояснение</th><th aria-label="Действия" /></tr></thead>
-          <tbody>{visibleStations.length === 0 ? <tr><td colSpan={5} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td><td><button className="danger-button" type="button" onClick={() => void deleteStation(station)} disabled={deletingStationId === station.station_id} title="Удалить станцию и агентскую привязку"><Trash2 aria-hidden size={15} />{deletingStationId === station.station_id ? "Удаляем…" : "Удалить"}</button></td></tr>)}</tbody>
+          <tbody>{visibleStations.length === 0 ? <tr><td colSpan={5} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td><td><div className="inline-actions"><button className="secondary-button" type="button" onClick={() => selectEditStation(station.station_id)} title="Редактировать станцию"><Pencil aria-hidden size={15} /> Изменить</button><button className="danger-button" type="button" onClick={() => void deleteStation(station)} disabled={deletingStationId === station.station_id} title="Удалить станцию и агентскую привязку"><Trash2 aria-hidden size={15} />{deletingStationId === station.station_id ? "Удаляем…" : "Удалить"}</button></div></td></tr>)}</tbody>
         </table>
       </div>
+      <section className="form-card">
+        <div className="section-heading"><div><h2>Редактирование станции</h2><p className="muted">Меняются только регистрационные поля. Стабильный UUID и agent binding сохраняются.</p></div></div>
+        <form className="station-form" onSubmit={saveStation}>
+          <label>Станция<select value={editingStationId} onChange={(event) => selectEditStation(event.target.value)}><option value="">Выберите станцию</option>{stations.map((station) => <option key={station.station_id} value={station.station_id}>{station.display_name} · {station.hostname}</option>)}</select></label>
+          <label>Отображаемое имя<input required value={editForm.display_name} onChange={(event) => setEditForm({ ...editForm, display_name: event.target.value })} /></label>
+          <label>Hostname<input required value={editForm.hostname} onChange={(event) => setEditForm({ ...editForm, hostname: event.target.value })} /></label>
+          <label>Роль<select value={editForm.role} onChange={(event) => setEditForm({ ...editForm, role: event.target.value as StationRole })}><option value="client">client</option><option value="admin">admin</option></select></label>
+          <label className="checkbox-row"><input type="checkbox" checked={editForm.enabled} onChange={(event) => setEditForm({ ...editForm, enabled: event.target.checked })} /> Станция включена</label>
+          <button className="primary-button" type="submit" disabled={!editingStationId || editBusy}>{editBusy ? "Сохраняем…" : "Сохранить станцию"}</button>
+        </form>
+      </section>
       <section className="form-card">
         <div className="section-heading"><div><h2>TrueNAS mapping станции</h2><p className="muted">Укажите имя уже существующего target из TrueNAS. Worker найдёт его association и обновит только Device/File старого extent.</p></div></div>
         <form className="station-form" onSubmit={saveMapping}>
@@ -343,7 +384,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
         </form>
       </section>
       <section className="form-card">
-        <div className="section-heading"><div><h2>Быстрый onboarding клиента</h2><p className="muted">Выпустите одноразовый provisioning token: клиентский exe сам создаст station по UUID из station-report и зарегистрирует агент.</p></div></div>
+        <div className="section-heading"><div><h2>Быстрый onboarding клиента</h2><p className="muted">Выпустите одноразовый provisioning token: клиентский exe сам создаст station по своей native identity и зарегистрирует агент.</p></div></div>
         <HelpHint>Этот token не является Basic Auth и не даёт операторский доступ. Он действует ограниченное время, используется один раз и вводится на клиентском ПК видимым текстом.</HelpHint>
         <button className="primary-button" type="button" onClick={() => void createProvisioningToken()} disabled={provisioningBusy}><KeyRound aria-hidden size={16} /> {provisioningBusy ? "Создаём…" : "Создать provisioning token"}</button>
         {provisioningToken && <div className="secret-warning"><strong>Передайте token клиенту один раз.</strong><p><code>{provisioningToken.token}</code></p><p className="muted">Истекает: {new Date(provisioningToken.expiresAt).toLocaleString()}</p><button className="secondary-button" type="button" onClick={() => setProvisioningToken(null)}>Скрыть token</button></div>}
@@ -357,7 +398,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
               rows={7}
               value={clientReport}
               onChange={(event) => setClientReport(event.target.value)}
-              placeholder="Вставьте JSON, который вывел agent_station_report.py"
+              placeholder="Вставьте JSON, который вывел TrueNasControllerAgent.exe report"
             />
           <HelpHint>Скрипт не содержит Basic Auth, enrollment token или credential. Он передаёт один стабильный UUID для station и agent.</HelpHint>
           </label>

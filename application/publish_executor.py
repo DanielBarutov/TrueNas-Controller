@@ -2,7 +2,8 @@
 
 from collections.abc import Callable
 from dataclasses import replace
-from uuid import UUID
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 from application.ports import (
     PublishStorageAdapter,
@@ -12,7 +13,14 @@ from application.ports import (
 )
 from application.publish import FakePublishWorkflow, PublishWorkflowResult
 from application.truenas_publish import TrueNASPublishWorkflow
-from domain.publish import PublishJob, PublishTarget, TargetStatus
+from domain.publish import (
+    PublishArtifact,
+    PublishJob,
+    PublishTarget,
+    PublishTargetResult,
+    StorageArtifactStatus,
+    TargetStatus,
+)
 from domain.station import Station
 
 
@@ -146,12 +154,46 @@ async def _persist_result(
                     progress_percent=100,
                 )
             )
+            if (
+                not original_job.dry_run
+                and target_result.storage_created
+                and target_result.new_mapping
+            ):
+                artifact = _build_artifact(original_job, target_result, result.master_mapping)
+                await uow.publish_artifacts.retire_station_artifacts(
+                    artifact.station_id,
+                    artifact.id,
+                )
+                await uow.publish_artifacts.save(artifact)
         await uow.publish_jobs.update(result.job)
         await uow.commit()
 
 
 def _mapping_payload(mapping: str | None) -> dict[str, object] | None:
     return None if mapping is None else {"ref": mapping}
+
+
+def _build_artifact(
+    job: PublishJob,
+    target_result: PublishTargetResult,
+    snapshot_ref: str | None,
+) -> PublishArtifact:
+    mapping_ref = target_result.new_mapping
+    assert mapping_ref is not None
+    dataset_name = mapping_ref.removeprefix("/dev/").removeprefix("zvol/")
+    verified = target_result.status is TargetStatus.VERIFIED
+    return PublishArtifact(
+        id=uuid4(),
+        job_id=job.id,
+        station_id=target_result.station_id,
+        source_dataset=job.source_dataset,
+        dataset_name=dataset_name,
+        snapshot_ref=snapshot_ref or "unknown",
+        mapping_ref=mapping_ref,
+        created_at=datetime.now(UTC),
+        status=StorageArtifactStatus.CURRENT if verified else StorageArtifactStatus.RETIRED,
+        is_current=verified,
+    )
 
 
 def _switch_status(status: TargetStatus) -> str:

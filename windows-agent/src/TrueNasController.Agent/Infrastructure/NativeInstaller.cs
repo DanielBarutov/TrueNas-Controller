@@ -11,8 +11,18 @@ public static class NativeInstaller
     {
         EnsureWindows();
         var controllerUrl = Required(args, "--controller-url");
-        var reportPath = Required(args, "--report");
-        var report = LoadReport(reportPath);
+        var reportPath = CommandLine.Value(args, "--report");
+        var installDirectory = Path.GetFullPath(
+            CommandLine.Value(args, "--install-dir") ??
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TrueNasController", "agent"));
+        var requestedAgentVersion = CommandLine.Value(args, "--agent-version") ?? StationReportWriter.DefaultAgentVersion;
+        var dryRun = CommandLine.Has(args, "--dry-run");
+        var report = string.IsNullOrWhiteSpace(reportPath)
+            ? StationReportWriter.CreateReport(
+                Path.Combine(installDirectory, "identity.json"),
+                requestedAgentVersion,
+                persistIdentity: !dryRun)
+            : LoadReport(reportPath);
         var stationId = ParseUuid(report.Station.StationId, "station.station_id");
         var agentUuid = ParseUuid(report.Agent.AgentUuid, "agent.agent_uuid");
         if (stationId != agentUuid)
@@ -20,9 +30,6 @@ public static class NativeInstaller
             throw new InvalidOperationException(
                 "station.station_id and agent.agent_uuid must be the same stable UUID from station-report.json");
         }
-        var installDirectory = Path.GetFullPath(
-            CommandLine.Value(args, "--install-dir") ??
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TrueNasController", "agent"));
         var agentVersion = CommandLine.Value(args, "--agent-version") ?? report.Agent.AgentVersion;
         var allowInsecureHttp = CommandLine.Has(args, "--allow-insecure-http");
         var commandVerifyKey = CommandLine.Value(args, "--command-verify-key");
@@ -62,7 +69,7 @@ public static class NativeInstaller
             CommandVerifyKey: commandVerifyKey,
             AllowInsecureHttp: allowInsecureHttp);
 
-        if (CommandLine.Has(args, "--dry-run"))
+        if (dryRun)
         {
             using var _ = new ControllerClient(config);
             Console.WriteLine($"source: {sourceExecutable}");

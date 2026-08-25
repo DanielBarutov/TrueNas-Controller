@@ -23,11 +23,12 @@ Set-Location C:\Install
 Set-Location C:\Install
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
-В production с HTTPS флаг `--allow-insecure-http` не используется. Provisioning token
+В production с HTTPS флаг `--allow-insecure-http` не используется. `--report`
+необязателен: native exe сам создаёт стабильную identity, а JSON нужен только
+для передачи оператору. Provisioning token
 вводится видимо в консоли только после проверки локального DPAPI preflight. В
 аргументах и файлах не сохраняются token или credential. Служба работает от
 `LocalSystem`, DPAPI использует machine scope, пароль Windows не запрашивается.

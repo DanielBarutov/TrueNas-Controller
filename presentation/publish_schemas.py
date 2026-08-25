@@ -8,7 +8,7 @@ from application.publish_commands import PublishJobDraft
 from application.publish_confirmation import PublishPreflightResult
 from application.publish_queries import PublishJobView
 from domain.preflight import PreflightReport
-from domain.publish import PublishJobHistory, PublishJobStatus
+from domain.publish import PublishArtifact, PublishJobHistory, PublishJobStatus
 from presentation.preflight_schemas import CheckResponse, PreflightResponse
 
 
@@ -21,7 +21,7 @@ class PublishJobCreateRequest(BaseModel):
     station_ids: list[UUID] = Field(min_length=1)
     idempotency_key: str = Field(min_length=1, max_length=200)
     correlation_id: UUID | None = None
-    dry_run: bool = True
+    dry_run: bool = False
     allow_hot_switch: bool = False
 
 
@@ -128,7 +128,7 @@ def _preflight_response(report: PreflightReport) -> PreflightResponse:
 
 
 class PublishTargetStatusResponse(BaseModel):
-    """Safe per-station outcome without raw storage mapping details."""
+    """Safe per-station outcome with non-secret mapping details."""
 
     station_id: UUID
     selected: bool
@@ -138,6 +138,9 @@ class PublishTargetStatusResponse(BaseModel):
     error_code: str | None
     error_message: str | None
     progress_percent: int
+    preflight_result: dict[str, object] | None
+    old_mapping: dict[str, object] | None
+    new_mapping: dict[str, object] | None
 
 
 class PublishJobResponse(BaseModel):
@@ -152,7 +155,12 @@ class PublishJobResponse(BaseModel):
     status: PublishJobStatus
     dry_run: bool
     allow_hot_switch: bool
+    status_reason: str | None
+    created_at: str | None
+    started_at: str | None
+    completed_at: str | None
     targets: list[PublishTargetStatusResponse]
+    artifacts: list["PublishArtifactResponse"]
 
     @classmethod
     def from_view(cls, view: PublishJobView) -> "PublishJobResponse":
@@ -166,6 +174,10 @@ class PublishJobResponse(BaseModel):
             status=view.job.status,
             dry_run=view.job.dry_run,
             allow_hot_switch=view.job.allow_hot_switch,
+            status_reason=view.job.status_reason,
+            created_at=_isoformat(view.job.created_at),
+            started_at=_isoformat(view.job.started_at),
+            completed_at=_isoformat(view.job.completed_at),
             targets=[
                 PublishTargetStatusResponse(
                     station_id=target.station_id,
@@ -176,10 +188,57 @@ class PublishJobResponse(BaseModel):
                     error_code=target.error_code,
                     error_message=target.error_message,
                     progress_percent=target.progress_percent,
+                    preflight_result=target.preflight_result,
+                    old_mapping=_safe_mapping(target.old_mapping),
+                    new_mapping=_safe_mapping(target.new_mapping),
                 )
                 for target in view.targets
             ],
+            artifacts=list(map(PublishArtifactResponse.from_domain, view.artifacts)),
         )
+
+
+class PublishArtifactResponse(BaseModel):
+    """Safe storage artifact metadata for the job details panel."""
+
+    id: UUID
+    station_id: UUID
+    dataset_name: str
+    snapshot_ref: str
+    mapping_ref: str
+    status: str
+    is_current: bool
+    created_at: str
+    deleted_at: str | None
+    last_error: str | None
+
+    @classmethod
+    def from_domain(cls, artifact: PublishArtifact) -> "PublishArtifactResponse":
+        return cls(
+            id=artifact.id,
+            station_id=artifact.station_id,
+            dataset_name=artifact.dataset_name,
+            snapshot_ref=artifact.snapshot_ref,
+            mapping_ref=artifact.mapping_ref,
+            status=artifact.status.value,
+            is_current=artifact.is_current,
+            created_at=artifact.created_at.isoformat(),
+            deleted_at=None if artifact.deleted_at is None else artifact.deleted_at.isoformat(),
+            last_error=artifact.last_error,
+        )
+
+
+def _isoformat(value) -> str | None:
+    return None if value is None else value.isoformat()
+
+
+def _safe_mapping(mapping: dict[str, object] | None) -> dict[str, object] | None:
+    """Expose only the storage reference used by the operator read model."""
+
+    if mapping is None:
+        return None
+    reference = mapping.get("ref")
+    return {"ref": reference} if isinstance(reference, str) else None
 
 
 class PublishHistoryItemResponse(BaseModel):

@@ -81,5 +81,9 @@ class FakeTrueNASWriteClient:
         self.extents[extent_id] = updated
         return updated
 
+    async def delete_dataset(self, dataset: str) -> None:
+        self.calls.append(("delete_dataset", (dataset,)))
+        self.datasets.pop(dataset, None)
+
     async def close(self) -> None:
         return None

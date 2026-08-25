@@ -17,18 +17,11 @@ UUID в `%LOCALAPPDATA%\TrueNasController\agent\identity.json` и печатае
 Передайте оператору файл `C:\Install\station-report.json`. Не изменяйте
 `station.station_id` и `agent.agent_uuid`: это одна identity станции.
 
-Если native exe временно недоступен, legacy-команда из той же папки:
-
-```powershell
-Set-Location C:\Install
-py -3 .\agent_station_report.py | Out-File -Encoding utf8 .\station-report.json
-```
-
 ## В Controller UI
 
 В разделе **Станции и агенты** нажмите **Создать provisioning token** и передайте
 его клиенту. Вставлять report и создавать station вручную для нового клиента не
-нужно: native exe отправит UUID из report, а backend создаст station и agent
+нужно: native exe отправит UUID из своей identity, а backend создаст station и agent
 binding одной транзакцией. Basic Auth оператора клиентскому exe не нужен и не
 передаётся.
 
@@ -40,7 +33,6 @@ binding одной транзакцией. Basic Auth оператора кли�
 Set-Location C:\Install
 .\TrueNasControllerAgent.exe install `
   --controller-url "http://192.168.0.47:8000" `
-  --report "C:\Install\station-report.json" `
   --allow-insecure-http
 ```
 
@@ -49,7 +41,8 @@ Set-Location C:\Install
 пароль Windows не нужен. DPAPI machine-scope credential сохраняется в
 `%ProgramData%\TrueNasController\agent\agent.credential`.
 
-При необходимости token можно передать через `--provisioning-token`; для старого
+Параметр `--report` необязателен и оставлен для совместимости со старым
+сценарием. При необходимости token можно передать через `--provisioning-token`; для старого
 ручного сценария с заранее созданной station используйте `--enrollment-token`.
 Параметры можно проверить без изменений через `--dry-run`. Public Ed25519 key
 для signed refresh-команд задаётся отдельно через `--command-verify-key`; это

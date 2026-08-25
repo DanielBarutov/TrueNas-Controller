@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AlertTriangle,
@@ -47,7 +47,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
     label: "",
     source_dataset: "games/master-games",
     description: "",
-    dry_run: true,
+    dry_run: false,
     allow_hot_switch: false,
   });
   const [job, setJob] = useState<PublishJobDraft | null>(null);
@@ -252,7 +252,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
       {step === 4 && accepted && (
         <JobProgressStep api={api} accepted={accepted} stations={stations} onReset={reset} />
       )}
-      <PublishHistory items={history} onRefresh={loadHistory} />
+      <PublishHistory api={api} items={history} onRefresh={loadHistory} />
     </div>
   );
 }
@@ -382,8 +382,33 @@ function PreflightStep({
   );
 }
 
-function PublishHistory({ items, onRefresh }: { items: PublishHistoryItem[]; onRefresh: () => void }) {
-  return <section className="form-card publish-history"><SectionHeading eyebrow="UPDATE HISTORY" title="История обновлений" description="История берётся из durable publish_jobs. Dry-run помечен отдельно, TrueNAS mappings здесь не показываются." action={<button className="secondary-button" type="button" onClick={onRefresh}><RefreshCw aria-hidden size={15} /> Обновить историю</button>} />{items.length === 0 ? <p className="empty-cell">Заданий пока нет.</p> : <div className="table-card"><table><thead><tr><th>Время</th><th>Задание</th><th>Источник</th><th>Режим</th><th>Статус</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.created_at ? formatDate(item.created_at) : "—"}</td><td><strong>{item.label}</strong>{item.status_reason && <span className="table-subtitle">{item.status_reason}</span>}</td><td><code>{item.source_dataset}</code></td><td>{item.dry_run ? "DRY-RUN" : "APPLY"}</td><td><span className="role-chip">{publishStatusLabel[item.status]}</span></td></tr>)}</tbody></table></div>}</section>;
+function PublishHistory({ api, items, onRefresh }: { api: ControllerApi; items: PublishHistoryItem[]; onRefresh: () => void }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, PublishJobReadModel>>({});
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  async function showDetails(jobId: string) {
+    if (selectedId === jobId) {
+      setSelectedId(null);
+      return;
+    }
+    setSelectedId(jobId);
+    if (details[jobId]) return;
+    setLoadingId(jobId);
+    try {
+      const detail = await api.getPublishJob(jobId);
+      setDetails((current) => ({ ...current, [jobId]: detail }));
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  return <section className="form-card publish-history"><SectionHeading eyebrow="UPDATE HISTORY" title="История обновлений" description="Последние 10 jobs. Кнопка «Подробнее» загружает сохранённый результат по станциям, mapping и timestamps." action={<button className="secondary-button" type="button" onClick={onRefresh}><RefreshCw aria-hidden size={15} /> Обновить историю</button>} />{items.length === 0 ? <p className="empty-cell">Заданий пока нет.</p> : <div className="table-card"><table><thead><tr><th>Время</th><th>Задание</th><th>Источник</th><th>Режим</th><th>Статус</th><th aria-label="Подробнее" /></tr></thead><tbody>{items.map((item) => <Fragment key={item.id}><tr><td>{item.created_at ? formatDate(item.created_at) : "—"}</td><td><strong>{item.label}</strong>{item.status_reason && <span className="table-subtitle">{item.status_reason}</span>}</td><td><code>{item.source_dataset}</code></td><td>{item.dry_run ? "DRY-RUN" : "APPLY"}</td><td><span className="role-chip">{publishStatusLabel[item.status]}</span></td><td><button className="text-button" type="button" onClick={() => void showDetails(item.id)}>{loadingId === item.id ? "Загрузка…" : selectedId === item.id ? "Скрыть" : "Подробнее"}</button></td></tr>{selectedId === item.id && <tr><td colSpan={6}><PublishJobDetails detail={details[item.id]} /></td></tr>}</Fragment>)}</tbody></table></div>}</section>;
+}
+
+function PublishJobDetails({ detail }: { detail?: PublishJobReadModel }) {
+  if (!detail) return <p className="muted">Загружаем подробности…</p>;
+  return <div className="history-details"><div className="history-detail-facts"><span><strong>Создано</strong>{formatOptionalDate(detail.created_at)}</span><span><strong>Завершено</strong>{formatOptionalDate(detail.completed_at)}</span><span><strong>Причина</strong>{detail.status_reason ?? "—"}</span></div>{detail.targets.map((target) => <div className="history-target" key={target.station_id}><strong>{target.station_id}</strong><span>preflight: {target.preflight_status ?? "—"} · switch: {target.switch_status ?? "—"} · verify: {target.verify_status ?? "—"}</span><span>старый mapping: <code>{target.old_mapping?.ref ?? "—"}</code></span><span>новый mapping: <code>{target.new_mapping?.ref ?? "—"}</code></span>{target.error_message && <span className="error-message">{target.error_code ?? "error"}: {target.error_message}</span>}</div>)}{detail.artifacts.length > 0 && <div className="history-artifacts"><strong>Созданные dataset</strong>{detail.artifacts.map((artifact) => <span key={artifact.id}><code>{artifact.dataset_name}</code> · {artifact.status}{artifact.is_current ? " · current" : ""} · {formatDate(artifact.created_at)}<small>snapshot: <code>{artifact.snapshot_ref}</code> · mapping: <code>{artifact.mapping_ref}</code></small></span>)}</div>}</div>;
 }
 
 function ConfirmationStep({
@@ -531,6 +556,10 @@ function findStationName(stations: Station[], stationId: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString("ru-RU");
+}
+
+function formatOptionalDate(value: string | null) {
+  return value ? formatDate(value) : "—";
 }
 
 function makeIdempotencyKey() {

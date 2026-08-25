@@ -18,7 +18,7 @@ from domain.enrollment import EnrollmentToken
 from domain.outbox import OutboxEvent
 from domain.preflight import PreflightReport, ProcessRule
 from domain.provisioning import ProvisioningToken
-from domain.publish import PublishJob, PublishJobHistory, PublishTarget
+from domain.publish import PublishArtifact, PublishJob, PublishJobHistory, PublishTarget
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole
 
@@ -57,6 +57,17 @@ class StationRepository(Protocol):
         initiator_iqn: str | None,
     ) -> Station | None:
         """Update operator-owned TrueNAS mapping metadata for one station."""
+
+    async def update_details(
+        self,
+        station_id: UUID,
+        *,
+        display_name: str,
+        hostname: str,
+        role: StationRole,
+        enabled: bool,
+    ) -> Station | None:
+        """Update operator-owned station metadata without changing its UUID."""
 
     async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:
         """Soft-delete a station and remove its active agent binding."""
@@ -201,6 +212,33 @@ class PublishTargetRepository(Protocol):
         """Stage a result/preflight update for an existing target."""
 
 
+class PublishArtifactRepository(Protocol):
+    """Persistence boundary for datasets created by publish jobs."""
+
+    async def list_for_job(self, job_id: UUID) -> tuple[PublishArtifact, ...]:
+        """Return all storage artifacts recorded for one job."""
+
+    async def save(self, artifact: PublishArtifact) -> None:
+        """Insert or update an idempotent job/station artifact."""
+
+    async def retire_station_artifacts(self, station_id: UUID, except_id: UUID) -> None:
+        """Remove the current flag from previous artifacts for one station."""
+
+    async def list_cleanup_candidates(
+        self,
+        *,
+        before: datetime,
+        limit: int,
+    ) -> tuple[PublishArtifact, ...]:
+        """Return non-current artifacts older than the retention cutoff."""
+
+    async def mark_deleted(self, artifact_id: UUID, deleted_at: datetime) -> None:
+        """Persist a successful remote dataset deletion."""
+
+    async def mark_cleanup_failed(self, artifact_id: UUID, error: str) -> None:
+        """Persist a bounded cleanup error without losing the artifact record."""
+
+
 class OutboxRepository(Protocol):
     """Persistence boundary for transactionally staged external events."""
 
@@ -286,7 +324,7 @@ class TrueNASReadOnlyClient(Protocol):
 
 
 class TrueNASWriteClient(Protocol):
-    """Explicit write boundary for snapshot/clone and existing extent updates."""
+    """Explicit write boundary for publish and dataset-retention operations."""
 
     async def create_snapshot(self, dataset: str, snapshot_name: str) -> TrueNASSnapshot:
         """Create one snapshot of the full source dataset."""
@@ -296,6 +334,9 @@ class TrueNASWriteClient(Protocol):
 
     async def update_extent_device(self, extent_id: int, device: str) -> TrueNASExtent:
         """Replace device/file on an existing extent without changing its association."""
+
+    async def delete_dataset(self, dataset: str) -> None:
+        """Delete one previously tracked non-current dataset clone."""
 
     async def close(self) -> None:
         """Release the write-capable adapter connection."""
@@ -339,6 +380,7 @@ class UnitOfWork(Protocol):
     process_snapshots: ProcessSnapshotRepository
     publish_jobs: PublishJobRepository
     publish_targets: PublishTargetRepository
+    publish_artifacts: PublishArtifactRepository
     outbox_events: OutboxRepository
 
     async def __aenter__(self) -> Self:

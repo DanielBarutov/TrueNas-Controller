@@ -30,7 +30,11 @@ from application.publish_commands import CreatePublishJobUseCase
 from application.publish_confirmation import PreparePublishJobUseCase
 from application.publish_dispatch import DispatchPublishJobUseCase
 from application.publish_queries import GetPublishJobUseCase, ListPublishJobsUseCase
-from application.stations import ListStationsUseCase, UpdateStationStorageMappingUseCase
+from application.stations import (
+    ListStationsUseCase,
+    UpdateStationStorageMappingUseCase,
+    UpdateStationUseCase,
+)
 from presentation.http import create_app
 from repository.database import create_engine, create_session_factory
 from repository.uow import SqlAlchemyUnitOfWorkFactory
@@ -62,6 +66,7 @@ def build_app(database_url: str | None = None) -> FastAPI:
         create_publish_job=CreatePublishJobUseCase(uow_factory),
         get_publish_job=GetPublishJobUseCase(uow_factory),
         list_publish_jobs=ListPublishJobsUseCase(uow_factory),
+        update_station=UpdateStationUseCase(uow_factory),
         update_station_storage_mapping=UpdateStationStorageMappingUseCase(uow_factory),
         prepare_publish_job=PreparePublishJobUseCase(uow_factory, preflight),
         dispatch_publish_job=DispatchPublishJobUseCase(uow_factory),

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from application.ports import UnitOfWorkFactory
 from application.publish_commands import PublishJobNotFoundError
-from domain.publish import PublishJob, PublishJobHistory, PublishTarget
+from domain.publish import PublishArtifact, PublishJob, PublishJobHistory, PublishTarget
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,6 +14,7 @@ class PublishJobView:
 
     job: PublishJob
     targets: tuple[PublishTarget, ...]
+    artifacts: tuple[PublishArtifact, ...] = ()
 
 
 class GetPublishJobUseCase:
@@ -28,7 +29,8 @@ class GetPublishJobUseCase:
             if job is None:
                 raise PublishJobNotFoundError("publish job not found")
             targets = await uow.publish_targets.list_for_job(job.id)
-            return PublishJobView(job, targets)
+            artifacts = await uow.publish_artifacts.list_for_job(job.id)
+            return PublishJobView(job, targets, artifacts)
 
 
 class ListPublishJobsUseCase:
@@ -37,7 +39,7 @@ class ListPublishJobsUseCase:
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
 
-    async def execute(self, *, limit: int = 50) -> tuple[PublishJobHistory, ...]:
+    async def execute(self, *, limit: int = 10) -> tuple[PublishJobHistory, ...]:
         bounded_limit = max(1, min(limit, 100))
         async with self._uow_factory() as uow:
             return await uow.publish_jobs.list_recent(limit=bounded_limit)
