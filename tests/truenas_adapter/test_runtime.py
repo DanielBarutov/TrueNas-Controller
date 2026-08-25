@@ -34,6 +34,10 @@ def test_runtime_config_requires_full_websocket_url_and_secret() -> None:
         TrueNASRuntimeConfig.from_env(
             {"TRUENAS_WS_URL": "http://nas.example/api/current", "TRUENAS_API_KEY": "secret"}
         )
+    with pytest.raises(TrueNASRuntimeConfigError, match="wss://"):
+        TrueNASRuntimeConfig.from_env(
+            {"TRUENAS_WS_URL": "ws://nas.example/api/current", "TRUENAS_API_KEY": "secret"}
+        )
     with pytest.raises(TrueNASRuntimeConfigError):
         TrueNASRuntimeConfig.from_env({"TRUENAS_WS_URL": "wss://nas.example/api/current"})
 
@@ -48,6 +52,21 @@ def test_write_runtime_requires_explicit_apply_gate() -> None:
     assert config.apply_enabled is False
     with pytest.raises(TrueNASRuntimeConfigError, match="TRUENAS_APPLY_ENABLED=true"):
         build_write_client(config)
+
+
+def test_runtime_config_parses_tls_options_and_trims_secret() -> None:
+    config = TrueNASRuntimeConfig.from_env(
+        {
+            "TRUENAS_WS_URL": "wss://nas.example/api/current",
+            "TRUENAS_API_KEY": " secret ",
+            "TRUENAS_TLS_VERIFY": "false",
+            "TRUENAS_TLS_CA_FILE": "/run/secrets/truenas-ca.pem",
+        }
+    )
+
+    assert config.api_key == "secret"
+    assert config.tls_verify is False
+    assert config.tls_ca_file == "/run/secrets/truenas-ca.pem"
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 import os
+import ssl
 from urllib.parse import urlparse
 
 from websockets.asyncio.client import ClientConnection, connect
@@ -19,7 +20,7 @@ from truenas_adapter.write import TrueNASWriteAdapter
 
 
 class TrueNASRuntimeConfigError(ValueError):
-    """Runtime configuration is incomplete or points at a non-WebSocket URL."""
+    """Runtime configuration is incomplete or unsafe for API-key transport."""
 
 
 class TrueNASAuthenticationError(RuntimeError):
@@ -37,6 +38,8 @@ class TrueNASRuntimeConfig:
     reconnect_attempts: int = 1
     open_timeout_seconds: float = 10.0
     apply_enabled: bool = False
+    tls_verify: bool = True
+    tls_ca_file: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "TrueNASRuntimeConfig":
@@ -44,7 +47,7 @@ class TrueNASRuntimeConfig:
 
         source = os.environ if env is None else env
         websocket_url = source.get("TRUENAS_WS_URL", "").strip()
-        api_key = source.get("TRUENAS_API_KEY", "")
+        api_key = source.get("TRUENAS_API_KEY", "").strip()
         api_version = source.get("TRUENAS_VERSION", "25.10").strip()
         _validate_websocket_url(websocket_url)
         if not api_key:
@@ -52,11 +55,17 @@ class TrueNASRuntimeConfig:
         apply_enabled = source.get("TRUENAS_APPLY_ENABLED", "false").strip().lower()
         if apply_enabled not in {"true", "false"}:
             raise TrueNASRuntimeConfigError("TRUENAS_APPLY_ENABLED must be true or false")
+        tls_verify_value = source.get("TRUENAS_TLS_VERIFY", "true").strip().lower()
+        if tls_verify_value not in {"true", "false"}:
+            raise TrueNASRuntimeConfigError("TRUENAS_TLS_VERIFY must be true or false")
+        tls_ca_file = source.get("TRUENAS_TLS_CA_FILE", "").strip() or None
         return cls(
             websocket_url=websocket_url,
             api_key=api_key,
             api_version=api_version,
             apply_enabled=apply_enabled == "true",
+            tls_verify=tls_verify_value == "true",
+            tls_ca_file=tls_ca_file,
         )
 
 
@@ -101,6 +110,7 @@ def build_read_only_client(config: TrueNASRuntimeConfig) -> TrueNASReadOnlyAdapt
     """Build a real client only when the caller explicitly supplies config."""
 
     registry = TrueNASMethodRegistry(config.api_version)
+    ssl_context = _build_ssl_context(config)
 
     async def connection_factory() -> WebSocketConnection:
         try:
@@ -108,9 +118,25 @@ def build_read_only_client(config: TrueNASRuntimeConfig) -> TrueNASReadOnlyAdapt
                 config.websocket_url,
                 open_timeout=config.open_timeout_seconds,
                 proxy=None,
+                ssl=ssl_context,
             )
+        except ssl.SSLCertVerificationError as exc:
+            raise ConnectionError(
+                "TrueNAS TLS certificate verification failed; configure "
+                "TRUENAS_TLS_CA_FILE or use TRUENAS_TLS_VERIFY=false only for a trusted LAN test"
+            ) from exc
+        except ssl.SSLError as exc:
+            raise ConnectionError(
+                "TrueNAS TLS handshake failed; check the HTTPS certificate"
+            ) from exc
         except WebSocketException as exc:
-            raise ConnectionError("TrueNAS WebSocket connection failed") from exc
+            raise ConnectionError(
+                "TrueNAS WebSocket handshake failed; check the wss URL, port and /api/current path"
+            ) from exc
+        except OSError as exc:
+            raise ConnectionError(
+                "TrueNAS WebSocket endpoint is unreachable; check the host, port and firewall"
+            ) from exc
         return _WebsocketsConnection(connection)
 
     raw_transport = JsonRpcWebSocketTransport(
@@ -144,15 +170,33 @@ def build_write_client(config: TrueNASRuntimeConfig) -> TrueNASWriteAdapter:
 
 
 def _build_transport(config: TrueNASRuntimeConfig) -> JsonRpcWebSocketTransport:
+    ssl_context = _build_ssl_context(config)
+
     async def connection_factory() -> WebSocketConnection:
         try:
             connection = await connect(
                 config.websocket_url,
                 open_timeout=config.open_timeout_seconds,
                 proxy=None,
+                ssl=ssl_context,
             )
+        except ssl.SSLCertVerificationError as exc:
+            raise ConnectionError(
+                "TrueNAS TLS certificate verification failed; configure "
+                "TRUENAS_TLS_CA_FILE or use TRUENAS_TLS_VERIFY=false only for a trusted LAN test"
+            ) from exc
+        except ssl.SSLError as exc:
+            raise ConnectionError(
+                "TrueNAS TLS handshake failed; check the HTTPS certificate"
+            ) from exc
         except WebSocketException as exc:
-            raise ConnectionError("TrueNAS WebSocket connection failed") from exc
+            raise ConnectionError(
+                "TrueNAS WebSocket handshake failed; check the wss URL, port and /api/current path"
+            ) from exc
+        except OSError as exc:
+            raise ConnectionError(
+                "TrueNAS WebSocket endpoint is unreachable; check the host, port and firewall"
+            ) from exc
         return _WebsocketsConnection(connection)
 
     return JsonRpcWebSocketTransport(
@@ -164,8 +208,21 @@ def _build_transport(config: TrueNASRuntimeConfig) -> JsonRpcWebSocketTransport:
 
 def _validate_websocket_url(websocket_url: str) -> None:
     parsed = urlparse(websocket_url)
-    if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
-        raise TrueNASRuntimeConfigError("TRUENAS_WS_URL must be a full ws:// or wss:// URL")
+    if parsed.scheme != "wss" or not parsed.netloc:
+        raise TrueNASRuntimeConfigError(
+            "TRUENAS_WS_URL must be a full wss:// URL; API-key authentication requires TLS"
+        )
+
+
+def _build_ssl_context(config: TrueNASRuntimeConfig) -> ssl.SSLContext:
+    """Build an explicit TLS context for the authenticated TrueNAS WebSocket."""
+
+    if config.tls_verify:
+        return ssl.create_default_context(cafile=config.tls_ca_file)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
 
 
 class _WebsocketsConnection:

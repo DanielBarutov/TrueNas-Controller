@@ -23,8 +23,12 @@ runtime-подключением. Этот план не разрешает writ
 
 ## Реализованный opt-in boundary
 
-- `TrueNASRuntimeConfig` принимает только полный `ws://`/`wss://` URL,
-  `TRUENAS_VERSION` и `TRUENAS_API_KEY` из внешней среды;
+- `TrueNASRuntimeConfig` принимает только полный `wss://` URL,
+  `TRUENAS_VERSION` и `TRUENAS_API_KEY` из внешней среды; небезопасный `ws://`
+  отклоняется до подключения;
+- TLS-проверка включена по умолчанию через `TRUENAS_TLS_VERIFY=true`; для
+  доверенного LAN smoke предусмотрен явный временный `false`, а для штатной
+  установки — `TRUENAS_TLS_CA_FILE`;
 - `auth.login_with_api_key` выполняется через adapter boundary и не попадает в
   application DTO, логи или ошибки;
 - `websockets` connection factory отключает неявный proxy и переводит
@@ -47,6 +51,7 @@ runtime-подключением. Этот план не разрешает writ
 - [x] live `/api/docs/current/` конкретного NAS отдал документацию `TrueNAS API v25.10.5 (current)`; endpoint не сохранён в репозитории;
 - [x] registry подтверждён для этой API family и read-only methods;
 - [x] opt-in runtime config, API-key auth boundary и skipped-by-default smoke test созданы;
+- [x] `wss://`-only transport, CA/verification settings и безопасная диагностика TLS добавлены;
 - [ ] отдельное явное согласование на LAN read-only smoke check получено;
 - [ ] integration run выполнен с redacted output;
 - [ ] результат и расхождения занесены в `STATE.md`.

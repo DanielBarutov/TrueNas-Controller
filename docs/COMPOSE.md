@@ -37,9 +37,10 @@ Basic Auth использует логин `admin` и значение `BASIC_AU
 Пароль из репозитория не подставляется и не должен попадать в git.
 
 `TRUENAS_API_KEY` — отдельный ключ TrueNAS, не Basic Auth приложения. Для
-подключения worker нужны `TRUENAS_VERSION`, полный `TRUENAS_WS_URL`,
-`TRUENAS_API_KEY` и `PUBLISH_EXECUTOR_MODE=truenas`. Запись на NAS дополнительно
-останется выключенной, пока явно не задано `TRUENAS_APPLY_ENABLED=true`.
+подключения worker нужны `TRUENAS_VERSION`, полный `wss://`-адрес
+`TRUENAS_WS_URL`, `TRUENAS_API_KEY` и `PUBLISH_EXECUTOR_MODE=truenas`. Запись на
+NAS дополнительно останется выключенной, пока явно не задано
+`TRUENAS_APPLY_ENABLED=true`.
 
 Даже в режиме `truenas` dry-run не выполняет snapshot, clone или update extent:
 он только читает dataset, target/extent association и строит ожидаемый zvol.
@@ -54,20 +55,23 @@ PowerShell из корня проекта задайте параметры то
 
 ```powershell
 $env:TRUENAS_VERSION = "25.10.5"
-$env:TRUENAS_WS_URL = "ws://<nas-host>/api/current"
+$env:TRUENAS_WS_URL = "wss://<nas-host>/api/current"
 $env:TRUENAS_API_KEY = "<вставьте-ключ-только-локально>"
 $env:RUN_TRUENAS_SMOKE = "1"
 uv run pytest -q tests/truenas_adapter/test_integration.py
 ```
 
-Если TrueNAS опубликован через TLS, используйте `wss://`. Адрес
-`/api/docs` — это документация, а не WebSocket endpoint; для API нужен
-`/api/current`. Тест выполняет только `core.ping` и чтение datasets,
+Адрес `/api/docs` — это документация, а не WebSocket endpoint; для API нужен
+`/api/current`. Если сертификат TrueNAS самоподписанный, предпочтительно
+указать его CA в `TRUENAS_TLS_CA_FILE` (путь должен существовать внутри worker
+контейнера). Для короткого теста в доверенной LAN можно временно задать
+`TRUENAS_TLS_VERIFY=false`; это отключает только проверку сертификата, но
+соединение всё равно остаётся TLS. Тест выполняет только `core.ping` и чтение datasets,
 snapshots, targets, extents и targetextent associations. После проверки ключ
 можно убрать из текущей сессии:
 
 ```powershell
-Remove-Item Env:TRUENAS_API_KEY, Env:RUN_TRUENAS_SMOKE, Env:TRUENAS_WS_URL, Env:TRUENAS_VERSION
+Remove-Item Env:TRUENAS_API_KEY, Env:RUN_TRUENAS_SMOKE, Env:TRUENAS_WS_URL, Env:TRUENAS_VERSION, Env:TRUENAS_TLS_VERIFY, Env:TRUENAS_TLS_CA_FILE
 ```
 
 ## Миграции

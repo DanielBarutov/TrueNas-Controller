@@ -19,6 +19,9 @@
 - **Активный план:** [36 — TrueNAS write adapter](/home/daniel/tnas/plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md).
 - **Текущая задача:** локальный adapter/worker contract завершён и проверен
   fake read-back; для каждого ПК обновляется `device/file` существующего extent.
+- **Последнее исправление:** TrueNAS API key теперь подключается только через
+  `wss://`; добавлены явные настройки TLS verification/CA и диагностика
+  сертификата без раскрытия ключа.
 - **Следующий разрешённый шаг:** выполнить read-only LAN smoke с реальным
   TrueNAS, затем отдельно согласовать apply на одной выделенной станции.
   Cleanup и удаление storage-объектов по-прежнему не включать.
@@ -59,13 +62,13 @@
 | [27 — Fake worker executor](plans/27-fake-worker-executor/01-persisted-workflow-results.md) | `closed` | fake task executor и persisted simulated/verified/partial outcomes покрыты 4 тестами | fake acceptance |
 | [28 — Fake acceptance](plans/28-fake-acceptance/01-end-to-end-pipeline.md) | `closed` | полный SQLite pipeline create→preflight→outbox→relay→fake worker→verified и duplicate delivery покрыты 1 acceptance-тестом | read-only TrueNAS adapter |
 | [29 — TrueNAS read-only adapter](plans/29-truenas-read-only/01-versioned-adapter-contract.md) | `closed` | transport, registry, fixture mapper и contract tests; `93 passed` | применять через LAN gate 30 |
-| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; runtime config/auth boundary создан; JSON-RPC smoke check не выполнялся | отдельное согласование read-only smoke check |
+| [30 — TrueNAS LAN integration gate](plans/30-truenas-lan-gate/01-local-api-docs-and-connection.md) | `open` | версия/live docs подтверждены; `wss://`-only runtime, TLS CA/verification boundary и auth boundary созданы; JSON-RPC smoke check не выполнялся | настроить доверенный CA или временный LAN TLS smoke |
 | [31 — Frontend и база знаний](plans/31-frontend/01-operator-ui-and-knowledge-base.md) | `in_progress` | Vite shell, Basic Auth login, overview, station read/create, station delete/re-register, allowlisted Markdown reader, publish wizard, job read model и client station report prefill созданы; миграция и `/api/v1/stations` проверены | перейти к отдельному TrueNAS/Windows runtime gate |
 | [32 — Удаление station и агента](plans/32-station-removal/01-station-removal-and-agent-revocation.md) | `closed` | DELETE Basic Auth route, soft-delete, удаление agent/commands, отзыв token, сохранение истории и повторная регистрация по UUID реализованы и проверены | обновлять только при изменении политики удаления |
 | [33 — Automatic onboarding и полный-disk clone](plans/33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | `in_progress` | provisioning API/UI, native bootstrap contract, optional admin preflight и `source_dataset` contract добавлены; native publish/Compose smoke ещё впереди | собрать exe, применить migration и проверить client flow |
 | [34 — Runtime worker и TrueNAS secret](plans/34-worker-runtime/01-compose-worker-and-secret-boundary.md) | `in_progress` | Compose worker, outbox polling, Dramatiq consumer и fake executor mode добавлены; пользовательский runtime ещё не проверен | pull, rebuild и проверить accepted job по worker logs |
 | [35 — История и process policy](plans/35-update-history-and-process-policy/01-history-process-policy.md) | `closed` | история publish, CRUD process rules, экран политики и retry preflight реализованы; `196 passed, 1 skipped`, frontend tests/build и Ruff пройдены | пользовательский Compose/UI smoke |
-| [36 — TrueNAS write adapter](plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | `in_progress` | snapshot → clone → update `device/file` старого extent → association/LUN read-back, station mapping, Dramatiq executor и fake acceptance добавлены; backend `203 passed, 1 skipped`, frontend `8 passed`, build/Ruff пройдены | read-only LAN smoke, затем отдельный one-station apply gate |
+| [36 — TrueNAS write adapter](plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | `in_progress` | snapshot → clone → update `device/file` старого extent → association/LUN read-back, station mapping, Dramatiq executor, fake acceptance и TLS runtime boundary добавлены; backend `204 passed, 1 skipped`, Ruff/Compose пройдены | read-only LAN smoke, затем отдельный one-station apply gate |
 
 ## Чекап решений
 
@@ -75,6 +78,7 @@
 - [x] Логин приложения: `admin`.
 - [x] Пароль приложения не хранится в репозитории; runtime-конфигурация — `BASIC_AUTH_PASSWORD`.
 - [x] TrueNAS API key остаётся отдельным backend/worker secret и не связан с Basic Auth приложения.
+- [x] TrueNAS API key передаётся только через `wss://`; проверка TLS включена по умолчанию, CA задаётся через `TRUENAS_TLS_CA_FILE`.
 - [x] Официальная документация TrueNAS найдена и занесена в [docs/ONLINE_DOCS.md](docs/ONLINE_DOCS.md).
 - [x] Проверить фактическую версию `25.10.5` и live `/api/docs/current/` конкретного NAS через временный доступ; runtime smoke check отдельно.
 - [x] Автоматическая проверка версии игры через `game_version_marker` не входит в MVP; факт обновления подтверждает оператор.
@@ -245,7 +249,8 @@
 - [x] История publish и web process policy реализованы по плану 35.
 - [x] TrueNAS adapter обновляет `device/file` старого extent, не создаёт новый extent.
 - [x] Worker wiring, fake read-back и station target mapping реализованы.
-- [x] Локальный полный чек-ап: backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены.
+- [x] TLS runtime boundary: `wss://`-only URL, trimming secret, CA/verification options и безопасные TLS/WebSocket ошибки покрыты тестами.
+- [x] Локальный полный чек-ап: backend `204 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены.
 - [ ] Реальный read-back/apply на NAS не выполнялся; нужен отдельный one-station gate.
 
 ## Принятое решение по версии игры
@@ -328,3 +333,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Продолжен план 36 | добавлен fail-closed write adapter для snapshot/clone и обновления старого extent без targetextent switch |
 | 2026-08-25 | Подключён план 36 к worker | добавлены TrueNAS workflow, station target mapping, fake read-back и режим `PUBLISH_EXECUTOR_MODE=truenas`; реальный NAS не запускался |
 | 2026-08-25 | Завершён локальный чек-ап плана 36 | backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены; следующий шаг — read-only LAN smoke |
+| 2026-08-25 | Исправлен TrueNAS TLS runtime | `ws://` запрещён для API key, добавлены `wss://`, CA/verification settings и диагностируемые TLS/WebSocket ошибки; реальный NAS не запускался |
