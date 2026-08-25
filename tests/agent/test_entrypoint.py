@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from agent import entrypoint
 from agent.credentials import CredentialStoreError
+from agent.windows_service import PyWin32ServiceRuntime
 
 
 class RecordingCredentialStore:
@@ -87,3 +88,34 @@ def test_migrate_credential_store_reprotects_legacy_user_scope(
     )
 
     assert machine_store.saved == ["legacy-credential"]
+
+
+def test_main_defers_credential_loading_for_scm_process(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeRuntime:
+        def run(self) -> None:
+            captured["ran"] = True
+
+    def build_runtime(**kwargs):
+        captured.update(kwargs)
+        return FakeRuntime()
+
+    monkeypatch.setattr(entrypoint, "build_scm_service_runtime", build_runtime)
+    monkeypatch.setattr(entrypoint.sys, "argv", ["windows_agent_service.py"])
+
+    entrypoint.main()
+
+    assert captured == {"ran": True}
+
+
+def test_scm_runtime_defers_environment_and_credential_loading(monkeypatch) -> None:
+    def fail_before_dispatch(*args, **kwargs):
+        raise AssertionError("service configuration must be loaded after SCM dispatch")
+
+    monkeypatch.setattr(entrypoint.AgentConfig, "from_env", fail_before_dispatch)
+    monkeypatch.setattr(entrypoint, "build_credential_store", fail_before_dispatch)
+
+    runtime = entrypoint.build_scm_service_runtime()
+
+    assert isinstance(runtime, PyWin32ServiceRuntime)

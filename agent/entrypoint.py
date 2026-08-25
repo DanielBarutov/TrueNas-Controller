@@ -21,14 +21,14 @@ from agent.enrollment import (
     HttpEnrollmentGateway,
 )
 from agent.runtime import build_agent_service
-from agent.windows_service import PyWin32ServiceRuntime
+from agent.windows_service import PyWin32ServiceRuntime, run_foreground_service
 
 SERVICE_NAME = "TrueNasControllerAgent"
 SERVICE_DISPLAY_NAME = "TrueNAS Controller Agent"
 ENROLL_COMMAND = "enroll"
 CHECK_CREDENTIAL_STORE_COMMAND = "check-credential-store"
 MIGRATE_CREDENTIAL_STORE_COMMAND = "migrate-credential-store"
-SCM_COMMANDS = frozenset({"install", "update", "remove", "start", "stop", "restart", "debug"})
+FOREGROUND_COMMANDS = frozenset({"debug", "foreground"})
 _CREDENTIAL_STORE_PROBE = "credential-store-preflight"
 
 
@@ -162,7 +162,7 @@ def build_service_runtime(
     credential_store: CredentialStore | None = None,
     require_credential: bool = True,
 ) -> PyWin32ServiceRuntime:
-    """Build the SCM adapter and defer credential loading for SCM commands."""
+    """Build the SCM adapter, optionally deferring credential loading."""
 
     resolved_config = config or AgentConfig.from_env()
     store = credential_store or build_credential_store(resolved_config.credential_path)
@@ -186,11 +186,35 @@ def build_service_runtime(
     )
 
 
+def build_scm_service_runtime() -> PyWin32ServiceRuntime:
+    """Build the SCM adapter without reading environment or credential data."""
+
+    return PyWin32ServiceRuntime(
+        service_name=SERVICE_NAME,
+        display_name=SERVICE_DISPLAY_NAME,
+        build_service=_build_service_from_environment,
+    )
+
+
+def _build_service_from_environment():
+    config = AgentConfig.from_env()
+    store = build_credential_store(config.credential_path)
+    return _build_enrolled_service(config, store)
+
+
 def _build_enrolled_service(config: AgentConfig, store: CredentialStore):
     credential = store.load()
     if not credential:
         raise AgentConfigError("agent credential is missing; enrollment is required")
     return build_agent_service(config, credential)
+
+
+def run_foreground_from_environment() -> None:
+    """Run the enrolled agent in a console for Windows startup diagnostics."""
+
+    config = AgentConfig.from_env()
+    store = build_credential_store(config.credential_path)
+    run_foreground_service(lambda: _build_enrolled_service(config, store))
 
 
 def main() -> None:
@@ -206,7 +230,14 @@ def main() -> None:
     if command == MIGRATE_CREDENTIAL_STORE_COMMAND:
         migrate_credential_store_from_environment()
         return
-    build_service_runtime(require_credential=command not in SCM_COMMANDS).run()
+    if command in FOREGROUND_COMMANDS:
+        run_foreground_from_environment()
+        return
+
+    # The no-argument process is the executable launched by SCM. It must enter
+    # pywin32's dispatcher before loading DPAPI or constructing the heartbeat;
+    # otherwise a startup exception is reported by SCM as error 1053.
+    build_scm_service_runtime().run()
 
 
 if __name__ == "__main__":

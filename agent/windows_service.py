@@ -26,6 +26,32 @@ class WindowsServiceHost:
         self._stop_event.set()
 
 
+class ForegroundServiceHost:
+    """Async stop bridge used by the local foreground diagnostic mode."""
+
+    def __init__(self) -> None:
+        self._stop_event = asyncio.Event()
+
+    async def wait_for_stop(self) -> None:
+        await self._stop_event.wait()
+
+    def request_stop(self) -> None:
+        self._stop_event.set()
+
+
+def run_foreground_service(build_service: Callable[[], AgentService]) -> None:
+    """Run the agent in the current console without pywin32 command parsing."""
+
+    async def run() -> None:
+        service = build_service()
+        await service.run(ForegroundServiceHost())
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        return
+
+
 class PyWin32ServiceRuntime:
     """Run ``AgentService`` under the Windows Service Control Manager.
 
@@ -70,13 +96,24 @@ class PyWin32ServiceRuntime:
             def __init__(self, args: Any) -> None:
                 super().__init__(args)
                 self._host = WindowsServiceHost()
-                self._service = runtime._build_service()
 
             def SvcStop(self) -> None:
                 self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
                 self._host.request_stop()
 
             def SvcDoRun(self) -> None:
-                asyncio.run(self._service.run(self._host))
+                try:
+                    service = runtime._build_service()
+                    asyncio.run(service.run(self._host))
+                except Exception as exc:
+                    try:
+                        import servicemanager
+
+                        servicemanager.LogErrorMsg(
+                            f"{runtime._display_name} failed during startup: {exc}"
+                        )
+                    except Exception:
+                        pass
+                    raise
 
         win32serviceutil.HandleCommandLine(_AgentWindowsService)

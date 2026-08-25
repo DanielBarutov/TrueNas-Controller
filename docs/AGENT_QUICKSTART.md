@@ -61,9 +61,9 @@ py -3 .\scripts\install_windows_agent.py `
 Для production с HTTPS укажите URL вида `https://controller.example` и уберите
 `--allow-insecure-http`. Сценарий сам создаёт стабильную папку
 `%ProgramData%\TrueNasController\agent`, устанавливает locked dependencies,
-попросит открыто ввести одноразовый enrollment token и скрыто — пароль той же
-service account, зарегистрирует и запустит службу. Token не попадает в аргументы
-командной строки, постоянные машинные переменные или файлы.
+попросит открыто ввести одноразовый enrollment token, зарегистрирует службу от
+`LocalSystem` без пароля и запустит её. Token не попадает в аргументы командной
+строки, постоянные машинные переменные или файлы.
 
 `--station-id` здесь не нужен: installer читает общий UUID station/agent из
 `station-report.json`.
@@ -79,6 +79,21 @@ service account, зарегистрирует и запустит службу. 
 
 Адрес Controller API — не адрес TrueNAS `/api/docs`. Для текущего Docker Compose
 это обычно `http://<ip-адрес>:8000`.
+
+Для диагностики запуска службы не используйте встроенную команду pywin32
+`debug`: она запускает отдельный `pythonservice.exe` и может вернуть только
+общее сообщение Windows о неверном имени файла. Используйте foreground-режим
+агента из стабильной папки:
+
+```powershell
+$Python = "C:\ProgramData\TrueNasController\agent\.venv\Scripts\python.exe"
+$Runner = "C:\ProgramData\TrueNasController\agent\scripts\windows_agent_service.py"
+& $Python $Runner foreground
+```
+
+Старый алиас `debug` также работает как foreground-режим. Остановите его через
+`Ctrl+C`. Исключение загрузки конфигурации или credential будет показано в
+консоли; содержимое credential агент не выводит.
 
 Подробности, troubleshooting и ручной recovery-путь остаются в
 [`docs/AGENT_INSTALL.md`](AGENT_INSTALL.md).

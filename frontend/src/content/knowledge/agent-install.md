@@ -61,3 +61,15 @@ python -m agent.entrypoint install
 В `services.msc` проверь, что `TrueNAS Controller Agent` работает от
 `LocalSystem`, и запусти службу. Полная инструкция находится в
 `docs/AGENT_INSTALL.md`.
+
+Если служба завершается с ошибкой 1053/7009, не используй встроенный pywin32
+`debug`: запусти агент в консоли из установленной папки:
+
+```powershell
+$Python = "C:\ProgramData\TrueNasController\agent\.venv\Scripts\python.exe"
+$Runner = "C:\ProgramData\TrueNasController\agent\scripts\windows_agent_service.py"
+& $Python $Runner foreground
+```
+
+Останови проверку через `Ctrl+C`. Foreground-режим показывает traceback
+конфигурации/DPAPI и не выводит credential.

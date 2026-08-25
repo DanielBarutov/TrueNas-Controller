@@ -48,7 +48,8 @@ publish сохраняется. Старый credential перестаёт ра�
 
 1. Проверь `Get-Service -Name TrueNasControllerAgent`.
 2. Проверь `AGENT_API_BASE_URL`: это URL Controller, не TrueNAS `/api/docs`.
-3. Убедись, что credential читается той же service account.
+3. Убедись, что credential читается службой от `LocalSystem`; production store
+   использует DPAPI machine-scope и ACL для `SYSTEM`/локальных администраторов.
 4. Проверь HTTPS и Windows Firewall.
 5. Не удаляй credential и не повторяй enrollment старым token без решения
    оператора: token одноразовый, а agent UUID связан со station.

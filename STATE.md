@@ -1,6 +1,6 @@
 # STATE — состояние проекта
 
-Последнее обновление: **2026-08-24**
+Последнее обновление: **2026-08-25**
 
 ## Как читать этот файл
 
@@ -17,13 +17,12 @@
 
 - **Стадия:** 2 — каркас и read-only backend.
 - **Активный план:** [06 — Windows-агент](/home/daniel/tnas/plans/06-agent/01-windows-agent.md).
-- **Текущая задача:** закрыть Windows runtime gate после фактического сбоя ACL:
-  проверить защищённое сохранение credential, регистрацию службы и heartbeat
-  на клиентском ПК. Enrollment до Controller уже проходит; первый запуск был
-  остановлен только на локальном ACL.
+- **Текущая задача:** закрыть Windows runtime gate после ошибки SCM `1053/7009`:
+  проверить новый deferred SCM startup, foreground-диагностику, регистрацию
+  службы от `LocalSystem` и heartbeat на клиентском ПК.
 - **Следующий разрешённый шаг:** обновить checkout на клиенте, выполнить
-  локальный `check-credential-store`, затем повторить enrollment с новым
-  одноразовым token после восстановления station. Real Redis worker execution,
+  `check-credential-store`, запустить foreground-проверку, затем повторить
+  регистрацию/запуск службы и проверить heartbeat. Real Redis worker execution,
   TrueNAS write и storage switch пока не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
@@ -37,7 +36,7 @@
 | [03 — State machine](plans/03-state-machine/01-state-machine.md) | `closed` | состояния и переходы описаны | покрыть переходы unit-тестами |
 | [04 — Безопасность](plans/04-security/01-security.md) | `closed` | секреты, audit и Basic Auth зафиксированы | проверить реализацию auth и redaction |
 | [05 — API](plans/05-api/01-contract.md) | `closed` | endpoint-контракты описаны | проверить схемы через contract tests |
-| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, pywin32 SCM wrapper, signed command delivery, runtime composition, station report, installer orchestration и preflight созданы; служба переведена на LocalSystem и machine-scope credential | LocalSystem/ACL/heartbeat smoke после обновления checkout |
+| [06 — Windows-агент](plans/06-agent/01-windows-agent.md) | `in_progress` | config, collectors, heartbeat/retry, enrollment coordinator, explicit one-shot enrollment CLI, protected credential boundary, DPAPI/ACL adapters, deferred SCM startup, foreground diagnostics, signed command delivery, runtime composition, station report, installer orchestration и preflight созданы; служба переведена на LocalSystem и machine-scope credential | LocalSystem/ACL/heartbeat smoke после обновления checkout |
 | [07 — TrueNAS adapter](plans/07-truenas-adapter/01-adapter.md) | `open` | официальные docs и методы собраны; NAS не подключён | зафиксировать fixtures и mock contract |
 | [08 — Workflows](plans/08-workflows/01-publish-workflow.md) | `open` | workflow описан; apply не реализован | acceptance на fake adapter |
 | [09 — Тестирование](plans/09-testing/01-strategy.md) | `open` | стратегия описана; тестового каркаса нет | выбрать команды и написать первые unit-тесты |
@@ -166,8 +165,12 @@
   `win32service`, пароль передаётся через stdin.
 - [x] Windows installer регистрирует службу LocalSystem без пароля, использует
   machine-scope DPAPI и мигрирует старый user-scope credential без нового token.
+- [x] SCM process не читает environment/DPAPI до входа в dispatcher; credential
+  и AgentService создаются внутри `SvcDoRun`, а `debug`/`foreground` используют
+  консольный режим без pywin32 `pythonservice.exe`.
 - [ ] Native Windows retest после исправления ACL и preflight не выполнен в
-  текущем Linux окружении.
+  текущем Linux окружении; после исправления `1053/7009` нужно выполнить его на
+  клиентском ПК.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
   поля создания station и напоминает оператору о раздельной передаче one-shot
   enrollment token.

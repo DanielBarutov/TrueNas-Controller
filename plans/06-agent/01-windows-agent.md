@@ -77,7 +77,10 @@ Backend считается authoritative для freshness: агент не мо�
 5. предоставить uninstall/re-enrollment инструкцию;
 6. не требовать TrueNAS credentials.
 
-Отдельно проверить запуск от обычной учётной записи; SYSTEM не использовать без доказанной необходимости.
+Для production-службы использовать встроенную учётную запись `LocalSystem`:
+credential защищается DPAPI machine-scope, а файл ограничен ACL для `SYSTEM` и
+локальных администраторов. Это passwordless-решение с явно принятым локальным
+компромиссом доступа администратора к machine-scope credential.
 
 Для staging onboarding реализован единый
 [`scripts/install_windows_agent.py`](../../scripts/install_windows_agent.py): он
@@ -148,6 +151,9 @@ Backend считается authoritative для freshness: агент не мо�
 - [x] SCM registration/start выполняются через target `.venv` Python с
   `pywin32`; служба регистрируется под `LocalSystem` без пароля и без секретов
   в argv или machine environment;
+- [x] SCM startup откладывает чтение environment, DPAPI credential и сборку
+  `AgentService` до `SvcDoRun`; `debug`/`foreground` запускают консольную
+  диагностику без pywin32 `pythonservice.exe`;
 - [x] installer мигрирует существующий user-scope credential в machine-scope
   без повторного enrollment и применяет ACL для `SYSTEM`/Administrators;
 - [ ] фактическая проверка installer/service registration, ACL и heartbeat под

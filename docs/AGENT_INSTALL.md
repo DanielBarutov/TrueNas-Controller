@@ -244,6 +244,38 @@ $Stations |
 появилась или осталась offline, сначала проверить `Get-Service`, HTTPS-доступ,
 `AGENT_API_BASE_URL`, `AGENT_STATION_ID`, путь credential и режим `LocalSystem`.
 
+### Диагностика ошибки запуска 1053
+
+Не используйте `python ... debug` как основной способ диагностики: стандартный
+`pywin32`-обработчик `debug` запускает отдельный `pythonservice.exe` и на Windows
+может скрыть traceback за сообщением «Синтаксическая ошибка в имени файла,
+имени папки или метке тома».
+
+Запустите агент в foreground-режиме из его установленной папки:
+
+```powershell
+$ProjectRoot = "C:\ProgramData\TrueNasController\agent"
+$Python = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$Runner = Join-Path $ProjectRoot "scripts\windows_agent_service.py"
+Set-Location $ProjectRoot
+& $Python $Runner foreground
+```
+
+Команда должна занять текущую консоль. Остановите её через `Ctrl+C`. Если
+конфигурация, DPAPI или credential недоступны, полный traceback будет выведен
+в консоль. Для проверки только защищённого хранилища используйте:
+
+```powershell
+& $Python -m agent.entrypoint check-credential-store
+```
+
+После исправления ошибки остановите foreground-процесс и перезапустите службу:
+
+```powershell
+Restart-Service -Name TrueNasControllerAgent
+Get-Service -Name TrueNasControllerAgent
+```
+
 ## 8. Проверить signed refresh command
 
 Этот шаг возможен только если Controller запущен с private signing key, а
@@ -315,6 +347,7 @@ Set-Location $ProjectRoot
 | `credential file ACL setup failed while trying to resolve protected Windows principals` | обновить checkout и проверить pywin32; installer применяет ACL для `SYSTEM` и локальных администраторов до записи credential |
 | `No module named win32service` при регистрации службы | обновить checkout и повторить installer: SCM запускается из target `.venv`, внешний `py -3` не используется для pywin32 |
 | ошибка SCM `1069`/`1385` при запуске службы | повторить `install`: служба должна быть переведена на `LocalSystem`; пароль Windows не используется |
+| ошибка SCM `1053` или `7009` | сначала запустить foreground-режим из инструкции выше; он показывает ошибку до запуска heartbeat |
 | HTTP 409 при enrollment | token просрочен или уже использован; получить новый |
 | HTTP 401 на heartbeat | credential/station binding не совпадает или credential отозван |
 | станция offline | проверить службу, URL Controller, порт `8000` для локального HTTP, firewall и timestamp/часы Windows |

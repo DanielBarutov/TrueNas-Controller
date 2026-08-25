@@ -4,7 +4,12 @@ from threading import Event
 import pytest
 
 from agent.service import AgentService
-from agent.windows_service import PyWin32ServiceRuntime, WindowsServiceError, WindowsServiceHost
+from agent.windows_service import (
+    ForegroundServiceHost,
+    PyWin32ServiceRuntime,
+    WindowsServiceError,
+    WindowsServiceHost,
+)
 
 
 class FakeHeartbeat:
@@ -34,6 +39,17 @@ async def test_service_requests_graceful_heartbeat_shutdown() -> None:
 async def test_windows_service_host_bridges_thread_stop_to_asyncio() -> None:
     stop_event = Event()
     host = WindowsServiceHost(stop_event)
+    waiter = asyncio.create_task(host.wait_for_stop())
+
+    await asyncio.sleep(0)
+    assert waiter.done() is False
+    host.request_stop()
+    await waiter
+
+
+@pytest.mark.asyncio
+async def test_foreground_service_host_waits_until_stopped() -> None:
+    host = ForegroundServiceHost()
     waiter = asyncio.create_task(host.wait_for_stop())
 
     await asyncio.sleep(0)
