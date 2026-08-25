@@ -234,6 +234,8 @@
   executor его не использует, а write-capable adapter ещё не прошёл apply gate.
 - [ ] Compose worker реально запущен на пользовательском админском ПК и
   обработал новую publish job.
+- [ ] Повторно проверить worker после исправления asyncpg event-loop и
+  embedded Prometheus middleware на пользовательском ПК.
 - [x] Provisioning token domain/repository/UoW, migrations, Basic Auth issue route, bootstrap route, native client contract и UI button добавлены; backend `181 passed`, frontend `7 passed`, build/Ruff пройдены.
 - [ ] Обновлённый native exe опубликован и проверен на Windows-клиенте с автоматическим созданием station.
 - [ ] Alembic migrations `7f5d0f1c9b42`/`8a9c2d7e4f11` применены в пользовательском Compose runtime.
@@ -310,3 +312,6 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-24 | Переведён Windows agent на LocalSystem | удалён prompt пароля, включён machine-scope DPAPI, ACL для SYSTEM/Administrators и миграция старого user-scope credential |
 | 2026-08-25 | Добавлен native .NET Windows agent | устранение Python/pywin32 SCM проблем: self-contained Worker Service, native SCM, deferred startup, DPAPI/ACL и совместимый report; Windows smoke остаётся открытым |
 | 2026-08-25 | Добавлен план 34 и Compose worker runtime | accepted job сохранялась в outbox, но relay и Dramatiq consumer не запускались; TrueNAS API key пока не используется fake executor |
+| 2026-08-25 | Исправлен worker event-loop/runtime middleware | `asyncio.run` с общим asyncpg pool давал `Future attached to a different loop`; embedded Worker также не инициализировал Prometheus через CLI hook |
+| 2026-08-25 | Исправлен порядок Dramatiq actor/consumer | actor объявлялся до embedded `Worker.start()`, поэтому outbox dispatch проходил, но consumer очереди не создавался |
+| 2026-08-25 | Исправлен terminal state для dry-run | симулированный target доходил до 100%, но job оставалась `publishing`; теперь сохраняется `completed` с причиной `dry_run_simulation` |

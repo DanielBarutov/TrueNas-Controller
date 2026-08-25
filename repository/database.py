@@ -6,12 +6,26 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import Pool
 
 
-def create_engine(database_url: str, *, echo: bool = False) -> AsyncEngine:
-    """Create an engine; callers own its lifecycle and must dispose it."""
+def create_engine(
+    database_url: str,
+    *,
+    echo: bool = False,
+    poolclass: type[Pool] | None = None,
+) -> AsyncEngine:
+    """Create an engine; callers own its lifecycle and must dispose it.
 
-    return create_async_engine(database_url, echo=echo, pool_pre_ping=True)
+    ``NullPool`` is useful for embedded async workers that bridge synchronous
+    Dramatiq callbacks into short-lived event loops. It prevents an asyncpg
+    connection created by one loop from being reused by another loop.
+    """
+
+    kwargs: dict[str, object] = {"echo": echo, "pool_pre_ping": True}
+    if poolclass is not None:
+        kwargs["poolclass"] = poolclass
+    return create_async_engine(database_url, **kwargs)
 
 
 def create_session_factory(

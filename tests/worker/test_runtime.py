@@ -1,6 +1,6 @@
 import pytest
 
-from worker.runtime import WorkerRuntimeConfig, WorkerRuntimeConfigError
+from worker.runtime import WorkerRuntimeConfig, WorkerRuntimeConfigError, _configure_broker
 
 
 def test_runtime_config_has_safe_local_fake_defaults() -> None:
@@ -14,6 +14,12 @@ def test_runtime_config_has_safe_local_fake_defaults() -> None:
     assert config.executor_mode == "fake"
     assert config.poll_interval_seconds == 1
     assert config.worker_threads == 2
+
+
+def test_embedded_broker_does_not_enable_uninitialized_prometheus_middleware() -> None:
+    broker = _configure_broker("redis://redis:6379/0")
+
+    assert "Prometheus" not in {type(middleware).__name__ for middleware in broker.middleware}
 
 
 @pytest.mark.parametrize(

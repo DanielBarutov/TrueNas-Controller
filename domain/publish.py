@@ -33,7 +33,9 @@ ALLOWED_TRANSITIONS: dict[PublishJobStatus, frozenset[PublishJobStatus]] = {
     PublishJobStatus.DRAFT: frozenset({PublishJobStatus.PREFLIGHT}),
     PublishJobStatus.PREFLIGHT: frozenset({PublishJobStatus.AWAITING_CONFIRMATION}),
     PublishJobStatus.AWAITING_CONFIRMATION: frozenset({PublishJobStatus.PUBLISHING}),
-    PublishJobStatus.PUBLISHING: frozenset({PublishJobStatus.SWITCHING, PublishJobStatus.FAILED}),
+    PublishJobStatus.PUBLISHING: frozenset(
+        {PublishJobStatus.SWITCHING, PublishJobStatus.COMPLETED, PublishJobStatus.FAILED}
+    ),
     PublishJobStatus.SWITCHING: frozenset(
         {PublishJobStatus.VERIFYING, PublishJobStatus.PARTIAL_FAILURE, PublishJobStatus.FAILED}
     ),

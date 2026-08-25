@@ -18,7 +18,10 @@ import socket
 
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
+from dramatiq.middleware import default_middleware
+from dramatiq.middleware.prometheus import Prometheus
 from dramatiq.worker import Worker
+from sqlalchemy.pool import NullPool
 
 from application.publish_executor import FakePublishTaskExecutor
 from repository.database import create_engine, create_session_factory
@@ -96,25 +99,21 @@ class PublishWorkerRuntime:
 
     def __init__(self, config: WorkerRuntimeConfig) -> None:
         self._config = config
-        engine = create_engine(config.database_url)
-        uow_factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
-
-        def handler_factory() -> PublishTaskApplicationHandler:
-            return PublishTaskApplicationHandler(
-                uow_factory,
-                lambda: FakePublishTaskExecutor(
-                    uow_factory,
-                    FakePublishStorageAdapter,
-                ),
-            )
+        engine = create_engine(config.database_url, poolclass=NullPool)
+        self._uow_factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
 
         broker = _configure_broker(config.redis_url)
-        self._actor = build_publish_actor(handler_factory)
         self._worker = Worker(broker, worker_threads=config.worker_threads)
-        self._relay = PublishOutboxRelay(
-            uow_factory,
-            DramatiqPublishTaskQueue(self._actor),
-            worker_id=config.worker_id,
+        self._actor: dramatiq.Actor | None = None
+        self._relay: PublishOutboxRelay | None = None
+
+    def _handler_factory(self) -> PublishTaskApplicationHandler:
+        return PublishTaskApplicationHandler(
+            self._uow_factory,
+            lambda: FakePublishTaskExecutor(
+                self._uow_factory,
+                FakePublishStorageAdapter,
+            ),
         )
 
     async def run(self) -> None:
@@ -123,6 +122,19 @@ class PublishWorkerRuntime:
         stop_event = asyncio.Event()
         _install_signal_handlers(stop_event)
         self._worker.start()
+        # The embedded worker installs its consumer middleware in start().
+        # Declare the actor afterwards so after_declare_queue can attach the
+        # consumer to the already-running worker.
+        self._actor = build_publish_actor(self._handler_factory)
+        self._relay = PublishOutboxRelay(
+            self._uow_factory,
+            DramatiqPublishTaskQueue(self._actor),
+            worker_id=self._config.worker_id,
+        )
+        logger.info(
+            "publish worker consumers attached: %s",
+            sorted(self._worker.consumers),
+        )
         logger.info(
             "publish worker started: worker_id=%s executor=%s poll_interval=%ss",
             self._config.worker_id,
@@ -149,7 +161,17 @@ class PublishWorkerRuntime:
 
 
 def _configure_broker(redis_url: str) -> RedisBroker:
-    broker = RedisBroker(url=redis_url)
+    # ``Worker.start`` is embedded in this process rather than launched by
+    # Dramatiq's CLI. The built-in Prometheus middleware initializes its
+    # counters in the CLI-only ``after_process_boot`` hook, so leaving it in
+    # the embedded broker causes a second middleware failure after a task
+    # completes. Keep the retry/age/shutdown middleware and omit only metrics.
+    middleware = [
+        middleware_type()
+        for middleware_type in default_middleware
+        if middleware_type is not Prometheus
+    ]
+    broker = RedisBroker(url=redis_url, middleware=middleware)
     dramatiq.set_broker(broker)
     return broker
 

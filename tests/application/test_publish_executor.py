@@ -102,7 +102,8 @@ async def test_fake_executor_persists_dry_run_without_fake_storage_mutation(
     )
 
     stored_job, stored_targets = await read_state(uow_factory, job.id)
-    assert stored_job.status is PublishJobStatus.PUBLISHING
+    assert stored_job.status is PublishJobStatus.COMPLETED
+    assert stored_job.status_reason == "dry_run_simulation"
     assert stored_targets[0].switch_status == "simulated"
     assert stored_targets[0].verify_status == "simulated"
     assert stored_targets[0].old_mapping == {"ref": "old:station"}

@@ -35,6 +35,15 @@ executor`, который был покрыт acceptance-тестом, но от
 - [x] Compose service ждёт `backend` health и `redis` health.
 - [x] Runtime стартует Dramatiq Worker и регулярно забирает outbox.
 - [x] Runtime создаёт свежий application handler/UoW на задачу.
+- [x] Worker использует `NullPool`, чтобы asyncpg-соединение не переходило
+  между event loop разных Dramatiq callbacks.
+- [x] В embedded Dramatiq Worker отключён только Prometheus middleware,
+  который требует CLI-only `after_process_boot`; retry/age/shutdown middleware
+  сохранены.
+- [x] Actor объявляется после `Worker.start()`, чтобы embedded worker успел
+  подключить consumer к очереди `default`.
+- [x] `dry_run` переводит fake job в terminal `completed` с причиной
+  `dry_run_simulation`; UI явно называет результат симуляцией.
 - [x] Fake executor остаётся единственным разрешённым режимом.
 - [x] Ошибочная или неизвестная executor-конфигурация не принимается молча.
 - [x] Добавлены key tests конфигурации worker и документация запуска.

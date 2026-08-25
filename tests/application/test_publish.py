@@ -31,7 +31,8 @@ async def test_dry_run_never_changes_fake_mapping() -> None:
         confirmed=True,
     )
 
-    assert result.job.status is PublishJobStatus.PUBLISHING
+    assert result.job.status is PublishJobStatus.COMPLETED
+    assert result.job.status_reason == "dry_run_simulation"
     assert [target.status for target in result.targets] == [
         TargetStatus.SIMULATED,
         TargetStatus.SIMULATED,

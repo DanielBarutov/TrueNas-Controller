@@ -1,6 +1,6 @@
 """Application fake publish workflow over a storage adapter Protocol."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import UUID
 
 from application.ports import PublishStorageAdapter
@@ -65,7 +65,11 @@ class FakePublishWorkflow:
                     )
                 )
             targets = tuple(simulated_targets)
-            return PublishWorkflowResult(current, master_mapping, targets)
+            simulated_job = replace(
+                current.transition(PublishJobStatus.COMPLETED),
+                status_reason="dry_run_simulation",
+            )
+            return PublishWorkflowResult(simulated_job, master_mapping, targets)
 
         current = current.transition(PublishJobStatus.SWITCHING)
         results_by_station: dict[UUID, PublishTargetResult] = {}
