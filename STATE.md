@@ -174,9 +174,10 @@
 - [x] SCM process не читает environment/DPAPI до входа в dispatcher; credential
   и AgentService создаются внутри `SvcDoRun`, а `debug`/`foreground` используют
   консольный режим без pywin32 `pythonservice.exe`.
-- [ ] Native Windows retest не выполнен в текущем Linux окружении: нужно
-  проверить report, видимый enrollment, DPAPI/ACL, LocalSystem, heartbeat и
-  foreground diagnostics на клиентском ПК.
+- [x] Native Windows smoke подтверждён оператором: report/enrollment выполнены,
+  station online, heartbeat свежий; native служба запущена на клиентском ПК.
+- [ ] Проверить отдельный compatibility path обновления старой Python-установки
+  и чтения старого machine-scope credential native агентом.
 - [x] Frontend принимает station report, валидирует allowlisted JSON, заполняет
   поля создания station и напоминает оператору о раздельной передаче one-shot
   enrollment token.

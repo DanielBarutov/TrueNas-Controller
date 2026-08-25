@@ -40,7 +40,8 @@ Service, сохранив существующий HTTP-контракт аге�
   installer запрашивает новый видимый enrollment token.
 - [x] Frontend/docs переведены на native путь; Python оставлен legacy recovery.
 - [x] Linux-side build прошёл через .NET 10 SDK.
-- [ ] Windows client smoke: report → station → visible token → LocalSystem → heartbeat.
+- [x] Windows client smoke: report → station → visible token → LocalSystem →
+  heartbeat; по подтверждению оператора station online и heartbeat свежий.
 - [ ] Проверить обновление существующей Python установки и чтение старого
   machine-scope credential native агентом.
 - [ ] После smoke решить, когда удалять/замораживать Python installer.
