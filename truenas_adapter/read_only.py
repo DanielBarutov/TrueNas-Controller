@@ -92,11 +92,18 @@ class TrueNASReadOnlyAdapter(TrueNASReadOnlyClient):
 
     @staticmethod
     def _map_extent(record: Mapping[str, object]) -> TrueNASExtent:
+        extent_type = _optional_text(record, "type")
+        if extent_type == "FILE":
+            backing_path = _optional_text(record, "path") or _optional_text(record, "disk")
+        else:
+            # DISK/ZVOL extents use ``disk``. ``path`` is the file-backed
+            # field and must not win when both keys are present.
+            backing_path = _optional_text(record, "disk") or _optional_text(record, "path")
         return TrueNASExtent(
             id=_required_int(record, "id"),
             name=_required_text(record, "name"),
-            path=_optional_text(record, "path") or _optional_text(record, "disk"),
-            extent_type=_optional_text(record, "type"),
+            path=_canonical_disk_path(backing_path, extent_type),
+            extent_type=extent_type,
         )
 
     @staticmethod
@@ -121,6 +128,16 @@ def _optional_text(record: Mapping[str, object], key: str) -> str | None:
         return None
     if not isinstance(value, str):
         raise TrueNASAdapterError(f"TrueNAS field {key!r} must be a string or null")
+    return value
+
+
+def _canonical_disk_path(value: str | None, extent_type: str | None) -> str | None:
+    """Use the API's ``disk`` value, not the host's ``/dev`` path."""
+
+    if value is None or extent_type == "FILE":
+        return value
+    if value.startswith("/dev/"):
+        return value.removeprefix("/dev/")
     return value
 
 

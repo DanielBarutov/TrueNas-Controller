@@ -13,7 +13,8 @@
 2. `pool.snapshot.clone` в уникальный dataset станции;
 3. Найти старый extent выбранной станции и проверить его принадлежность;
 4. `iscsi.extent.update` с сохранением настроек extent и заменой только
-   `disk=/dev/zvol/<clone>` (для UI это поле `Device/File`);
+   `disk=zvol/<clone>` (для UI это поле `Device/File`; middleware TrueNAS
+   использует `/dev/zvol/<clone>` внутри);
 5. query/read-back и verify: association `target → extent` и LUN остаются теми же.
 
 ## Входы

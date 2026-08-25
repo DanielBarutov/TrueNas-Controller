@@ -21,7 +21,8 @@ Controller UI работает как операторский control plane, а
 3. создать snapshot исходного dataset;
 4. создать clone snapshot в новый dataset для клиента;
 5. найти существующий extent выбранного ПК и заменить его `Device/File` на
-   `/dev/zvol/<новый clone>` без создания нового extent и без смены target/LUN;
+   `zvol/<новый clone>` без создания нового extent и без смены target/LUN
+   (TrueNAS сам добавляет `/dev` внутри middleware);
 6. проверить read-back extent/mapping и heartbeat клиента.
 
 Публикация не делит dataset на отдельные игры и не проверяет

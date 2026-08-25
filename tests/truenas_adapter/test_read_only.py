@@ -56,6 +56,7 @@ async def test_read_only_adapter_maps_fixture_without_write_capabilities(
     assert snapshots[0].dataset == "tank/iscsi/game-zvol"
     assert targets[0].id == 7
     assert extents[0].extent_type == "DISK"
+    assert extents[0].path == "zvol/tank/iscsi/game-zvol"
     assert target_extents[0].lun_id == 0
     assert [method for method, _ in transport.calls] == [
         "core.ping",
@@ -83,3 +84,17 @@ async def test_read_only_adapter_does_not_turn_false_ping_into_success() -> None
 
     with pytest.raises(TrueNASAdapterError):
         await adapter.ping()
+
+
+def test_disk_extent_prefers_disk_over_file_path_and_normalizes_host_prefix() -> None:
+    extent = TrueNASReadOnlyAdapter._map_extent(
+        {
+            "id": 12,
+            "name": "PC1",
+            "type": "DISK",
+            "disk": "zvol/games/new-clone",
+            "path": "/mnt/incorrect-file-path",
+        }
+    )
+
+    assert extent.path == "zvol/games/new-clone"

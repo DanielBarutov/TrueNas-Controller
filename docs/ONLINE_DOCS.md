@@ -62,7 +62,8 @@
 
 В текущей схеме пользователя новый extent создавать не нужно. Для каждого ПК
 сохраняется существующий extent, а его поле `Device/File` переводится на
-`/dev/zvol/<новый clone>` через `iscsi.extent.update`. `iscsi.targetextent.update`
+`zvol/<новый clone>` через `iscsi.extent.update`. TrueNAS сам добавляет `/dev`
+при построении backend-устройства. `iscsi.targetextent.update`
 не входит в разрешённый adapter workflow: association target → extent и LUN
 остаются прежними. Документация указывает для update роль
 `SHARING_ISCSI_EXTENT_WRITE`. Наличие метода не доказывает, что горячая замена

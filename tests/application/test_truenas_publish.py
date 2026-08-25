@@ -51,7 +51,7 @@ def make_storage() -> FakeTrueNASWriteClient:
     storage.extents[11] = TrueNASExtent(
         11,
         "PC1",
-        "/dev/zvol/games/master-games-v001-clone-pc1",
+        "zvol/games/master-games-v001-clone-pc1",
         "DISK",
     )
     storage.target_extents.append(TrueNASTargetExtent(7, 11, 0))

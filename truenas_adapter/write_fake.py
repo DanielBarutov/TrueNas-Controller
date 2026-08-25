@@ -75,7 +75,7 @@ class FakeTrueNASWriteClient:
         updated = TrueNASExtent(
             extent_id,
             current.name if current is not None else f"extent-{extent_id}",
-            device,
+            device.removeprefix("/dev/"),
             current.extent_type if current is not None else "DISK",
         )
         self.extents[extent_id] = updated

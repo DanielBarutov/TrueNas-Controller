@@ -34,7 +34,8 @@
       {
         "id": 11,
         "name": "game-extent",
-        "path": "/dev/zvol/tank/iscsi/game-zvol",
+        "disk": "zvol/tank/iscsi/game-zvol",
+        "path": null,
         "type": "DISK"
       }
     ],

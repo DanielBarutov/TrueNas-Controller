@@ -51,8 +51,9 @@ class TrueNASWriteAdapter(TrueNASWriteClient):
     async def update_extent_device(self, extent_id: int, device: str) -> TrueNASExtent:
         if extent_id <= 0:
             raise ValueError("extent_id must be positive")
-        if not device.startswith("/dev/zvol/") or ".." in device.split("/"):
-            raise ValueError("device must be a /dev/zvol path without traversal")
+        device = _canonical_disk_device(device)
+        if not device.startswith("zvol/") or ".." in device.split("/"):
+            raise ValueError("device must be a zvol/ path without traversal")
         result = await self._transport.request(
             self._registry.resolve("update_extent_device"),
             [extent_id, {"disk": device}],
@@ -80,6 +81,14 @@ def _validate_snapshot(value: str) -> None:
         raise ValueError("snapshot must use dataset@snapshot format")
     _validate_dataset(dataset)
     _validate_snapshot_name(name)
+
+
+def _canonical_disk_device(value: str) -> str:
+    """Normalize a host-style zvol path to TrueNAS API ``disk`` format."""
+
+    if value.startswith("/dev/zvol/"):
+        return value.removeprefix("/dev/")
+    return value
 
 
 def _mapping_result(result: object, operation: str) -> Mapping[str, object]:

@@ -251,7 +251,12 @@
 - [x] Worker wiring, fake read-back и station target mapping реализованы.
 - [x] TLS runtime boundary: `wss://`-only URL, trimming secret, CA/verification options и безопасные TLS/WebSocket ошибки покрыты тестами.
 - [x] Локальный полный чек-ап: backend `204 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены.
-- [ ] Реальный read-back/apply на NAS не выполнялся; нужен отдельный one-station gate.
+- [ ] One-station live apply на NAS выполнен: snapshot и clone созданы, но
+  `iscsi.extent.update` не подтверждён read-back и target получил
+  `recovery_required`; созданный clone не удалять и job вслепую не повторять.
+- [x] Исправлен формат TrueNAS DISK/ZVOL mapping: API получает
+  `disk=zvol/<dataset>`, read-only mapper выбирает `disk` для `DISK`, а
+  recovery сохраняет безопасную первичную причину ошибки.
 
 ## Принятое решение по версии игры
 
@@ -334,3 +339,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Подключён план 36 к worker | добавлены TrueNAS workflow, station target mapping, fake read-back и режим `PUBLISH_EXECUTOR_MODE=truenas`; реальный NAS не запускался |
 | 2026-08-25 | Завершён локальный чек-ап плана 36 | backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены; следующий шаг — read-only LAN smoke |
 | 2026-08-25 | Исправлен TrueNAS TLS runtime | `ws://` запрещён для API key, добавлены `wss://`, CA/verification settings и диагностируемые TLS/WebSocket ошибки; реальный NAS не запускался |
+| 2026-08-25 | Исправлен live extent switch после one-station теста | TrueNAS API использует `disk=zvol/...`, а `/dev` добавляется middleware; обновлены adapter, read-back, fake/fixtures и инструкция, recovery теперь сохраняет причину исходного сбоя |

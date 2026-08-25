@@ -23,7 +23,7 @@ class RecordingTransport:
                 "id": 12,
                 "name": "PC1",
                 "type": "DISK",
-                "disk": "/dev/zvol/games/master-games-v002-clone-pc1",
+                "disk": "zvol/games/master-games-v002-clone-pc1",
             }
         raise AssertionError(f"unexpected method: {method}")
 
@@ -45,7 +45,7 @@ async def test_write_adapter_uses_existing_extent_and_preserves_association() ->
 
     assert snapshot.dataset == "games/master-games"
     assert extent.id == 12
-    assert extent.path == "/dev/zvol/games/master-games-v002-clone-pc1"
+    assert extent.path == "zvol/games/master-games-v002-clone-pc1"
     assert [method for method, _ in transport.calls] == [
         "pool.snapshot.create",
         "pool.snapshot.clone",
@@ -53,7 +53,7 @@ async def test_write_adapter_uses_existing_extent_and_preserves_association() ->
     ]
     assert transport.calls[2][1] == [
         12,
-        {"disk": "/dev/zvol/games/master-games-v002-clone-pc1"},
+        {"disk": "zvol/games/master-games-v002-clone-pc1"},
     ]
 
 
@@ -63,7 +63,7 @@ async def test_write_adapter_uses_existing_extent_and_preserves_association() ->
         ("snapshot", ("games/../master-games", "build-001")),
         ("snapshot", ("games/master-games", "build/001")),
         ("clone", ("games/master-games@build-001", "games/../clone")),
-        ("extent", (12, "/dev/zvol/games/../clone")),
+        ("extent", (12, "zvol/games/../clone")),
     ],
 )
 @pytest.mark.asyncio

@@ -194,7 +194,8 @@ class TrueNASPublishWorkflow:
                         new_mapping=plan.destination_device,
                         error_code="extent_update_unknown",
                         error_message=(
-                            "extent update outcome is unknown; read-back did not confirm it"
+                            "extent update outcome is unknown; read-back did not confirm it; "
+                            f"initial operation failed: {_safe_error_detail(error)}"
                         ),
                     )
                 return PublishTargetResult(
@@ -264,10 +265,19 @@ def _build_station_plan(
         station=station,
         mapping=mapping,
         destination_dataset=destination_dataset,
-        destination_device=f"/dev/zvol/{destination_dataset}",
+        # TrueNAS API stores a DISK/ZVOL extent as ``zvol/<pool>/<dataset>``.
+        # The middleware adds ``/dev`` when it builds the iSCSI backend path.
+        destination_device=f"zvol/{destination_dataset}",
     )
 
 
 def _safe_slug(value: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9_-]+", "-", value).strip("-_")
     return (slug or "station")[:48]
+
+
+def _safe_error_detail(error: Exception) -> str:
+    """Keep the recovery message useful without persisting huge raw errors."""
+
+    detail = " ".join(str(error).split())
+    return detail[:300] or error.__class__.__name__
