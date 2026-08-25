@@ -44,6 +44,7 @@ def run_foreground_service(build_service: Callable[[], AgentService]) -> None:
 
     async def run() -> None:
         service = build_service()
+        print("Foreground agent started; press Ctrl+C to stop.", flush=True)
         await service.run(ForegroundServiceHost())
 
     try:
