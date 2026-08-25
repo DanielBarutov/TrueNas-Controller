@@ -20,7 +20,8 @@ Set-Location C:\Install
 
 Не редактируйте `station.station_id` и `agent.agent_uuid`: это один стабильный
 UUID. Native identity хранится в `%LOCALAPPDATA%\TrueNasController\agent` для
-команды report и в `%ProgramData%\TrueNasController\agent` после установки.
+команды report и в `%ProgramData%\TrueNasController\agent` после установки;
+оба каталога создаются EXE автоматически.
 
 Передайте `C:\Install\station-report.json` оператору. В отчёте нет Basic Auth,
 enrollment token, credential или TrueNAS API key.

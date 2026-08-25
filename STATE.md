@@ -22,8 +22,9 @@
   native EXE может bootstrap station без Python и `--report`.
 - **Последнее исправление:** добавлены `publish_artifacts`, retention worker и
   allowlisted `pool.dataset.delete`; фактическое удаление закрыто отдельным
-  `TRUENAS_CLEANUP_APPLY_ENABLED`.
-- **Следующий разрешённый шаг:** пересобрать self-contained win-x64 EXE,
+  `TRUENAS_CLEANUP_APPLY_ENABLED`. В native EXE исправлено автоматическое
+  создание каталогов identity для чистого Windows-ПК; root EXE пересобран.
+- **Следующий разрешённый шаг:** проверить обновлённый EXE на Windows-ПК,
   применить две новые Alembic migrations и проверить Compose/UI на одной
   тестовой станции.
 - **Запрещено сейчас:** включать cleanup apply или live NAS cleanup без

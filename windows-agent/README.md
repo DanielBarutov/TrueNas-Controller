@@ -47,6 +47,10 @@ Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```
 
+Каталоги `%LOCALAPPDATA%\TrueNasController\agent` и
+`%ProgramData%\TrueNasController\agent` создаются EXE автоматически. Вручную
+создавать их не нужно.
+
 В Controller UI откройте **Станции и агенты** и создайте provisioning token.
 Station вручную создавать не нужно: сервер возьмёт стабильный UUID из native
 identity, создаст client station и сразу зарегистрирует агент. Report можно

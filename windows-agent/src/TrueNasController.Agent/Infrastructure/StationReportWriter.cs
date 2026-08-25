@@ -11,6 +11,12 @@ public static class StationReportWriter
     public static Guid LoadOrCreateIdentity(string? identityPath = null)
     {
         var path = identityPath is null ? DefaultIdentityPath() : Path.GetFullPath(identityPath);
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
         try
         {
             var raw = JsonSerializer.Deserialize<Dictionary<string, string>>(
@@ -25,7 +31,6 @@ public static class StationReportWriter
         catch (FileNotFoundException)
         {
             var uuid = Guid.NewGuid();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(
                 new Dictionary<string, string> { ["agent_uuid"] = uuid.ToString("D") },
                 JsonDefaults.Options));

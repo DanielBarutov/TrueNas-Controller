@@ -24,4 +24,6 @@ JSON и выполняет bootstrap по одноразовому provisioning 
 - [x] source report stdout оставляет JSON в stdout, status уходит в stderr;
 - [x] install без Python/`--report` использует provisioning endpoint;
 - [x] self-contained win-x64 EXE пересобран из обновлённого source;
+- [x] `report` и `install` автоматически создают каталоги для native identity на
+  чистом Windows-ПК;
 - [ ] Windows smoke выполняется пользователем на клиентском ПК.

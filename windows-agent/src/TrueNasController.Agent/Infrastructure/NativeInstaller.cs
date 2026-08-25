@@ -17,6 +17,11 @@ public static class NativeInstaller
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TrueNasController", "agent"));
         var requestedAgentVersion = CommandLine.Value(args, "--agent-version") ?? StationReportWriter.DefaultAgentVersion;
         var dryRun = CommandLine.Has(args, "--dry-run");
+        if (!dryRun)
+        {
+            Directory.CreateDirectory(installDirectory);
+        }
+
         var report = string.IsNullOrWhiteSpace(reportPath)
             ? StationReportWriter.CreateReport(
                 Path.Combine(installDirectory, "identity.json"),
@@ -53,7 +58,6 @@ public static class NativeInstaller
         var configPath = Path.Combine(installDirectory, "agent.json");
         var targetExecutable = Path.Combine(installDirectory, "TrueNasControllerAgent.exe");
         WindowsServiceManager.TryStop();
-        Directory.CreateDirectory(installDirectory);
         if (!Path.GetFullPath(sourceExecutable).Equals(Path.GetFullPath(targetExecutable), StringComparison.OrdinalIgnoreCase))
         {
             File.Copy(sourceExecutable, targetExecutable, overwrite: true);
