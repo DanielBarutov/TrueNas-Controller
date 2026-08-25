@@ -21,11 +21,16 @@ from application.lifecycle import (
     ReceiveHeartbeatUseCase,
 )
 from application.preflight import EvaluateStationPreflightUseCase
+from application.process_rules import (
+    CreateProcessRuleUseCase,
+    DeleteProcessRuleUseCase,
+    ListProcessRulesUseCase,
+)
 from application.publish_commands import CreatePublishJobUseCase
 from application.publish_confirmation import PreparePublishJobUseCase
 from application.publish_dispatch import DispatchPublishJobUseCase
-from application.publish_queries import GetPublishJobUseCase
-from application.stations import ListStationsUseCase
+from application.publish_queries import GetPublishJobUseCase, ListPublishJobsUseCase
+from application.stations import ListStationsUseCase, UpdateStationStorageMappingUseCase
 from presentation.http import create_app
 from repository.database import create_engine, create_session_factory
 from repository.uow import SqlAlchemyUnitOfWorkFactory
@@ -51,8 +56,13 @@ def build_app(database_url: str | None = None) -> FastAPI:
         bootstrap_agent=BootstrapAgentUseCase(uow_factory),
         receive_heartbeat=ReceiveHeartbeatUseCase(uow_factory),
         evaluate_preflight=preflight,
+        list_process_rules=ListProcessRulesUseCase(uow_factory),
+        create_process_rule=CreateProcessRuleUseCase(uow_factory),
+        delete_process_rule=DeleteProcessRuleUseCase(uow_factory),
         create_publish_job=CreatePublishJobUseCase(uow_factory),
         get_publish_job=GetPublishJobUseCase(uow_factory),
+        list_publish_jobs=ListPublishJobsUseCase(uow_factory),
+        update_station_storage_mapping=UpdateStationStorageMappingUseCase(uow_factory),
         prepare_publish_job=PreparePublishJobUseCase(uow_factory, preflight),
         dispatch_publish_job=DispatchPublishJobUseCase(uow_factory),
         issue_agent_command=(

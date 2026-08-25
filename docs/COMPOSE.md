@@ -1,8 +1,9 @@
 # Локальный запуск через Docker Compose
 
 Compose поднимает PostgreSQL, Redis, backend, publish worker и frontend.
-Реальные TrueNAS, Windows-агенты и storage switch в этот профиль не
-подключаются: worker пока запускает только детерминированный fake executor.
+По умолчанию worker запускает детерминированный fake executor. Реальный TrueNAS
+подключается только при явном `PUBLISH_EXECUTOR_MODE=truenas` и отдельном
+`TRUENAS_APPLY_ENABLED=true`.
 
 ## Первый запуск в PowerShell
 
@@ -34,6 +35,40 @@ docker compose logs --tail=100 worker
 
 Basic Auth использует логин `admin` и значение `BASIC_AUTH_PASSWORD` из `.env`.
 Пароль из репозитория не подставляется и не должен попадать в git.
+
+`TRUENAS_API_KEY` — отдельный ключ TrueNAS, не Basic Auth приложения. Для
+подключения worker нужны `TRUENAS_VERSION`, полный `TRUENAS_WS_URL`,
+`TRUENAS_API_KEY` и `PUBLISH_EXECUTOR_MODE=truenas`. Запись на NAS дополнительно
+останется выключенной, пока явно не задано `TRUENAS_APPLY_ENABLED=true`.
+
+Даже в режиме `truenas` dry-run не выполняет snapshot, clone или update extent:
+он только читает dataset, target/extent association и строит ожидаемый zvol.
+Первый apply следует выполнять на одной выделенной станции и проверять
+read-back существующего extent.
+
+## Read-only smoke конкретного TrueNAS
+
+Для первого подключения не переводите Compose worker в write-профиль. В
+PowerShell из корня проекта задайте параметры только в текущем процессе и
+запустите opt-in integration test:
+
+```powershell
+$env:TRUENAS_VERSION = "25.10.5"
+$env:TRUENAS_WS_URL = "ws://<nas-host>/api/current"
+$env:TRUENAS_API_KEY = "<вставьте-ключ-только-локально>"
+$env:RUN_TRUENAS_SMOKE = "1"
+uv run pytest -q tests/truenas_adapter/test_integration.py
+```
+
+Если TrueNAS опубликован через TLS, используйте `wss://`. Адрес
+`/api/docs` — это документация, а не WebSocket endpoint; для API нужен
+`/api/current`. Тест выполняет только `core.ping` и чтение datasets,
+snapshots, targets, extents и targetextent associations. После проверки ключ
+можно убрать из текущей сессии:
+
+```powershell
+Remove-Item Env:TRUENAS_API_KEY, Env:RUN_TRUENAS_SMOKE, Env:TRUENAS_WS_URL, Env:TRUENAS_VERSION
+```
 
 ## Миграции
 

@@ -35,7 +35,8 @@ runtime-подключением. Этот план не разрешает writ
 ## Запрещено до отдельного согласования
 
 - snapshot create/clone/destroy/delete;
-- `iscsi.targetextent.update`, mapping switch и cleanup;
+- любые write-операции (`pool.snapshot.create`, `pool.snapshot.clone`,
+  `iscsi.extent.update`), mapping switch и cleanup;
 - запуск через production Redis или публикация на реальные станции;
 - запись API key в git, fixtures, логи, UI, agent payload или exception text;
 - обход несовпадения локальной схемы простым расширением allow-list.

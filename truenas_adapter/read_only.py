@@ -95,7 +95,7 @@ class TrueNASReadOnlyAdapter(TrueNASReadOnlyClient):
         return TrueNASExtent(
             id=_required_int(record, "id"),
             name=_required_text(record, "name"),
-            path=_optional_text(record, "path"),
+            path=_optional_text(record, "path") or _optional_text(record, "disk"),
             extent_type=_optional_text(record, "type"),
         )
 

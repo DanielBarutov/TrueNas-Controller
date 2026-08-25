@@ -30,9 +30,10 @@ import {
 } from "../domain/station";
 import { HelpHint, InfoNote, MetricCard, SectionHeading, StatusBadge } from "./components/ui";
 import { PublishPage } from "./pages/PublishPage";
+import { ProcessRulesPage } from "./pages/ProcessRulesPage";
 import "./styles.css";
 
-type Screen = "overview" | "stations" | "publish" | "knowledge";
+type Screen = "overview" | "stations" | "publish" | "policies" | "knowledge";
 
 export function App() {
   const [credentials, setCredentials] = useState<Credentials | null>(null);
@@ -121,6 +122,7 @@ function ControllerShell({ credentials, onLogout }: { credentials: Credentials; 
           <NavButton active={screen === "overview"} onClick={() => setScreen("overview")} icon={LayoutDashboard} label="Обзор" caption="Контроль системы" />
           <NavButton active={screen === "stations"} onClick={() => setScreen("stations")} icon={MonitorCog} label="Станции и агенты" caption="Heartbeat и enrollment" />
           <NavButton active={screen === "publish"} onClick={() => setScreen("publish")} icon={Rocket} label="Publish wizard" caption="Preflight и dispatch" />
+          <NavButton active={screen === "policies"} onClick={() => setScreen("policies")} icon={ShieldCheck} label="Политика процессов" caption="Что закрыть перед update" />
           <NavButton active={screen === "knowledge"} onClick={() => setScreen("knowledge")} icon={BookOpen} label="База знаний" caption="Инструкции оператора" />
         </nav>
         <div className="sidebar-footer">
@@ -129,10 +131,11 @@ function ControllerShell({ credentials, onLogout }: { credentials: Credentials; 
         </div>
       </aside>
       <main className="content">
-        <div className="topbar"><span className="topbar-context">OPERATOR CONSOLE <b>/</b> {screen === "overview" ? "OVERVIEW" : screen === "stations" ? "STATIONS" : screen === "publish" ? "PUBLISH" : "KNOWLEDGE"}</span><span className="operator-chip"><span className="avatar">A</span> admin <span className="online-dot" /></span></div>
+        <div className="topbar"><span className="topbar-context">OPERATOR CONSOLE <b>/</b> {screen === "overview" ? "OVERVIEW" : screen === "stations" ? "STATIONS" : screen === "publish" ? "PUBLISH" : screen === "policies" ? "POLICIES" : "KNOWLEDGE"}</span><span className="operator-chip"><span className="avatar">A</span> admin <span className="online-dot" /></span></div>
         {screen === "overview" && <OverviewPage api={api} onOpenStations={() => setScreen("stations")} onOpenPublish={() => setScreen("publish")} onOpenKnowledge={() => setScreen("knowledge")} />}
         {screen === "stations" && <StationsPage api={api} />}
         {screen === "publish" && <PublishPage api={api} />}
+        {screen === "policies" && <ProcessRulesPage api={api} />}
         {screen === "knowledge" && <KnowledgePage />}
       </main>
     </div>
@@ -195,7 +198,10 @@ function StationsPage({ api }: { api: ControllerApi }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StationStatus | "all">("all");
   const [deletingStationId, setDeletingStationId] = useState<string | null>(null);
-  const [form, setForm] = useState({ display_name: "", hostname: "", role: "client" as StationRole });
+  const [mappingStationId, setMappingStationId] = useState("");
+  const [mappingForm, setMappingForm] = useState({ target_name: "", target_iqn: "", initiator_iqn: "" });
+  const [mappingBusy, setMappingBusy] = useState(false);
+  const [form, setForm] = useState({ display_name: "", hostname: "", role: "client" as StationRole, target_name: "", target_iqn: "", initiator_iqn: "" });
 
   useEffect(() => { void loadStations(); }, []);
 
@@ -225,6 +231,35 @@ function StationsPage({ api }: { api: ControllerApi }) {
     }
   }
 
+  function selectMappingStation(stationId: string) {
+    const station = stations.find((item) => item.station_id === stationId);
+    setMappingStationId(stationId);
+    setMappingForm({
+      target_name: station?.target_name ?? "",
+      target_iqn: station?.target_iqn ?? "",
+      initiator_iqn: station?.initiator_iqn ?? "",
+    });
+  }
+
+  async function saveMapping(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!mappingStationId) return;
+    setMappingBusy(true);
+    setError(null);
+    try {
+      const updated = await api.updateStationStorageMapping(mappingStationId, {
+        target_name: mappingForm.target_name || null,
+        target_iqn: mappingForm.target_iqn || null,
+        initiator_iqn: mappingForm.initiator_iqn || null,
+      });
+      setStations((current) => current.map((item) => item.station_id === updated.station_id ? updated : item));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить TrueNAS mapping.");
+    } finally {
+      setMappingBusy(false);
+    }
+  }
+
   async function createStation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
@@ -235,7 +270,7 @@ function StationsPage({ api }: { api: ControllerApi }) {
       });
       setCreatedToken(result.enrollment_token);
       setCreatedAgentUuid(parsedReport?.agent.agent_uuid ?? null);
-      setForm({ display_name: "", hostname: "", role: "client" });
+      setForm({ display_name: "", hostname: "", role: "client", target_name: "", target_iqn: "", initiator_iqn: "" });
       setClientReport("");
       setParsedReport(null);
       await loadStations();
@@ -264,6 +299,9 @@ function StationsPage({ api }: { api: ControllerApi }) {
         display_name: report.station.display_name,
         hostname: report.station.hostname,
         role: report.station.role,
+        target_name: "",
+        target_iqn: "",
+        initiator_iqn: "",
       });
       setCreatedToken(null);
       setCreatedAgentUuid(null);
@@ -295,6 +333,16 @@ function StationsPage({ api }: { api: ControllerApi }) {
         </table>
       </div>
       <section className="form-card">
+        <div className="section-heading"><div><h2>TrueNAS mapping станции</h2><p className="muted">Укажите имя уже существующего target из TrueNAS. Worker найдёт его association и обновит только Device/File старого extent.</p></div></div>
+        <form className="station-form" onSubmit={saveMapping}>
+          <label>Станция<select value={mappingStationId} onChange={(event) => selectMappingStation(event.target.value)}><option value="">Выберите станцию</option>{stations.filter((station) => station.role === "client").map((station) => <option key={station.station_id} value={station.station_id}>{station.display_name} · {station.hostname}</option>)}</select></label>
+          <label>TrueNAS target name<input required value={mappingForm.target_name} onChange={(event) => setMappingForm({ ...mappingForm, target_name: event.target.value })} placeholder="например, PC1" /><HelpHint>Точное имя target в TrueNAS. Это не создаёт новый target или extent.</HelpHint></label>
+          <label>Target IQN <span className="muted">(необязательно)</span><input value={mappingForm.target_iqn} onChange={(event) => setMappingForm({ ...mappingForm, target_iqn: event.target.value })} /></label>
+          <label>Initiator IQN <span className="muted">(необязательно)</span><input value={mappingForm.initiator_iqn} onChange={(event) => setMappingForm({ ...mappingForm, initiator_iqn: event.target.value })} /></label>
+          <button className="primary-button" type="submit" disabled={!mappingStationId || mappingBusy}>{mappingBusy ? "Сохраняем…" : "Сохранить mapping"}</button>
+        </form>
+      </section>
+      <section className="form-card">
         <div className="section-heading"><div><h2>Быстрый onboarding клиента</h2><p className="muted">Выпустите одноразовый provisioning token: клиентский exe сам создаст station по UUID из station-report и зарегистрирует агент.</p></div></div>
         <HelpHint>Этот token не является Basic Auth и не даёт операторский доступ. Он действует ограниченное время, используется один раз и вводится на клиентском ПК видимым текстом.</HelpHint>
         <button className="primary-button" type="button" onClick={() => void createProvisioningToken()} disabled={provisioningBusy}><KeyRound aria-hidden size={16} /> {provisioningBusy ? "Создаём…" : "Создать provisioning token"}</button>
@@ -321,6 +369,9 @@ function StationsPage({ api }: { api: ControllerApi }) {
           <label>Отображаемое имя<input required value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} /><HelpHint>Имя, которое оператор увидит в таблицах и wizard.</HelpHint></label>
           <label>Hostname<input required value={form.hostname} onChange={(event) => setForm({ ...form, hostname: event.target.value })} /><HelpHint>Фактическое имя Windows-ПК; это не стабильная identity.</HelpHint></label>
           <label>Роль<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as StationRole })}><option value="client">client — игровой ПК</option><option value="admin">admin — админский ПК</option></select><HelpHint>Роль влияет на preflight policy, а не на права Basic Auth.</HelpHint></label>
+          <label>TrueNAS target name<input value={form.target_name} onChange={(event) => setForm({ ...form, target_name: event.target.value })} placeholder="например, PC1" /><HelpHint>Имя существующего TrueNAS target. Worker найдёт через него старый extent; новый extent не создаётся.</HelpHint></label>
+          <label>Target IQN <span className="muted">(необязательно)</span><input value={form.target_iqn} onChange={(event) => setForm({ ...form, target_iqn: event.target.value })} placeholder="iqn.20..." /></label>
+          <label>Initiator IQN <span className="muted">(необязательно)</span><input value={form.initiator_iqn} onChange={(event) => setForm({ ...form, initiator_iqn: event.target.value })} placeholder="iqn.20..." /></label>
           <button className="primary-button" type="submit">Создать station</button>
         </form>
         {createdToken && <div className="secret-warning"><strong>Token показан один раз.</strong><p>Передайте его на клиентский ПК по защищённому каналу и не сохраняйте в UI. Token: <code>{createdToken}</code></p>{createdAgentUuid && <p>Установка использует общий station/agent UUID: <code>{createdAgentUuid}</code>.</p>}<button className="secondary-button" onClick={() => { setCreatedToken(null); setCreatedAgentUuid(null); }}>Скрыть token</button></div>}

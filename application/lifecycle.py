@@ -102,6 +102,9 @@ class CreateStationUseCase:
         display_name: str,
         hostname: str,
         role: StationRole,
+        target_name: str | None = None,
+        target_iqn: str | None = None,
+        initiator_iqn: str | None = None,
         now: datetime | None = None,
     ) -> StationRegistration:
         created_at = ensure_utc(now or datetime.now(UTC))
@@ -112,6 +115,9 @@ class CreateStationUseCase:
             hostname=hostname,
             role=role,
             status=StationStatus.OFFLINE,
+            target_name=target_name,
+            target_iqn=target_iqn,
+            initiator_iqn=initiator_iqn,
         )
         raw_token = secrets.token_urlsafe(32)
         token_expires_at = created_at + ENROLLMENT_TOKEN_TTL

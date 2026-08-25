@@ -4,12 +4,26 @@ import type {
   PublishDispatchResponse,
   PublishJobReadModel,
   PublishJobDraft,
+  PublishHistoryItem,
   PublishPrepareResponse,
 } from "../../domain/publish";
 
 export interface Credentials {
   username: string;
   password: string;
+}
+
+export type ProcessRuleSeverity = "blocking" | "warning";
+export type ProcessRuleRole = StationRole | null;
+
+export interface ProcessRule {
+  id: string;
+  name: string;
+  role: ProcessRuleRole;
+  required_closed: boolean;
+  severity: ProcessRuleSeverity;
+  enabled: boolean;
+  persistent_policy: boolean;
 }
 
 export class ApiError extends Error {
@@ -38,6 +52,9 @@ export class ControllerApi {
     display_name: string;
     hostname: string;
     role: StationRole;
+    target_name?: string;
+    target_iqn?: string;
+    initiator_iqn?: string;
   }): Promise<Station & { enrollment_token: string; enrollment_expires_at: string }> {
     return this.request("/api/v1/stations", {
       method: "POST",
@@ -55,6 +72,16 @@ export class ControllerApi {
   async deleteStation(stationId: string): Promise<void> {
     await this.request<void>(`/api/v1/stations/${stationId}`, {
       method: "DELETE",
+    });
+  }
+
+  async updateStationStorageMapping(
+    stationId: string,
+    input: { target_name?: string | null; target_iqn?: string | null; initiator_iqn?: string | null },
+  ): Promise<Station> {
+    return this.request(`/api/v1/stations/${stationId}/storage-mapping`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
     });
   }
 
@@ -103,6 +130,25 @@ export class ControllerApi {
 
   async getPublishJob(jobId: string): Promise<PublishJobReadModel> {
     return this.request(`/api/v1/publish/jobs/${jobId}`);
+  }
+
+  async listPublishJobs(limit = 50): Promise<PublishHistoryItem[]> {
+    return this.request(`/api/v1/publish/jobs?limit=${limit}`);
+  }
+
+  async listProcessRules(): Promise<ProcessRule[]> {
+    return this.request("/api/v1/process-rules");
+  }
+
+  async createProcessRule(input: Omit<ProcessRule, "id">): Promise<ProcessRule> {
+    return this.request("/api/v1/process-rules", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteProcessRule(ruleId: string): Promise<void> {
+    await this.request<void>(`/api/v1/process-rules/${ruleId}`, { method: "DELETE" });
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {

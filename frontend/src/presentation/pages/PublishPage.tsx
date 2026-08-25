@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ControllerApi } from "../../application/api/client";
-import type { PreflightCheck, PreflightReport, PublishDispatchResponse, PublishGate, PublishJobDraft, PublishJobReadModel, PublishPrepareResponse, PublishTargetReadModel } from "../../domain/publish";
+import type { PreflightCheck, PreflightReport, PublishDispatchResponse, PublishGate, PublishHistoryItem, PublishJobDraft, PublishJobReadModel, PublishPrepareResponse, PublishTargetReadModel } from "../../domain/publish";
 import { publishStatusLabel } from "../../domain/publish";
 import { isStationSelectableForPublish, type Station } from "../../domain/station";
 import { HelpHint, InfoNote, SectionHeading, StatusBadge } from "../components/ui";
@@ -55,6 +55,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
   const [accepted, setAccepted] = useState<PublishDispatchResponse | null>(null);
   const [busy, setBusy] = useState<"loading" | "preparing" | "confirming" | "dispatching" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<PublishHistoryItem[]>([]);
 
   const onlineAdminStations = useMemo(
     () => stations.filter((station) => station.role === "admin" && station.status === "online"),
@@ -67,6 +68,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
 
   useEffect(() => {
     void loadStations();
+    void loadHistory();
   }, []);
 
   async function loadStations() {
@@ -85,6 +87,14 @@ export function PublishPage({ api }: { api: ControllerApi }) {
       setError(caught instanceof Error ? caught.message : "Не удалось загрузить станции.");
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      setHistory(await api.listPublishJobs());
+    } catch {
+      // History is informative; the publish wizard remains usable if it is unavailable.
     }
   }
 
@@ -149,6 +159,23 @@ export function PublishPage({ api }: { api: ControllerApi }) {
     }
   }
 
+  async function retryPreflight() {
+    if (!job) return;
+    setError(null);
+    setBusy("preparing");
+    try {
+      setPrepared(await api.preparePublishJob(job.id, {
+        admin_station_id: adminStationId || null,
+        confirmation: null,
+      }));
+      await loadStations();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось повторить preflight.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function dispatch() {
     if (!job || !prepared?.gate.can_advance) {
       return;
@@ -207,6 +234,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
           stations={stations}
           onBack={reset}
           onConfirm={confirmPreflight}
+          onRetry={retryPreflight}
           busy={busy}
         />
       )}
@@ -224,6 +252,7 @@ export function PublishPage({ api }: { api: ControllerApi }) {
       {step === 4 && accepted && (
         <JobProgressStep api={api} accepted={accepted} stations={stations} onReset={reset} />
       )}
+      <PublishHistory items={history} onRefresh={loadHistory} />
     </div>
   );
 }
@@ -330,12 +359,14 @@ function PreflightStep({
   stations,
   onBack,
   onConfirm,
+  onRetry,
   busy,
 }: {
   prepared: PublishPrepareResponse;
   stations: Station[];
   onBack: () => void;
   onConfirm: () => void;
+  onRetry: () => void;
   busy: "loading" | "preparing" | "confirming" | "dispatching" | null;
 }) {
   return (
@@ -346,9 +377,13 @@ function PreflightStep({
         {prepared.admin_report && <ReportCard title="Admin station" report={prepared.admin_report} stationName={findStationName(stations, prepared.admin_report.station_id)} />}
         {prepared.client_reports.map((report) => <ReportCard key={report.station_id} title="Client station" report={report} stationName={findStationName(stations, report.station_id)} />)}
       </div>
-      <div className="wizard-actions"><button className="ghost-button" type="button" onClick={onBack}><ArrowLeft aria-hidden size={15} /> Изменить draft</button><button className="primary-button" type="button" disabled={busy !== null || !canRequestConfirmation(prepared.gate)} onClick={onConfirm}><ShieldCheck aria-hidden size={16} /> {busy === "confirming" ? "Подтверждаем…" : "Подтвердить preflight"} <ArrowRight aria-hidden size={16} /></button></div>
+      <div className="wizard-actions"><button className="ghost-button" type="button" onClick={onBack}><ArrowLeft aria-hidden size={15} /> Изменить draft</button><div className="wizard-actions"><button className="secondary-button" type="button" disabled={busy !== null} onClick={onRetry}><RefreshCw aria-hidden size={15} /> {busy === "preparing" ? "Проверяем…" : "Повторить проверку"}</button><button className="primary-button" type="button" disabled={busy !== null || !canRequestConfirmation(prepared.gate)} onClick={onConfirm}><ShieldCheck aria-hidden size={16} /> {busy === "confirming" ? "Подтверждаем…" : "Подтвердить preflight"} <ArrowRight aria-hidden size={16} /></button></div></div>
     </section>
   );
+}
+
+function PublishHistory({ items, onRefresh }: { items: PublishHistoryItem[]; onRefresh: () => void }) {
+  return <section className="form-card publish-history"><SectionHeading eyebrow="UPDATE HISTORY" title="История обновлений" description="История берётся из durable publish_jobs. Dry-run помечен отдельно, TrueNAS mappings здесь не показываются." action={<button className="secondary-button" type="button" onClick={onRefresh}><RefreshCw aria-hidden size={15} /> Обновить историю</button>} />{items.length === 0 ? <p className="empty-cell">Заданий пока нет.</p> : <div className="table-card"><table><thead><tr><th>Время</th><th>Задание</th><th>Источник</th><th>Режим</th><th>Статус</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td>{item.created_at ? formatDate(item.created_at) : "—"}</td><td><strong>{item.label}</strong>{item.status_reason && <span className="table-subtitle">{item.status_reason}</span>}</td><td><code>{item.source_dataset}</code></td><td>{item.dry_run ? "DRY-RUN" : "APPLY"}</td><td><span className="role-chip">{publishStatusLabel[item.status]}</span></td></tr>)}</tbody></table></div>}</section>;
 }
 
 function ConfirmationStep({

@@ -238,6 +238,9 @@ def test_stations_route_uses_application_query(monkeypatch) -> None:
             "status": "online",
             "enabled": True,
             "deleted_at": None,
+            "target_name": None,
+            "target_iqn": None,
+            "initiator_iqn": None,
         }
     ]
     assert query.requested_include_disabled is True

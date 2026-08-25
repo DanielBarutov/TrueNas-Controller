@@ -16,14 +16,12 @@
 ## Текущая стадия
 
 - **Стадия:** 2 — каркас и read-only backend.
-- **Активный план:** [34 — runtime worker и граница TrueNAS secret](/home/daniel/tnas/plans/34-worker-runtime/01-compose-worker-and-secret-boundary.md).
-- **Текущая задача:** замкнуть `dispatch → outbox → Dramatiq → executor`, чтобы
-  accepted job не оставалась на `0%`, и не выдавать fake executor за реальный
-  TrueNAS apply.
-- **Следующий разрешённый шаг:** обновить checkout на админском ПК,
-  пересобрать Compose и проверить логи `worker`; затем отдельно продолжить
-  TrueNAS read-only/write gate. Реальные TrueNAS write, mapping switch и
-  cleanup пока не включать.
+- **Активный план:** [36 — TrueNAS write adapter](/home/daniel/tnas/plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md).
+- **Текущая задача:** локальный adapter/worker contract завершён и проверен
+  fake read-back; для каждого ПК обновляется `device/file` существующего extent.
+- **Следующий разрешённый шаг:** выполнить read-only LAN smoke с реальным
+  TrueNAS, затем отдельно согласовать apply на одной выделенной станции.
+  Cleanup и удаление storage-объектов по-прежнему не включать.
 - **Запрещено сейчас:** подключение к реальному NAS, реальные mapping switch и любые `destroy/delete` storage-объектов.
 
 ## Статус планов
@@ -66,6 +64,8 @@
 | [32 — Удаление station и агента](plans/32-station-removal/01-station-removal-and-agent-revocation.md) | `closed` | DELETE Basic Auth route, soft-delete, удаление agent/commands, отзыв token, сохранение истории и повторная регистрация по UUID реализованы и проверены | обновлять только при изменении политики удаления |
 | [33 — Automatic onboarding и полный-disk clone](plans/33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | `in_progress` | provisioning API/UI, native bootstrap contract, optional admin preflight и `source_dataset` contract добавлены; native publish/Compose smoke ещё впереди | собрать exe, применить migration и проверить client flow |
 | [34 — Runtime worker и TrueNAS secret](plans/34-worker-runtime/01-compose-worker-and-secret-boundary.md) | `in_progress` | Compose worker, outbox polling, Dramatiq consumer и fake executor mode добавлены; пользовательский runtime ещё не проверен | pull, rebuild и проверить accepted job по worker logs |
+| [35 — История и process policy](plans/35-update-history-and-process-policy/01-history-process-policy.md) | `closed` | история publish, CRUD process rules, экран политики и retry preflight реализованы; `196 passed, 1 skipped`, frontend tests/build и Ruff пройдены | пользовательский Compose/UI smoke |
+| [36 — TrueNAS write adapter](plans/36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | `in_progress` | snapshot → clone → update `device/file` старого extent → association/LUN read-back, station mapping, Dramatiq executor и fake acceptance добавлены; backend `203 passed, 1 skipped`, frontend `8 passed`, build/Ruff пройдены | read-only LAN smoke, затем отдельный one-station apply gate |
 
 ## Чекап решений
 
@@ -230,8 +230,9 @@
 - [x] Redis broker execution и настоящий TrueNAS не запускались.
 - [x] Найдена и исправлена причина accepted job на `0%`: в Compose отсутствовал
   runtime worker/relay; добавлен отдельный `worker` service.
-- [x] `TRUENAS_API_KEY` не добавлен в текущий Compose profile намеренно: fake
-  executor его не использует, а write-capable adapter ещё не прошёл apply gate.
+- [x] `TRUENAS_API_KEY` добавлен в Compose worker environment как внешний secret;
+  fake executor его не использует, а write-capable adapter включается только
+  отдельным `TRUENAS_APPLY_ENABLED=true` gate.
 - [ ] Compose worker реально запущен на пользовательском админском ПК и
   обработал новую publish job.
 - [ ] Повторно проверить worker после исправления asyncpg event-loop и
@@ -240,6 +241,12 @@
 - [ ] Обновлённый native exe опубликован и проверен на Windows-клиенте с автоматическим созданием station.
 - [ ] Alembic migrations `7f5d0f1c9b42`/`8a9c2d7e4f11` применены в пользовательском Compose runtime.
 - [ ] Реальный TrueNAS snapshot/clone apply не выполнялся; нужен отдельный согласованный write gate.
+- [ ] История publish и web process policy реализуются по плану 35.
+- [x] История publish и web process policy реализованы по плану 35.
+- [x] TrueNAS adapter обновляет `device/file` старого extent, не создаёт новый extent.
+- [x] Worker wiring, fake read-back и station target mapping реализованы.
+- [x] Локальный полный чек-ап: backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены.
+- [ ] Реальный read-back/apply на NAS не выполнялся; нужен отдельный one-station gate.
 
 ## Принятое решение по версии игры
 
@@ -315,3 +322,9 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Исправлен worker event-loop/runtime middleware | `asyncio.run` с общим asyncpg pool давал `Future attached to a different loop`; embedded Worker также не инициализировал Prometheus через CLI hook |
 | 2026-08-25 | Исправлен порядок Dramatiq actor/consumer | actor объявлялся до embedded `Worker.start()`, поэтому outbox dispatch проходил, но consumer очереди не создавался |
 | 2026-08-25 | Исправлен terminal state для dry-run | симулированный target доходил до 100%, но job оставалась `publishing`; теперь сохраняется `completed` с причиной `dry_run_simulation` |
+| 2026-08-25 | Добавлены планы 35–36 | после симуляции начаты история/process gate и controlled TrueNAS adapter |
+| 2026-08-25 | Уточнён TrueNAS extent workflow | по фактической схеме пользователя association сохраняется, а старый extent получает новый `device/file` через `iscsi.extent.update` |
+| 2026-08-25 | Завершён план 35 | добавлены update history, CRUD process policy, экран политики и retry preflight; `196 passed, 1 skipped` |
+| 2026-08-25 | Продолжен план 36 | добавлен fail-closed write adapter для snapshot/clone и обновления старого extent без targetextent switch |
+| 2026-08-25 | Подключён план 36 к worker | добавлены TrueNAS workflow, station target mapping, fake read-back и режим `PUBLISH_EXECUTOR_MODE=truenas`; реальный NAS не запускался |
+| 2026-08-25 | Завершён локальный чек-ап плана 36 | backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены; следующий шаг — read-only LAN smoke |

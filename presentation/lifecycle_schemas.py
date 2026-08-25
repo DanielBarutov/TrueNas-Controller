@@ -15,6 +15,15 @@ class StationCreateRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     hostname: str = Field(min_length=1, max_length=255)
     role: StationRole = StationRole.CLIENT
+    target_name: str | None = Field(default=None, min_length=1, max_length=255)
+    target_iqn: str | None = Field(default=None, min_length=1, max_length=255)
+    initiator_iqn: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class StationStorageMappingRequest(BaseModel):
+    target_name: str | None = Field(default=None, min_length=1, max_length=255)
+    target_iqn: str | None = Field(default=None, min_length=1, max_length=255)
+    initiator_iqn: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class StationRegistrationResponse(StationResponse):

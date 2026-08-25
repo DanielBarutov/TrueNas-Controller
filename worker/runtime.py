@@ -3,8 +3,8 @@
 The API only commits a publish job and an outbox event. This module is the
 runtime that turns that durable event into a Dramatiq message and then runs
 the currently supported deterministic fake executor for dry-run/local mode.
-The TrueNAS write adapter is intentionally not selected here until its apply
-gate is implemented.
+The TrueNAS write adapter is selected only by the explicit ``truenas`` mode and
+its separate ``TRUENAS_APPLY_ENABLED`` gate.
 """
 
 from __future__ import annotations
@@ -23,10 +23,16 @@ from dramatiq.middleware.prometheus import Prometheus
 from dramatiq.worker import Worker
 from sqlalchemy.pool import NullPool
 
-from application.publish_executor import FakePublishTaskExecutor
+from application.publish_executor import FakePublishTaskExecutor, TrueNASPublishTaskExecutor
 from repository.database import create_engine, create_session_factory
 from repository.uow import SqlAlchemyUnitOfWorkFactory
 from truenas_adapter.mock_client import FakePublishStorageAdapter
+from truenas_adapter.runtime import (
+    TrueNASRuntimeConfig,
+    TrueNASRuntimeConfigError,
+    build_read_only_client,
+    build_write_client,
+)
 from worker.composition import PublishTaskApplicationHandler
 from worker.outbox_relay import PublishOutboxRelay
 from worker.tasks import DramatiqPublishTaskQueue, build_publish_actor
@@ -80,10 +86,17 @@ class WorkerRuntimeConfig:
             "DRAMATIQ_WORKER_THREADS",
         )
         executor_mode = source.get("PUBLISH_EXECUTOR_MODE", "fake").strip().lower()
-        if executor_mode != "fake":
-            raise WorkerRuntimeConfigError(
-                "PUBLISH_EXECUTOR_MODE must be 'fake' until the TrueNAS apply adapter is enabled"
-            )
+        if executor_mode not in {"fake", "truenas"}:
+            raise WorkerRuntimeConfigError("PUBLISH_EXECUTOR_MODE must be 'fake' or 'truenas'")
+        if executor_mode == "truenas":
+            try:
+                truenas_config = TrueNASRuntimeConfig.from_env(source)
+            except TrueNASRuntimeConfigError as exc:
+                raise WorkerRuntimeConfigError(f"invalid TrueNAS worker config: {exc}") from exc
+            if not truenas_config.apply_enabled:
+                raise WorkerRuntimeConfigError(
+                    "TRUENAS_APPLY_ENABLED=true is required for PUBLISH_EXECUTOR_MODE=truenas"
+                )
         return cls(
             database_url=database_url,
             redis_url=redis_url,
@@ -101,6 +114,9 @@ class PublishWorkerRuntime:
         self._config = config
         engine = create_engine(config.database_url, poolclass=NullPool)
         self._uow_factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
+        self._truenas_config = (
+            TrueNASRuntimeConfig.from_env() if config.executor_mode == "truenas" else None
+        )
 
         broker = _configure_broker(config.redis_url)
         self._worker = Worker(broker, worker_threads=config.worker_threads)
@@ -108,13 +124,23 @@ class PublishWorkerRuntime:
         self._relay: PublishOutboxRelay | None = None
 
     def _handler_factory(self) -> PublishTaskApplicationHandler:
-        return PublishTaskApplicationHandler(
-            self._uow_factory,
-            lambda: FakePublishTaskExecutor(
-                self._uow_factory,
-                FakePublishStorageAdapter,
-            ),
-        )
+        if self._config.executor_mode == "fake":
+
+            def executor_factory() -> FakePublishTaskExecutor:
+                return FakePublishTaskExecutor(self._uow_factory, FakePublishStorageAdapter)
+        else:
+            if self._truenas_config is None:
+                raise WorkerRuntimeConfigError("TrueNAS runtime config is not initialized")
+            config = self._truenas_config
+
+            def executor_factory() -> TrueNASPublishTaskExecutor:
+                return TrueNASPublishTaskExecutor(
+                    self._uow_factory,
+                    lambda: build_read_only_client(config),
+                    lambda: build_write_client(config),
+                )
+
+        return PublishTaskApplicationHandler(self._uow_factory, executor_factory)
 
     async def run(self) -> None:
         """Start Dramatiq and keep polling the durable outbox until shutdown."""

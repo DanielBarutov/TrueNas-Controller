@@ -49,6 +49,29 @@ async def test_station_repository_round_trip(uow_factory: SqlAlchemyUnitOfWorkFa
         assert await uow.stations.get(station.station_id) == station
 
 
+async def test_station_repository_updates_truenas_mapping(
+    uow_factory: SqlAlchemyUnitOfWorkFactory,
+) -> None:
+    station = make_station()
+    async with uow_factory() as uow:
+        await uow.stations.add(station)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        updated = await uow.stations.update_storage_mapping(
+            station.station_id,
+            target_name="PC1",
+            target_iqn="iqn.target.pc1",
+            initiator_iqn="iqn.initiator.pc1",
+        )
+        await uow.commit()
+
+    assert updated is not None
+    assert updated.target_name == "PC1"
+    assert updated.target_iqn == "iqn.target.pc1"
+    assert updated.initiator_iqn == "iqn.initiator.pc1"
+
+
 async def test_list_excludes_disabled_by_default(
     uow_factory: SqlAlchemyUnitOfWorkFactory,
 ) -> None:

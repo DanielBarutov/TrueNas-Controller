@@ -31,11 +31,18 @@ dotnet publish .\windows-agent\src\TrueNasController.Agent\TrueNasController.Age
 Для клиента передаётся файл:
 `windows-agent\artifacts\win-x64\TrueNasControllerAgent.exe`.
 
+Для текущего Windows-теста уже подготовлен self-contained `win-x64` файл
+[`TrueNasControllerAgent.exe`](../TrueNasControllerAgent.exe) в корне
+репозитория. После `git pull` его можно сразу копировать на клиентский ПК;
+локальная сборка через .NET SDK для этого теста не требуется.
+
 ## Установка клиента
 
 Скопируйте exe в `C:\Install`, затем из elevated PowerShell:
 
 ```powershell
+New-Item -ItemType Directory -Force -Path C:\Install | Out-Null
+# Выполнить в каталоге, куда скопирован TrueNasControllerAgent.exe:
 Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```

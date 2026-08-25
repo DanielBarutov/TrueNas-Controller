@@ -8,7 +8,9 @@
 
 ## Рекомендуемый native .NET сценарий
 
-Скопируйте опубликованный `TrueNasControllerAgent.exe` и report в `C:\Install`.
+После `git pull` возьмите подготовленный
+[`TrueNasControllerAgent.exe`](../TrueNasControllerAgent.exe) из корня проекта и
+скопируйте его вместе с report в `C:\Install`.
 Команды выполняйте последовательно из папки, где действительно находятся эти
 файлы:
 

@@ -12,11 +12,17 @@ Controller UI работает как операторский control plane, а
 Публикуется весь исходный dataset, например `games/master-games`.
 Последовательность должна быть такой:
 
+Перед первым apply в разделе «Станции и агенты» заполните для каждого клиента
+точное имя существующего TrueNAS target. Это server-side mapping; агенту и
+клиентскому exe API key TrueNAS не передаётся.
+
 1. проверить исходный dataset и отсутствие конфликтующего target;
 2. в `dry_run` только показать план;
 3. создать snapshot исходного dataset;
 4. создать clone snapshot в новый dataset для клиента;
-5. проверить target/extent/mapping и heartbeat клиента.
+5. найти существующий extent выбранного ПК и заменить его `Device/File` на
+   `/dev/zvol/<новый clone>` без создания нового extent и без смены target/LUN;
+6. проверить read-back extent/mapping и heartbeat клиента.
 
 Публикация не делит dataset на отдельные игры и не проверяет
 `game_version_marker`. Факт готовности образа подтверждает оператор.

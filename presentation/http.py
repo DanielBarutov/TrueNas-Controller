@@ -30,6 +30,11 @@ from application.lifecycle import (
 )
 from application.ports import StationListQuery
 from application.preflight import EvaluateStationPreflightUseCase, StationNotFoundError
+from application.process_rules import (
+    CreateProcessRuleUseCase,
+    DeleteProcessRuleUseCase,
+    ListProcessRulesUseCase,
+)
 from application.publish_commands import (
     CreatePublishJobUseCase,
     PublishDraftValidationError,
@@ -41,7 +46,11 @@ from application.publish_confirmation import (
     PublishConfirmationStateError,
 )
 from application.publish_dispatch import DispatchPublishJobUseCase, PublishDispatchStateError
-from application.publish_queries import GetPublishJobUseCase
+from application.publish_queries import GetPublishJobUseCase, ListPublishJobsUseCase
+from application.stations import (
+    StationNotFoundError as StationMappingNotFoundError,
+    UpdateStationStorageMappingUseCase,
+)
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
 from presentation.lifecycle_schemas import (
@@ -56,10 +65,13 @@ from presentation.lifecycle_schemas import (
     ProvisioningTokenResponse,
     StationCreateRequest,
     StationRegistrationResponse,
+    StationStorageMappingRequest,
 )
 from presentation.preflight_schemas import CheckResponse, PreflightRequest, PreflightResponse
+from presentation.process_rule_schemas import ProcessRuleCreateRequest, ProcessRuleResponse
 from presentation.publish_schemas import (
     PublishDispatchResponse,
+    PublishHistoryItemResponse,
     PublishJobCreateRequest,
     PublishJobDraftResponse,
     PublishJobResponse,
@@ -84,6 +96,11 @@ def create_app(
     dispatch_publish_job: DispatchPublishJobUseCase | None = None,
     issue_agent_command: IssueAgentCommandUseCase | None = None,
     acknowledge_agent_command: AcknowledgeAgentCommandUseCase | None = None,
+    list_process_rules: ListProcessRulesUseCase | None = None,
+    create_process_rule: CreateProcessRuleUseCase | None = None,
+    delete_process_rule: DeleteProcessRuleUseCase | None = None,
+    list_publish_jobs: ListPublishJobsUseCase | None = None,
+    update_station_storage_mapping: UpdateStationStorageMappingUseCase | None = None,
 ) -> FastAPI:
     """Create the HTTP application from application-layer dependencies."""
 
@@ -118,6 +135,9 @@ def create_app(
                     display_name=payload.display_name,
                     hostname=payload.hostname,
                     role=payload.role,
+                    target_name=payload.target_name,
+                    target_iqn=payload.target_iqn,
+                    initiator_iqn=payload.initiator_iqn,
                 )
             except StationRegistrationConflictError as error:
                 raise HTTPException(
@@ -145,6 +165,31 @@ def create_app(
                 provisioning_token=result.token,
                 expires_at=result.expires_at,
             )
+
+    if update_station_storage_mapping is not None:
+
+        @app.patch(
+            "/api/v1/stations/{station_id}/storage-mapping",
+            response_model=StationResponse,
+        )
+        async def update_storage_mapping(
+            station_id: UUID,
+            payload: StationStorageMappingRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> StationResponse:
+            try:
+                station = await update_station_storage_mapping.execute(
+                    station_id=station_id,
+                    target_name=payload.target_name,
+                    target_iqn=payload.target_iqn,
+                    initiator_iqn=payload.initiator_iqn,
+                )
+            except StationMappingNotFoundError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(error),
+                ) from error
+            return StationResponse.from_domain(station)
 
     if delete_station is not None:
 
@@ -383,6 +428,42 @@ def create_app(
                 ],
             )
 
+    if list_process_rules is not None:
+
+        @app.get("/api/v1/process-rules", response_model=list[ProcessRuleResponse])
+        async def list_process_rules_route(
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> list[ProcessRuleResponse]:
+            rules = await list_process_rules.execute()
+            return [ProcessRuleResponse.from_domain(rule) for rule in rules]
+
+    if create_process_rule is not None:
+
+        @app.post(
+            "/api/v1/process-rules",
+            response_model=ProcessRuleResponse,
+            status_code=status.HTTP_201_CREATED,
+        )
+        async def create_process_rule_route(
+            payload: ProcessRuleCreateRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> ProcessRuleResponse:
+            rule = await create_process_rule.execute(**payload.model_dump())
+            return ProcessRuleResponse.from_domain(rule)
+
+    if delete_process_rule is not None:
+
+        @app.delete("/api/v1/process-rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+        async def delete_process_rule_route(
+            rule_id: UUID,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> None:
+            if not await delete_process_rule.execute(rule_id=rule_id):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="process rule not found",
+                )
+
     if create_publish_job is not None:
 
         @app.post(
@@ -435,6 +516,16 @@ def create_app(
                     detail=str(error),
                 ) from error
             return PublishJobResponse.from_view(view)
+
+    if list_publish_jobs is not None:
+
+        @app.get("/api/v1/publish/jobs", response_model=list[PublishHistoryItemResponse])
+        async def list_publish_jobs_route(
+            limit: int = Query(default=50, ge=1, le=100),
+            _: Annotated[str, Depends(require_basic_auth)] = "",
+        ) -> list[PublishHistoryItemResponse]:
+            jobs = await list_publish_jobs.execute(limit=limit)
+            return [PublishHistoryItemResponse.from_domain(job) for job in jobs]
 
     if prepare_publish_job is not None:
 

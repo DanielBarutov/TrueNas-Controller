@@ -34,12 +34,22 @@ class Station:
     status: StationStatus = StationStatus.OFFLINE
     enabled: bool = True
     deleted_at: datetime | None = None
+    target_name: str | None = None
+    target_iqn: str | None = None
+    initiator_iqn: str | None = None
 
     def __post_init__(self) -> None:
         if not self.display_name.strip():
             raise ValueError("display_name must not be blank")
         if not self.hostname.strip():
             raise ValueError("hostname must not be blank")
+        for field_name, value in (
+            ("target_name", self.target_name),
+            ("target_iqn", self.target_iqn),
+            ("initiator_iqn", self.initiator_iqn),
+        ):
+            if value is not None and not value.strip():
+                raise ValueError(f"{field_name} must not be blank when provided")
         if self.deleted_at is not None and self.enabled:
             raise ValueError("deleted station must be disabled")
         if not self.enabled and self.status is not StationStatus.DISABLED:

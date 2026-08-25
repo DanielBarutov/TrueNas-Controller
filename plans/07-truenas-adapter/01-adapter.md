@@ -4,7 +4,7 @@
 
 Изолировать versioned JSON-RPC 2.0 over WebSocket API TrueNAS и сначала доказать workflow на deterministic fake.
 
-Проверенная документальная база: API v25.10.5, JSON-RPC transport, `core.ping`, `pool.dataset.query`, `pool.snapshot.query`, `pool.snapshot.create`, `pool.snapshot.clone`, `iscsi.target.query`, `iscsi.extent.query`, `iscsi.targetextent.query` и кандидат `iscsi.targetextent.update`. Полный список ссылок и границы документальной проверки находятся в [`docs/ONLINE_DOCS.md`](../../docs/ONLINE_DOCS.md).
+Проверенная документальная база: API v25.10.5, JSON-RPC transport, `core.ping`, `pool.dataset.query`, `pool.snapshot.query`, `pool.snapshot.create`, `pool.snapshot.clone`, `iscsi.target.query`, `iscsi.extent.query`, `iscsi.targetextent.query` и `iscsi.extent.update`. Полный список ссылок и границы документальной проверки находятся в [`docs/ONLINE_DOCS.md`](../../docs/ONLINE_DOCS.md).
 
 ## Обязательный порядок
 
@@ -27,7 +27,9 @@ Transport: connection lifecycle, authentication, request ID, timeout, reconnect,
 
 `TRUENAS_VERSION` → method names/params/normalizers. Версия не должна быть свободной строкой из browser. Unknown version — fail closed для write operations.
 
-Для v25.10 метод `iscsi.targetextent.update` считается только документально подтверждённым кандидатом на switch. До runtime apply он должен пройти mock, read-back и отдельный тест одной станции.
+Для v25.10 `iscsi.extent.update` используется только для замены `device/file`
+существующего extent. `iscsi.targetextent.update` в workflow не используется:
+association target → extent и LUN сохраняются.
 
 ### Typed adapter port
 
@@ -37,7 +39,7 @@ Transport: connection lifecycle, authentication, request ID, timeout, reconnect,
 - read target/extent/association;
 - create snapshot;
 - create writable clone;
-- switch mapping — отдельный capability, за feature gate;
+- update device/file существующего extent — отдельный capability, за feature gate;
 - read-back mapping;
 - cleanup — не включать в обычный adapter surface до отдельного плана.
 

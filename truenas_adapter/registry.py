@@ -1,4 +1,4 @@
-"""Versioned allow-list of read-only TrueNAS API methods."""
+"""Versioned allow-list of read and explicitly enabled TrueNAS API methods."""
 
 from types import MappingProxyType
 from typing import ClassVar
@@ -27,13 +27,23 @@ class TrueNASMethodRegistry:
         }
     }
 
-    def __init__(self, version: str) -> None:
+    def __init__(self, version: str, *, allow_writes: bool = False) -> None:
         normalized = version.strip()
         family = ".".join(normalized.split(".")[:2])
         if family not in self._METHODS_BY_VERSION:
             raise UnsupportedTrueNASVersion(f"unsupported TrueNAS API version: {version}")
         self.version = normalized
-        self._methods = MappingProxyType(self._METHODS_BY_VERSION[family])
+        methods = dict(self._METHODS_BY_VERSION[family])
+        if allow_writes:
+            methods.update(
+                {
+                    "create_snapshot": "pool.snapshot.create",
+                    "clone_snapshot": "pool.snapshot.clone",
+                    "update_extent_device": "iscsi.extent.update",
+                }
+            )
+        self._methods = MappingProxyType(methods)
+        self.allow_writes = allow_writes
 
     @property
     def methods(self) -> MappingProxyType[str, str]:
@@ -42,7 +52,7 @@ class TrueNASMethodRegistry:
         return self._methods
 
     def resolve(self, operation: str) -> str:
-        """Resolve only a known read-only operation."""
+        """Resolve only an operation enabled for this registry instance."""
 
         try:
             return self._methods[operation]

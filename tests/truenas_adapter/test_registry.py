@@ -28,3 +28,13 @@ def test_registry_rejects_unsupported_version_and_write_operation() -> None:
     registry = TrueNASMethodRegistry("25.10")
     with pytest.raises(UnsupportedTrueNASOperation):
         registry.resolve("pool.snapshot.create")
+
+
+def test_write_enabled_registry_resolves_only_approved_storage_writes() -> None:
+    registry = TrueNASMethodRegistry("25.10.5", allow_writes=True)
+
+    assert registry.resolve("create_snapshot") == "pool.snapshot.create"
+    assert registry.resolve("clone_snapshot") == "pool.snapshot.clone"
+    assert registry.resolve("update_extent_device") == "iscsi.extent.update"
+    with pytest.raises(UnsupportedTrueNASOperation):
+        registry.resolve("iscsi.extent.delete")

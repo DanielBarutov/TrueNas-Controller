@@ -73,6 +73,20 @@ class PublishJob:
 
 
 @dataclass(frozen=True, slots=True)
+class PublishJobHistory:
+    """Read-only historical summary kept separate from workflow equality."""
+
+    id: UUID
+    label: str
+    source_dataset: str
+    status: PublishJobStatus
+    status_reason: str | None
+    dry_run: bool
+    created_at: datetime
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class PublishTarget:
     """Materialized station selection and per-target publish state."""
 

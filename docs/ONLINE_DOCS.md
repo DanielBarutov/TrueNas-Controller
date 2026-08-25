@@ -12,9 +12,11 @@
   безаутентификационный HTTP GET: ответ перенаправил на `/api/docs/current/` и
   содержит `TrueNAS API v25.10.5 (current)`. Сам адрес endpoint в репозитории
   не сохраняется.
-- WebSocket, API key, Redis и любые runtime/write-вызовы не выполнялись.
-- Текущий Compose worker не использует TrueNAS API key: его executor всё ещё
-  fake. Добавление `TRUENAS_API_KEY` в `.env` сейчас не включит clone или switch.
+- WebSocket, API key, Redis и любые runtime/write-вызовы на пользовательском NAS
+  не выполнялись.
+- Default Compose worker использует fake executor. Режим `truenas` теперь
+  существует, но требует отдельного `TRUENAS_APPLY_ENABLED=true` и не включается
+  наличием одного только API key.
 
 ## Базовые документы
 
@@ -50,20 +52,22 @@
 | `iscsi.extent.query` | чтение iSCSI extents и backing device | `docs-verified` — [документ](https://api.truenas.com/v25.10/api_methods_iscsi.extent.query.html) |
 | `iscsi.targetextent.query` | чтение associations target → extent → LUN | `docs-verified` — [документ](https://api.truenas.com/v25.10/api_methods_iscsi.targetextent.query.html) |
 
-### Storage staging
+### Storage staging and existing extent update
 
 | Метод | Назначение | Статус |
 |---|---|---|
 | `pool.snapshot.create` | создать snapshot исходного dataset, например `games/master-games` | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.create.html) |
 | `pool.snapshot.clone` | создать clone полного диска в новый dataset/zvol | `docs-verified`; применять только через mock и отдельный apply gate — [документ](https://api.truenas.com/v25.10/api_methods_pool.snapshot.clone.html) |
+| `iscsi.extent.update` | обновить `device/file` существующего extent, сохранив его имя, target association и LUN | `docs-verified`; fake workflow и read-back пройдены, live apply одной станции остаётся отдельным gate — [документ](https://api.truenas.com/v25.10/api_methods_iscsi.extent.update.html) |
 
-### Кандидат на mapping switch
-
-| Метод | Назначение | Статус |
-|---|---|---|
-| `iscsi.targetextent.update` | обновить association по ID, включая target/extent/LUN | `docs-verified`, но **не разрешён к runtime apply** до mock-тестов, read-back и теста одной выделенной станции — [документ](https://api.truenas.com/v25.10/api_methods_iscsi.targetextent.update.html) |
-
-Документация указывает для этого метода роль `SHARING_ISCSI_TARGETEXTENT_WRITE`. Наличие метода не доказывает, что горячее переключение безопасно для Windows/iSCSI, поэтому `allow_hot_switch=false` остаётся политикой по умолчанию.
+В текущей схеме пользователя новый extent создавать не нужно. Для каждого ПК
+сохраняется существующий extent, а его поле `Device/File` переводится на
+`/dev/zvol/<новый clone>` через `iscsi.extent.update`. `iscsi.targetextent.update`
+не входит в разрешённый adapter workflow: association target → extent и LUN
+остаются прежними. Документация указывает для update роль
+`SHARING_ISCSI_EXTENT_WRITE`. Наличие метода не доказывает, что горячая замена
+безопасна для Windows/iSCSI, поэтому `allow_hot_switch=false` остаётся политикой
+по умолчанию.
 
 ## Что пока не считается проверенным
 
@@ -78,4 +82,5 @@
 Перед read-only smoke check: закрыть временный внешний доступ к docs либо
 ограничить его trusted network, подготовить API key только во внешней
 runtime-конфигурации и отдельно согласовать `core.ping`/query-вызовы. Write
-методы и mapping switch остаются запрещены.
+методы и live update существующего extent остаются запрещены до отдельного
+one-station gate.

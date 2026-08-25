@@ -1,4 +1,4 @@
-"""Opt-in TrueNAS runtime wiring for read-only WebSocket smoke checks."""
+"""Opt-in TrueNAS runtime wiring with a fail-closed write boundary."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -15,6 +15,7 @@ from truenas_adapter.transport import (
     JsonRpcWebSocketTransport,
     WebSocketConnection,
 )
+from truenas_adapter.write import TrueNASWriteAdapter
 
 
 class TrueNASRuntimeConfigError(ValueError):
@@ -35,6 +36,7 @@ class TrueNASRuntimeConfig:
     timeout_seconds: float = 10.0
     reconnect_attempts: int = 1
     open_timeout_seconds: float = 10.0
+    apply_enabled: bool = False
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "TrueNASRuntimeConfig":
@@ -47,10 +49,14 @@ class TrueNASRuntimeConfig:
         _validate_websocket_url(websocket_url)
         if not api_key:
             raise TrueNASRuntimeConfigError("TRUENAS_API_KEY is required")
+        apply_enabled = source.get("TRUENAS_APPLY_ENABLED", "false").strip().lower()
+        if apply_enabled not in {"true", "false"}:
+            raise TrueNASRuntimeConfigError("TRUENAS_APPLY_ENABLED must be true or false")
         return cls(
             websocket_url=websocket_url,
             api_key=api_key,
             api_version=api_version,
+            apply_enabled=apply_enabled == "true",
         )
 
 
@@ -118,6 +124,42 @@ def build_read_only_client(config: TrueNASRuntimeConfig) -> TrueNASReadOnlyAdapt
         authentication_method=registry.resolve("authenticate"),
     )
     return TrueNASReadOnlyAdapter(authenticated_transport, registry)
+
+
+def build_write_client(config: TrueNASRuntimeConfig) -> TrueNASWriteAdapter:
+    """Build the write adapter only after an explicit runtime apply gate."""
+
+    if not config.apply_enabled:
+        raise TrueNASRuntimeConfigError(
+            "TrueNAS write adapter is disabled; set TRUENAS_APPLY_ENABLED=true explicitly"
+        )
+    registry = TrueNASMethodRegistry(config.api_version, allow_writes=True)
+    raw_transport = _build_transport(config)
+    authenticated_transport = ApiKeyJsonRpcTransport(
+        raw_transport,
+        api_key=config.api_key,
+        authentication_method=registry.resolve("authenticate"),
+    )
+    return TrueNASWriteAdapter(authenticated_transport, registry)
+
+
+def _build_transport(config: TrueNASRuntimeConfig) -> JsonRpcWebSocketTransport:
+    async def connection_factory() -> WebSocketConnection:
+        try:
+            connection = await connect(
+                config.websocket_url,
+                open_timeout=config.open_timeout_seconds,
+                proxy=None,
+            )
+        except WebSocketException as exc:
+            raise ConnectionError("TrueNAS WebSocket connection failed") from exc
+        return _WebsocketsConnection(connection)
+
+    return JsonRpcWebSocketTransport(
+        connection_factory,
+        timeout_seconds=config.timeout_seconds,
+        reconnect_attempts=config.reconnect_attempts,
+    )
 
 
 def _validate_websocket_url(websocket_url: str) -> None:

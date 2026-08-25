@@ -8,7 +8,7 @@ from application.publish_commands import PublishJobDraft
 from application.publish_confirmation import PublishPreflightResult
 from application.publish_queries import PublishJobView
 from domain.preflight import PreflightReport
-from domain.publish import PublishJobStatus
+from domain.publish import PublishJobHistory, PublishJobStatus
 from presentation.preflight_schemas import CheckResponse, PreflightResponse
 
 
@@ -179,4 +179,30 @@ class PublishJobResponse(BaseModel):
                 )
                 for target in view.targets
             ],
+        )
+
+
+class PublishHistoryItemResponse(BaseModel):
+    """Safe historical summary; storage mappings are intentionally omitted."""
+
+    id: UUID
+    label: str
+    source_dataset: str
+    status: PublishJobStatus
+    status_reason: str | None
+    dry_run: bool
+    created_at: str | None
+    completed_at: str | None
+
+    @classmethod
+    def from_domain(cls, job: PublishJobHistory) -> "PublishHistoryItemResponse":
+        return cls(
+            id=job.id,
+            label=job.label,
+            source_dataset=job.source_dataset,
+            status=job.status,
+            status_reason=job.status_reason,
+            dry_run=job.dry_run,
+            created_at=job.created_at.isoformat() if job.created_at else None,
+            completed_at=job.completed_at.isoformat() if job.completed_at else None,
         )

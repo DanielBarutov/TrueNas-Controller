@@ -20,6 +20,9 @@ class StationResponse(BaseModel):
     status: StationStatus
     enabled: bool
     deleted_at: str | None
+    target_name: str | None
+    target_iqn: str | None
+    initiator_iqn: str | None
 
     @classmethod
     def from_domain(cls, station: Station) -> "StationResponse":
@@ -32,4 +35,7 @@ class StationResponse(BaseModel):
             status=station.status,
             enabled=station.enabled,
             deleted_at=None if station.deleted_at is None else station.deleted_at.isoformat(),
+            target_name=station.target_name,
+            target_iqn=station.target_iqn,
+            initiator_iqn=station.initiator_iqn,
         )

@@ -18,7 +18,7 @@ from domain.enrollment import EnrollmentToken
 from domain.outbox import OutboxEvent
 from domain.preflight import PreflightReport, ProcessRule
 from domain.provisioning import ProvisioningToken
-from domain.publish import PublishJob, PublishTarget
+from domain.publish import PublishJob, PublishJobHistory, PublishTarget
 from domain.snapshot import ProcessSnapshot
 from domain.station import Station, StationRole
 
@@ -47,6 +47,16 @@ class StationRepository(Protocol):
 
     async def update_hostname(self, station_id: UUID, hostname: str) -> None:
         """Update the station hostname received during enrollment."""
+
+    async def update_storage_mapping(
+        self,
+        station_id: UUID,
+        *,
+        target_name: str | None,
+        target_iqn: str | None,
+        initiator_iqn: str | None,
+    ) -> Station | None:
+        """Update operator-owned TrueNAS mapping metadata for one station."""
 
     async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:
         """Soft-delete a station and remove its active agent binding."""
@@ -129,11 +139,17 @@ class AgentCommandRepository(Protocol):
 class ProcessRuleRepository(Protocol):
     """Persistence boundary for editable process rules."""
 
+    async def list_all(self) -> tuple[ProcessRule, ...]:
+        """Return all rules for the operator policy screen."""
+
     async def list_for_role(self, role: StationRole) -> tuple[ProcessRule, ...]:
         """Return enabled global and role-specific rules."""
 
     async def add(self, rule: ProcessRule) -> None:
         """Stage a process rule."""
+
+    async def delete(self, rule_id: UUID) -> bool:
+        """Delete one rule without touching collected process snapshots."""
 
 
 class ProcessSnapshotRepository(Protocol):
@@ -164,6 +180,9 @@ class PublishJobRepository(Protocol):
 
     async def update(self, job: PublishJob) -> None:
         """Stage a state or metadata update for an existing job."""
+
+    async def list_recent(self, *, limit: int) -> tuple[PublishJobHistory, ...]:
+        """Return recent jobs for the operator history read model."""
 
 
 class PublishTargetRepository(Protocol):
@@ -264,6 +283,22 @@ class TrueNASReadOnlyClient(Protocol):
 
     async def close(self) -> None:
         """Release the adapter connection at the end of a smoke/use session."""
+
+
+class TrueNASWriteClient(Protocol):
+    """Explicit write boundary for snapshot/clone and existing extent updates."""
+
+    async def create_snapshot(self, dataset: str, snapshot_name: str) -> TrueNASSnapshot:
+        """Create one snapshot of the full source dataset."""
+
+    async def clone_snapshot(self, snapshot: str, dataset_dst: str) -> None:
+        """Clone one snapshot into a new station dataset/zvol."""
+
+    async def update_extent_device(self, extent_id: int, device: str) -> TrueNASExtent:
+        """Replace device/file on an existing extent without changing its association."""
+
+    async def close(self) -> None:
+        """Release the write-capable adapter connection."""
 
 
 class PublishTaskExecutor(Protocol):

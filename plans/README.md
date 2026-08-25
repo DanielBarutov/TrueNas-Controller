@@ -74,6 +74,8 @@
 | [32-station-removal](32-station-removal/01-station-removal-and-agent-revocation.md) | Удаление station из реестра, отзыв agent binding и повторная регистрация по station report | завершён |
 | [33-bootstrap-and-zfs-workflow](33-bootstrap-and-zfs-workflow/01-provisioning-and-full-disk-clone.md) | Автоматический onboarding, optional admin station и snapshot/clone полного dataset | в работе |
 | [34-worker-runtime](34-worker-runtime/01-compose-worker-and-secret-boundary.md) | Runtime Dramatiq worker, outbox relay и граница TrueNAS secret | в работе |
+| [35-update-history-and-process-policy](35-update-history-and-process-policy/01-history-process-policy.md) | История publish, web-политика процессов и повторный preflight | завершён |
+| [36-truenas-write-adapter](36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | Snapshot, clone и обновление device/file существующего extent | в работе |
 
 ## Текущий этап
 

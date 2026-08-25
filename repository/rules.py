@@ -1,6 +1,8 @@
 """SQLAlchemy process-rule repository."""
 
-from sqlalchemy import or_, select
+from uuid import UUID
+
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.preflight import ProcessRule
@@ -14,6 +16,14 @@ class SqlAlchemyProcessRuleRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def list_all(self) -> tuple[ProcessRule, ...]:
+        records = (
+            await self._session.scalars(
+                select(ProcessRuleRecord).order_by(ProcessRuleRecord.name, ProcessRuleRecord.id)
+            )
+        ).all()
+        return tuple(self._to_domain(record) for record in records)
+
     async def list_for_role(self, role: StationRole) -> tuple[ProcessRule, ...]:
         statement = (
             select(ProcessRuleRecord)
@@ -24,21 +34,12 @@ class SqlAlchemyProcessRuleRepository:
             .order_by(ProcessRuleRecord.name, ProcessRuleRecord.id)
         )
         records = (await self._session.scalars(statement)).all()
-        return tuple(
-            ProcessRule(
-                name=record.name,
-                role=record.role,
-                required_closed=record.required_closed,
-                severity=record.severity,
-                enabled=record.enabled,
-                persistent_policy=record.persistent_policy,
-            )
-            for record in records
-        )
+        return tuple(self._to_domain(record) for record in records)
 
     async def add(self, rule: ProcessRule) -> None:
         self._session.add(
             ProcessRuleRecord(
+                id=rule.id,
                 name=rule.name,
                 role=rule.role,
                 required_closed=rule.required_closed,
@@ -46,4 +47,22 @@ class SqlAlchemyProcessRuleRepository:
                 enabled=rule.enabled,
                 persistent_policy=rule.persistent_policy,
             )
+        )
+
+    async def delete(self, rule_id: UUID) -> bool:
+        result = await self._session.execute(
+            delete(ProcessRuleRecord).where(ProcessRuleRecord.id == rule_id)
+        )
+        return result.rowcount == 1
+
+    @staticmethod
+    def _to_domain(record: ProcessRuleRecord) -> ProcessRule:
+        return ProcessRule(
+            id=record.id,
+            name=record.name,
+            role=record.role,
+            required_closed=record.required_closed,
+            severity=record.severity,
+            enabled=record.enabled,
+            persistent_policy=record.persistent_policy,
         )

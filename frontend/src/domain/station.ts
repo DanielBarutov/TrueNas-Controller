@@ -10,6 +10,9 @@ export interface Station {
   status: StationStatus;
   enabled: boolean;
   deleted_at: string | null;
+  target_name?: string | null;
+  target_iqn?: string | null;
+  initiator_iqn?: string | null;
 }
 
 export interface StationSetupReport {

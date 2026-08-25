@@ -26,7 +26,7 @@ executor`, который был покрыт acceptance-тестом, но от
 ## Запреты
 
 - не выполнять `pool.snapshot.create`, `pool.snapshot.clone` или
-  `iscsi.targetextent.update`;
+  `iscsi.extent.update`;
 - не считать завершение fake executor фактическим изменением TrueNAS;
 - не передавать API key через UI, agent или job payload.
 

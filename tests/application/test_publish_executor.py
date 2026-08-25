@@ -4,13 +4,15 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from application.publish_executor import FakePublishTaskExecutor
+from application.publish_executor import FakePublishTaskExecutor, TrueNASPublishTaskExecutor
+from application.truenas import TrueNASDataset, TrueNASExtent, TrueNASTarget, TrueNASTargetExtent
 from domain.publish import PublishJob, PublishJobStatus, PublishTarget, TargetStatus
 from domain.station import Station, StationRole, StationStatus
 from repository.database import create_engine, create_session_factory
 from repository.models import Base
 from repository.uow import SqlAlchemyUnitOfWorkFactory
 from truenas_adapter.mock_client import FakePublishStorageAdapter
+from truenas_adapter.write_fake import FakeTrueNASWriteClient
 
 
 @pytest.fixture
@@ -27,7 +29,7 @@ def uow_factory(engine: AsyncEngine) -> SqlAlchemyUnitOfWorkFactory:
     return SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
 
 
-def make_station() -> Station:
+def make_station(*, target_name: str | None = None) -> Station:
     return Station(
         id=uuid4(),
         station_id=uuid4(),
@@ -35,18 +37,22 @@ def make_station() -> Station:
         hostname="client",
         role=StationRole.CLIENT,
         status=StationStatus.ONLINE,
+        target_name=target_name,
     )
 
 
 def make_job(
-    *, dry_run: bool, status: PublishJobStatus = PublishJobStatus.PUBLISHING
+    *,
+    dry_run: bool,
+    status: PublishJobStatus = PublishJobStatus.PUBLISHING,
+    source_dataset: str = "game",
 ) -> PublishJob:
     return PublishJob(
         id=uuid4(),
         idempotency_key=f"executor-{uuid4()}",
         correlation_id=uuid4(),
         label="build",
-        source_dataset="game",
+        source_dataset=source_dataset,
         dry_run=dry_run,
         status=status,
         client_confirmation=True,
@@ -174,3 +180,38 @@ async def test_terminal_duplicate_delivery_does_not_create_fake_objects(
 
     assert adapter.masters == {}
     assert adapter.clones == {}
+
+
+async def test_truenas_executor_persists_existing_extent_update(
+    uow_factory: SqlAlchemyUnitOfWorkFactory,
+) -> None:
+    station = make_station(target_name="PC1")
+    job = make_job(dry_run=False, source_dataset="games/master-games")
+    targets = await seed(uow_factory, job, (station,))
+    storage = FakeTrueNASWriteClient()
+    storage.datasets["games/master-games"] = TrueNASDataset(
+        "games/master-games",
+        "games/master-games",
+        "/mnt/games/master-games",
+        "FILESYSTEM",
+    )
+    storage.targets[7] = TrueNASTarget(7, "PC1", None)
+    storage.extents[11] = TrueNASExtent(
+        11,
+        "PC1",
+        "/dev/zvol/games/master-games-v001-clone-pc1",
+        "DISK",
+    )
+    storage.target_extents.append(TrueNASTargetExtent(7, 11, 0))
+    await TrueNASPublishTaskExecutor(
+        uow_factory,
+        lambda: storage,
+        lambda: storage,
+    ).execute(job, targets, correlation_id=job.correlation_id)
+
+    stored_job, stored_targets = await read_state(uow_factory, job.id)
+    assert stored_job.status is PublishJobStatus.COMPLETED
+    assert stored_targets[0].switch_status == "switched"
+    assert stored_targets[0].new_mapping is not None
+    assert len(storage.extents) == 1
+    assert storage.target_extents == [TrueNASTargetExtent(7, 11, 0)]

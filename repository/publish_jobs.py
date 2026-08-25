@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports import PublishJobRepository
-from domain.publish import PublishJob, PublishJobStatus
+from domain.publish import PublishJob, PublishJobHistory, PublishJobStatus
 from domain.time import ensure_utc
 from repository.models import PublishJobRecord, utc_now
 
@@ -27,6 +27,15 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
         )
         record = await self._session.scalar(statement)
         return None if record is None else self._to_domain(record)
+
+    async def list_recent(self, *, limit: int) -> tuple[PublishJobHistory, ...]:
+        statement = (
+            select(PublishJobRecord)
+            .order_by(PublishJobRecord.created_at.desc(), PublishJobRecord.id.desc())
+            .limit(limit)
+        )
+        records = (await self._session.scalars(statement)).all()
+        return tuple(self._to_history(record) for record in records)
 
     async def add(self, job: PublishJob) -> None:
         self._session.add(
@@ -96,4 +105,17 @@ class SqlAlchemyPublishJobRepository(PublishJobRepository):
                 if record.client_confirmation_at is None
                 else ensure_utc(record.client_confirmation_at)
             ),
+        )
+
+    @staticmethod
+    def _to_history(record: PublishJobRecord) -> PublishJobHistory:
+        return PublishJobHistory(
+            id=record.id,
+            label=record.label,
+            source_dataset=record.source_dataset,
+            status=PublishJobStatus(record.status),
+            status_reason=record.status_reason,
+            dry_run=record.dry_run,
+            created_at=ensure_utc(record.created_at),
+            completed_at=(None if record.completed_at is None else ensure_utc(record.completed_at)),
         )

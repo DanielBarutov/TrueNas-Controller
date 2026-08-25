@@ -7,6 +7,7 @@ from truenas_adapter.runtime import (
     TrueNASAuthenticationError,
     TrueNASRuntimeConfig,
     TrueNASRuntimeConfigError,
+    build_write_client,
 )
 
 
@@ -35,6 +36,18 @@ def test_runtime_config_requires_full_websocket_url_and_secret() -> None:
         )
     with pytest.raises(TrueNASRuntimeConfigError):
         TrueNASRuntimeConfig.from_env({"TRUENAS_WS_URL": "wss://nas.example/api/current"})
+
+
+def test_write_runtime_requires_explicit_apply_gate() -> None:
+    config = TrueNASRuntimeConfig.from_env(
+        {
+            "TRUENAS_WS_URL": "wss://nas.example/api/current",
+            "TRUENAS_API_KEY": "secret",
+        }
+    )
+    assert config.apply_enabled is False
+    with pytest.raises(TrueNASRuntimeConfigError, match="TRUENAS_APPLY_ENABLED=true"):
+        build_write_client(config)
 
 
 @pytest.mark.asyncio

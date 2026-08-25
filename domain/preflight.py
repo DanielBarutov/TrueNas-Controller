@@ -36,6 +36,7 @@ class ProcessRule:
     severity: RuleSeverity = RuleSeverity.BLOCKING
     enabled: bool = True
     persistent_policy: bool = False
+    id: UUID | None = None
 
     def matches(self, station: Station, process_name: str) -> bool:
         return (

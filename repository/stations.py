@@ -41,6 +41,9 @@ class SqlAlchemyStationRepository(StationRepository):
                 state=station.status,
                 enabled=station.enabled,
                 deleted_at=station.deleted_at,
+                target_name=station.target_name,
+                target_iqn=station.target_iqn,
+                initiator_iqn=station.initiator_iqn,
             )
         )
 
@@ -55,6 +58,9 @@ class SqlAlchemyStationRepository(StationRepository):
         record.state = station.status
         record.enabled = station.enabled
         record.deleted_at = station.deleted_at
+        record.target_name = station.target_name
+        record.target_iqn = station.target_iqn
+        record.initiator_iqn = station.initiator_iqn
         record.state_reason = None
 
     async def update_hostname(self, station_id: UUID, hostname: str) -> None:
@@ -63,6 +69,26 @@ class SqlAlchemyStationRepository(StationRepository):
         if record is None:
             raise ValueError("station not found")
         record.hostname = hostname
+
+    async def update_storage_mapping(
+        self,
+        station_id: UUID,
+        *,
+        target_name: str | None,
+        target_iqn: str | None,
+        initiator_iqn: str | None,
+    ) -> Station | None:
+        statement = select(StationRecord).where(
+            StationRecord.station_id == station_id,
+            StationRecord.deleted_at.is_(None),
+        )
+        record = await self._session.scalar(statement)
+        if record is None:
+            return None
+        record.target_name = target_name
+        record.target_iqn = target_iqn
+        record.initiator_iqn = initiator_iqn
+        return self._to_domain(record)
 
     async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:
         """Hide a station while removing credentials and pending agent work."""
@@ -105,4 +131,7 @@ class SqlAlchemyStationRepository(StationRepository):
             status=record.state,
             enabled=record.enabled,
             deleted_at=record.deleted_at,
+            target_name=record.target_name,
+            target_iqn=record.target_iqn,
+            initiator_iqn=record.initiator_iqn,
         )

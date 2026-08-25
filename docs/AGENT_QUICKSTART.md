@@ -6,11 +6,14 @@
 
 ## 1. Получить station report на клиентском ПК
 
-Скопируйте опубликованный `TrueNasControllerAgent.exe` в `C:\Install` и
-запустите PowerShell:
+После `git pull` возьмите подготовленный
+[`TrueNasControllerAgent.exe`](../TrueNasControllerAgent.exe) из корня проекта,
+скопируйте его в `C:\Install` и запустите PowerShell:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path C:\Install | Out-Null
+# Если exe находится в текущем каталоге проекта:
+# Copy-Item .\TrueNasControllerAgent.exe C:\Install\TrueNasControllerAgent.exe
 Set-Location C:\Install
 .\TrueNasControllerAgent.exe report --output .\station-report.json
 ```

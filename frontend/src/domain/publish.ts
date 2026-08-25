@@ -85,6 +85,17 @@ export interface PublishJobReadModel {
   targets: PublishTargetReadModel[];
 }
 
+export interface PublishHistoryItem {
+  id: string;
+  label: string;
+  source_dataset: string;
+  status: PublishJobStatus;
+  status_reason: string | null;
+  dry_run: boolean;
+  created_at: string | null;
+  completed_at: string | null;
+}
+
 export const checkStatusLabel: Record<CheckStatus, string> = {
   pass: "PASS",
   block: "BLOCK",
