@@ -14,6 +14,11 @@ from application.agent_commands import (
     AgentCommandUnauthorizedError,
     IssueAgentCommandUseCase,
 )
+from application.datasets import (
+    DatasetSelectionError,
+    ListDatasetsUseCase,
+    QueueDatasetCleanupUseCase,
+)
 from application.lifecycle import (
     AgentUnauthorizedError,
     BootstrapAgentUseCase,
@@ -54,6 +59,11 @@ from application.stations import (
 )
 from domain.snapshot import DriveInfo, ProcessInfo, ProcessSnapshot
 from presentation.auth import require_agent_credential, require_basic_auth
+from presentation.dataset_schemas import (
+    DatasetDeleteRequest,
+    DatasetDeleteResponse,
+    DatasetResponse,
+)
 from presentation.lifecycle_schemas import (
     AgentBootstrapRequest,
     AgentCommandIssueRequest,
@@ -104,6 +114,8 @@ def create_app(
     list_publish_jobs: ListPublishJobsUseCase | None = None,
     update_station: UpdateStationUseCase | None = None,
     update_station_storage_mapping: UpdateStationStorageMappingUseCase | None = None,
+    list_datasets: ListDatasetsUseCase | None = None,
+    queue_dataset_cleanup: QueueDatasetCleanupUseCase | None = None,
 ) -> FastAPI:
     """Create the HTTP application from application-layer dependencies."""
 
@@ -500,6 +512,38 @@ def create_app(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="process rule not found",
                 )
+
+    if list_datasets is not None:
+
+        @app.get("/api/v1/datasets", response_model=list[DatasetResponse])
+        async def list_datasets_route(
+            include_deleted: bool = Query(default=False),
+            _: Annotated[str, Depends(require_basic_auth)] = "",
+        ) -> list[DatasetResponse]:
+            artifacts = await list_datasets.execute(include_deleted=include_deleted)
+            return [DatasetResponse.from_domain(artifact) for artifact in artifacts]
+
+    if queue_dataset_cleanup is not None:
+
+        @app.post(
+            "/api/v1/datasets/delete",
+            response_model=DatasetDeleteResponse,
+            status_code=status.HTTP_202_ACCEPTED,
+        )
+        async def queue_dataset_cleanup_route(
+            payload: DatasetDeleteRequest,
+            _: Annotated[str, Depends(require_basic_auth)],
+        ) -> DatasetDeleteResponse:
+            try:
+                result = await queue_dataset_cleanup.execute(
+                    artifact_ids=tuple(payload.artifact_ids),
+                )
+            except DatasetSelectionError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(error),
+                ) from error
+            return DatasetDeleteResponse(artifact_ids=list(result.artifact_ids))
 
     if create_publish_job is not None:
 

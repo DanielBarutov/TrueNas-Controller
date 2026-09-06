@@ -1,7 +1,9 @@
 """Opt-in TrueNAS runtime wiring with a fail-closed write boundary."""
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
+import math
 import os
 import ssl
 from urllib.parse import urlparse
@@ -13,6 +15,8 @@ from application.ports import TrueNASJsonRpcTransport
 from truenas_adapter.read_only import TrueNASReadOnlyAdapter
 from truenas_adapter.registry import TrueNASMethodRegistry
 from truenas_adapter.transport import (
+    JSONRPCConnectionError,
+    JSONRPCTimeoutError,
     JsonRpcWebSocketTransport,
     WebSocketConnection,
 )
@@ -35,7 +39,9 @@ class TrueNASRuntimeConfig:
     api_key: str
     api_version: str = "25.10"
     timeout_seconds: float = 10.0
-    reconnect_attempts: int = 1
+    reconnect_attempts: int = 2
+    retry_backoff_seconds: float = 0.25
+    retry_backoff_max_seconds: float = 2.0
     open_timeout_seconds: float = 10.0
     apply_enabled: bool = False
     tls_verify: bool = True
@@ -59,10 +65,40 @@ class TrueNASRuntimeConfig:
         if tls_verify_value not in {"true", "false"}:
             raise TrueNASRuntimeConfigError("TRUENAS_TLS_VERIFY must be true or false")
         tls_ca_file = source.get("TRUENAS_TLS_CA_FILE", "").strip() or None
+        timeout_seconds = _positive_float(
+            source.get("TRUENAS_TIMEOUT_SECONDS", "10"),
+            "TRUENAS_TIMEOUT_SECONDS",
+        )
+        reconnect_attempts = _retry_attempts(
+            source.get("TRUENAS_RETRY_ATTEMPTS", "2"),
+            "TRUENAS_RETRY_ATTEMPTS",
+        )
+        retry_backoff_seconds = _non_negative_float(
+            source.get("TRUENAS_RETRY_BACKOFF_SECONDS", "0.25"),
+            "TRUENAS_RETRY_BACKOFF_SECONDS",
+        )
+        retry_backoff_max_seconds = _non_negative_float(
+            source.get("TRUENAS_RETRY_BACKOFF_MAX_SECONDS", "2"),
+            "TRUENAS_RETRY_BACKOFF_MAX_SECONDS",
+        )
+        if retry_backoff_max_seconds < retry_backoff_seconds:
+            raise TrueNASRuntimeConfigError(
+                "TRUENAS_RETRY_BACKOFF_MAX_SECONDS cannot be less than "
+                "TRUENAS_RETRY_BACKOFF_SECONDS"
+            )
+        open_timeout_seconds = _positive_float(
+            source.get("TRUENAS_OPEN_TIMEOUT_SECONDS", "10"),
+            "TRUENAS_OPEN_TIMEOUT_SECONDS",
+        )
         return cls(
             websocket_url=websocket_url,
             api_key=api_key,
             api_version=api_version,
+            timeout_seconds=timeout_seconds,
+            reconnect_attempts=reconnect_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            retry_backoff_max_seconds=retry_backoff_max_seconds,
+            open_timeout_seconds=open_timeout_seconds,
             apply_enabled=apply_enabled == "true",
             tls_verify=tls_verify_value == "true",
             tls_ca_file=tls_ca_file,
@@ -84,26 +120,60 @@ class ApiKeyJsonRpcTransport:
         *,
         api_key: str,
         authentication_method: str,
+        retry_attempts: int = 2,
+        retry_backoff_seconds: float = 0.25,
+        retry_backoff_max_seconds: float = 2.0,
     ) -> None:
         if not api_key:
             raise ValueError("api_key cannot be empty")
+        if (
+            not isinstance(retry_attempts, int)
+            or isinstance(retry_attempts, bool)
+            or not 0 <= retry_attempts <= 10
+        ):
+            raise ValueError("retry_attempts must be an integer from 0 to 10")
+        if not math.isfinite(retry_backoff_seconds) or retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds cannot be negative")
+        if not math.isfinite(retry_backoff_max_seconds) or retry_backoff_max_seconds < 0:
+            raise ValueError("retry_backoff_max_seconds cannot be negative")
+        if retry_backoff_max_seconds < retry_backoff_seconds:
+            raise ValueError("retry_backoff_max_seconds cannot be less than retry_backoff_seconds")
         self._transport = transport
         self._api_key = api_key
         self._authentication_method = authentication_method
+        self._retry_attempts = retry_attempts
+        self._retry_backoff_seconds = retry_backoff_seconds
+        self._retry_backoff_max_seconds = retry_backoff_max_seconds
 
     async def request(self, method: str, params: object | None = None) -> object:
-        if method == self._authentication_method:
-            return await self._transport.request(method, params)
-        authenticated = await self._transport.request(
-            self._authentication_method,
-            [self._api_key],
-        )
-        if authenticated is not True:
-            raise TrueNASAuthenticationError("TrueNAS API key authentication failed")
-        return await self._transport.request(method, params)
+        for attempt in range(self._retry_attempts + 1):
+            try:
+                if method == self._authentication_method:
+                    return await self._transport.request(method, params)
+                authenticated = await self._transport.request(
+                    self._authentication_method,
+                    [self._api_key],
+                )
+                if authenticated is not True:
+                    raise TrueNASAuthenticationError("TrueNAS API key authentication failed")
+                return await self._transport.request(method, params)
+            except (JSONRPCConnectionError, JSONRPCTimeoutError):
+                if attempt >= self._retry_attempts:
+                    raise
+                await self._wait_before_retry(attempt)
+        raise AssertionError("authenticated request retry loop must return or raise")
 
     async def close(self) -> None:
         await self._transport.close()
+
+    async def _wait_before_retry(self, attempt: int) -> None:
+        if self._retry_backoff_seconds == 0:
+            return
+        delay = min(
+            self._retry_backoff_seconds * (2**attempt),
+            self._retry_backoff_max_seconds,
+        )
+        await asyncio.sleep(delay)
 
 
 def build_read_only_client(config: TrueNASRuntimeConfig) -> TrueNASReadOnlyAdapter:
@@ -142,12 +212,17 @@ def build_read_only_client(config: TrueNASRuntimeConfig) -> TrueNASReadOnlyAdapt
     raw_transport = JsonRpcWebSocketTransport(
         connection_factory,
         timeout_seconds=config.timeout_seconds,
-        reconnect_attempts=config.reconnect_attempts,
+        retry_attempts=0,
+        retry_backoff_seconds=config.retry_backoff_seconds,
+        retry_backoff_max_seconds=config.retry_backoff_max_seconds,
     )
     authenticated_transport = ApiKeyJsonRpcTransport(
         raw_transport,
         api_key=config.api_key,
         authentication_method=registry.resolve("authenticate"),
+        retry_attempts=config.reconnect_attempts,
+        retry_backoff_seconds=config.retry_backoff_seconds,
+        retry_backoff_max_seconds=config.retry_backoff_max_seconds,
     )
     return TrueNASReadOnlyAdapter(authenticated_transport, registry)
 
@@ -165,6 +240,9 @@ def build_write_client(config: TrueNASRuntimeConfig) -> TrueNASWriteAdapter:
         raw_transport,
         api_key=config.api_key,
         authentication_method=registry.resolve("authenticate"),
+        retry_attempts=config.reconnect_attempts,
+        retry_backoff_seconds=config.retry_backoff_seconds,
+        retry_backoff_max_seconds=config.retry_backoff_max_seconds,
     )
     return TrueNASWriteAdapter(authenticated_transport, registry)
 
@@ -202,7 +280,9 @@ def _build_transport(config: TrueNASRuntimeConfig) -> JsonRpcWebSocketTransport:
     return JsonRpcWebSocketTransport(
         connection_factory,
         timeout_seconds=config.timeout_seconds,
-        reconnect_attempts=config.reconnect_attempts,
+        retry_attempts=0,
+        retry_backoff_seconds=config.retry_backoff_seconds,
+        retry_backoff_max_seconds=config.retry_backoff_max_seconds,
     )
 
 
@@ -212,6 +292,36 @@ def _validate_websocket_url(websocket_url: str) -> None:
         raise TrueNASRuntimeConfigError(
             "TRUENAS_WS_URL must be a full wss:// URL; API-key authentication requires TLS"
         )
+
+
+def _positive_float(raw_value: str, name: str) -> float:
+    try:
+        value = float(raw_value)
+    except ValueError as exc:
+        raise TrueNASRuntimeConfigError(f"{name} must be a positive number") from exc
+    if not math.isfinite(value) or value <= 0:
+        raise TrueNASRuntimeConfigError(f"{name} must be a positive number")
+    return value
+
+
+def _non_negative_float(raw_value: str, name: str) -> float:
+    try:
+        value = float(raw_value)
+    except ValueError as exc:
+        raise TrueNASRuntimeConfigError(f"{name} must be a non-negative number") from exc
+    if not math.isfinite(value) or value < 0:
+        raise TrueNASRuntimeConfigError(f"{name} must be a non-negative number")
+    return value
+
+
+def _retry_attempts(raw_value: str, name: str) -> int:
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise TrueNASRuntimeConfigError(f"{name} must be an integer from 0 to 10") from exc
+    if not 0 <= value <= 10:
+        raise TrueNASRuntimeConfigError(f"{name} must be an integer from 0 to 10")
+    return value
 
 
 def _build_ssl_context(config: TrueNASRuntimeConfig) -> ssl.SSLContext:

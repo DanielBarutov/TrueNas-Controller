@@ -17,18 +17,18 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.alter_column(
-        "publish_jobs",
-        "dry_run",
-        existing_type=sa.Boolean(),
-        server_default=sa.false(),
-    )
+    with op.batch_alter_table("publish_jobs") as batch_op:
+        batch_op.alter_column(
+            "dry_run",
+            existing_type=sa.Boolean(),
+            server_default=sa.false(),
+        )
 
 
 def downgrade() -> None:
-    op.alter_column(
-        "publish_jobs",
-        "dry_run",
-        existing_type=sa.Boolean(),
-        server_default=sa.true(),
-    )
+    with op.batch_alter_table("publish_jobs") as batch_op:
+        batch_op.alter_column(
+            "dry_run",
+            existing_type=sa.Boolean(),
+            server_default=sa.true(),
+        )

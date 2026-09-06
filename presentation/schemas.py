@@ -23,6 +23,7 @@ class StationResponse(BaseModel):
     target_name: str | None
     target_iqn: str | None
     initiator_iqn: str | None
+    last_update_at: str | None
 
     @classmethod
     def from_domain(cls, station: Station) -> "StationResponse":
@@ -38,4 +39,7 @@ class StationResponse(BaseModel):
             target_name=station.target_name,
             target_iqn=station.target_iqn,
             initiator_iqn=station.initiator_iqn,
+            last_update_at=(
+                None if station.last_update_at is None else station.last_update_at.isoformat()
+            ),
         )

@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Callable
 import logging
+from uuid import UUID
 
 from application.dataset_cleanup import DatasetCleanupUseCase
 from application.ports import (
@@ -77,10 +78,10 @@ class DatasetCleanupApplicationHandler:
         self._apply_enabled = apply_enabled
         self._write_client_factory = write_client_factory
 
-    def __call__(self) -> None:
-        asyncio.run(self.handle())
+    def __call__(self, artifact_ids: tuple[UUID, ...] = ()) -> None:
+        asyncio.run(self.handle(artifact_ids))
 
-    async def handle(self) -> None:
+    async def handle(self, artifact_ids: tuple[UUID, ...] = ()) -> None:
         write_client = None
         if self._apply_enabled:
             if self._write_client_factory is None:
@@ -92,7 +93,10 @@ class DatasetCleanupApplicationHandler:
                 retention_days=self._retention_days,
                 batch_size=self._batch_size,
                 apply_enabled=self._apply_enabled,
-            ).execute(write_client=write_client)
+            ).execute(
+                write_client=write_client,
+                artifact_ids=artifact_ids or None,
+            )
             logging.getLogger(__name__).info(
                 "dataset cleanup pass: inspected=%s deleted=%s failed=%s dry_run=%s",
                 result.inspected,

@@ -6,6 +6,7 @@ import {
   BookOpen,
   Database,
   Filter,
+  HardDrive,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -36,9 +37,10 @@ import { StationSortControls } from "./components/StationSortControls";
 import { HelpHint, InfoNote, MetricCard, SectionHeading, StatusBadge } from "./components/ui";
 import { PublishPage } from "./pages/PublishPage";
 import { ProcessRulesPage } from "./pages/ProcessRulesPage";
+import { DatasetsPage } from "./pages/DatasetsPage";
 import "./styles.css";
 
-type Screen = "overview" | "stations" | "publish" | "policies" | "knowledge";
+type Screen = "overview" | "stations" | "datasets" | "publish" | "policies" | "knowledge";
 
 export function App() {
   const [credentials, setCredentials] = useState<Credentials | null>(null);
@@ -126,6 +128,7 @@ function ControllerShell({ credentials, onLogout }: { credentials: Credentials; 
         <nav>
           <NavButton active={screen === "overview"} onClick={() => setScreen("overview")} icon={LayoutDashboard} label="Обзор" caption="Контроль системы" />
           <NavButton active={screen === "stations"} onClick={() => setScreen("stations")} icon={MonitorCog} label="Станции и агенты" caption="Heartbeat и enrollment" />
+          <NavButton active={screen === "datasets"} onClick={() => setScreen("datasets")} icon={HardDrive} label="Датасеты" caption="Версии и cleanup" />
           <NavButton active={screen === "publish"} onClick={() => setScreen("publish")} icon={Rocket} label="Publish wizard" caption="Preflight и dispatch" />
           <NavButton active={screen === "policies"} onClick={() => setScreen("policies")} icon={ShieldCheck} label="Политика процессов" caption="Что закрыть перед update" />
           <NavButton active={screen === "knowledge"} onClick={() => setScreen("knowledge")} icon={BookOpen} label="База знаний" caption="Инструкции оператора" />
@@ -136,9 +139,10 @@ function ControllerShell({ credentials, onLogout }: { credentials: Credentials; 
         </div>
       </aside>
       <main className="content">
-        <div className="topbar"><span className="topbar-context">OPERATOR CONSOLE <b>/</b> {screen === "overview" ? "OVERVIEW" : screen === "stations" ? "STATIONS" : screen === "publish" ? "PUBLISH" : screen === "policies" ? "POLICIES" : "KNOWLEDGE"}</span><span className="operator-chip"><span className="avatar">A</span> admin <span className="online-dot" /></span></div>
+        <div className="topbar"><span className="topbar-context">OPERATOR CONSOLE <b>/</b> {screen === "overview" ? "OVERVIEW" : screen === "stations" ? "STATIONS" : screen === "datasets" ? "DATASETS" : screen === "publish" ? "PUBLISH" : screen === "policies" ? "POLICIES" : "KNOWLEDGE"}</span><span className="operator-chip"><span className="avatar">A</span> admin <span className="online-dot" /></span></div>
         {screen === "overview" && <OverviewPage api={api} onOpenStations={() => setScreen("stations")} onOpenPublish={() => setScreen("publish")} onOpenKnowledge={() => setScreen("knowledge")} />}
         {screen === "stations" && <StationsPage api={api} />}
+        {screen === "datasets" && <DatasetsPage api={api} />}
         {screen === "publish" && <PublishPage api={api} />}
         {screen === "policies" && <ProcessRulesPage api={api} />}
         {screen === "knowledge" && <KnowledgePage />}
@@ -364,8 +368,8 @@ function StationsPage({ api }: { api: ControllerApi }) {
       {error && <p className="error-message">{error}</p>}
       <div className="station-toolbar"><label className="search-field"><span><Search aria-hidden size={13} /> Поиск</span><input placeholder="Имя или hostname" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label className="filter-field"><span><Filter aria-hidden size={13} /> Статус</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StationStatus | "all")}><option value="all">Все ({stations.length})</option><option value="online">Online ({statusCounts.online ?? 0})</option><option value="stale">Stale ({statusCounts.stale ?? 0})</option><option value="offline">Offline ({statusCounts.offline ?? 0})</option></select></label><StationSortControls field={sortField} direction={sortDirection} onFieldChange={setSortField} onDirectionChange={setSortDirection} /><div className="toolbar-note"><span className="pulse-dot" /> {visibleStations.length} в текущем списке</div></div>
       <div className="table-card">
-        <table><thead><tr><th>Станция</th><th>Роль</th><th>Статус</th><th>Пояснение</th><th aria-label="Действия" /></tr></thead>
-          <tbody>{visibleStations.length === 0 ? <tr><td colSpan={5} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td><td><div className="inline-actions"><button className="secondary-button" type="button" onClick={() => selectEditStation(station.station_id)} title="Редактировать станцию"><Pencil aria-hidden size={15} /> Изменить</button><button className="danger-button" type="button" onClick={() => void deleteStation(station)} disabled={deletingStationId === station.station_id} title="Удалить станцию и агентскую привязку"><Trash2 aria-hidden size={15} />{deletingStationId === station.station_id ? "Удаляем…" : "Удалить"}</button></div></td></tr>)}</tbody>
+        <table><thead><tr><th>Станция</th><th>Роль</th><th>Статус</th><th>Последнее обновление</th><th>Пояснение</th><th aria-label="Действия" /></tr></thead>
+          <tbody>{visibleStations.length === 0 ? <tr><td colSpan={6} className="empty-cell">{stations.length === 0 ? "Станций пока нет или backend ещё не ответил." : "По выбранному фильтру ничего не найдено."}</td></tr> : visibleStations.map((station) => <tr key={station.station_id}><td><strong>{station.display_name}</strong><span className="table-subtitle">{station.hostname}</span></td><td><span className="role-chip">{station.role}</span></td><td><StatusBadge status={station.status} /></td><td>{station.last_update_at ? new Date(station.last_update_at).toLocaleString() : <span className="muted">Не обновлялась</span>}</td><td>{station.status === "online" ? "Heartbeat свежий." : station.status === "stale" ? "Heartbeat устарел." : station.status === "offline" ? "Heartbeat не получен." : "Станция отключена."}</td><td><div className="inline-actions"><button className="secondary-button" type="button" onClick={() => selectEditStation(station.station_id)} title="Редактировать станцию"><Pencil aria-hidden size={15} /> Изменить</button><button className="danger-button" type="button" onClick={() => void deleteStation(station)} disabled={deletingStationId === station.station_id} title="Удалить станцию и агентскую привязку"><Trash2 aria-hidden size={15} />{deletingStationId === station.station_id ? "Удаляем…" : "Удалить"}</button></div></td></tr>)}</tbody>
         </table>
       </div>
       <section className="form-card">

@@ -1,6 +1,6 @@
 # STATE — состояние проекта
 
-Последнее обновление: **2026-08-25**
+Последнее обновление: **2026-09-05**
 
 ## Как читать этот файл
 
@@ -16,19 +16,18 @@
 ## Текущая стадия
 
 - **Стадия:** 3 — операторские правки после live smoke.
-- **Активный план:** [37 — operator follow-up](plans/37-operator-follow-up/01-history-station-edit.md).
-- **Текущая задача:** история ограничена 10 jobs и раскрывает сохранённые
-  target/artifact details; station и TrueNAS mapping редактируются через UI;
-  native EXE может bootstrap station без Python и `--report`.
-- **Последнее исправление:** добавлены `publish_artifacts`, retention worker и
-  allowlisted `pool.dataset.delete`; фактическое удаление закрыто отдельным
-  `TRUENAS_CLEANUP_APPLY_ENABLED`. В native EXE исправлено автоматическое
-  создание каталогов identity для чистого Windows-ПК; root EXE пересобран.
-  Во frontend добавлена единая настройка сортировки станций для реестра и
-  publish wizard. Preflight теперь возвращает и показывает конкретные
-  совпавшие процессы с PID и executable path.
+- **Активный план:** [38 — update tracking, retry и dataset console](plans/38-update-observability-and-dataset-console/01-update-tracking-retry-dataset-console.md).
+- **Текущая задача:** станции сохраняют дату последнего успешно проверенного
+  обновления; TrueNAS JSON-RPC повторяет временные сбои с повторной
+  авторизацией после reconnect; frontend показывает tracked dataset-версии и
+  ставит выбранные записи в worker cleanup.
+- **Последнее исправление:** добавлены `stations.last_update_at`, bounded
+  JSON-RPC retry/backoff, API/worker dataset inventory и пункт «Датасеты» с
+  checkbox. Текущие dataset помечаются используемыми и не выбираются;
+  фактическое удаление по-прежнему закрыто отдельным
+  `TRUENAS_CLEANUP_APPLY_ENABLED`.
 - **Следующий разрешённый шаг:** проверить обновлённый EXE на Windows-ПК,
-  применить две новые Alembic migrations и проверить Compose/UI на одной
+  применить актуальные Alembic migrations и проверить Compose/UI на одной
   тестовой станции.
 - **Запрещено сейчас:** включать cleanup apply или live NAS cleanup без
   отдельного подтверждения оператором; текущие dataset должны оставаться
@@ -79,6 +78,7 @@
 | [37.01 — История и station edit](plans/37-operator-follow-up/01-history-station-edit.md) | `closed` | history default 10, details read model, `dry_run=false`, PATCH station и mapping edit добавлены; targeted tests прошли | пользовательский UI smoke |
 | [37.02 — Native agent EXE](plans/37-operator-follow-up/02-native-agent-exe.md) | `in_progress` | source installer принимает provisioning token без `--report`, identity создаётся native EXE, stdout report сохраняется JSON-only; root EXE пересобран | проверить обновлённый EXE на Windows |
 | [37.03 — Dataset retention](plans/37-operator-follow-up/03-dataset-retention.md) | `in_progress` | `publish_artifacts`, migration, cleanup use case, Dramatiq schedule и TrueNAS delete allow-list добавлены; apply gate выключен | применить migration и сделать dry-run cleanup в Compose |
+| [38 — Update tracking, retry и dataset console](plans/38-update-observability-and-dataset-console/01-update-tracking-retry-dataset-console.md) | `closed` | `last_update_at`, re-authenticated JSON-RPC retry, dataset API/worker dispatch и UI checkbox реализованы; `231 passed, 1 skipped`, frontend `11 passed`, build/Ruff/compileall и temp SQLite migration прошли | пользовательский migration/worker/UI smoke |
 
 ## Чекап решений
 
@@ -260,7 +260,20 @@
 - [x] TrueNAS adapter обновляет `device/file` старого extent, не создаёт новый extent.
 - [x] Worker wiring, fake read-back и station target mapping реализованы.
 - [x] TLS runtime boundary: `wss://`-only URL, trimming secret, CA/verification options и безопасные TLS/WebSocket ошибки покрыты тестами.
-- [x] Локальный полный чек-ап: backend `204 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены.
+- [x] JSON-RPC transport retry: timeout, connection и temporary transport
+  failures повторяются с bounded exponential backoff; повреждённый сокет
+  закрывается перед reconnect, permanent protocol/remote errors не retry-ятся,
+  request ID и serialized payload сохраняются; после reconnect API-key
+  transport повторно авторизует новую сессию; transport/runtime tests прошли.
+- [x] Полный локальный чек-ап после текущего slice: backend `231 passed, 1
+  skipped`, frontend `11 passed`, production build, Ruff, format и compileall
+  пройдены.
+- [x] Station update tracking: `last_update_at` сохраняется только для
+  non-dry-run `VERIFIED` target и отображается в реестре станций.
+- [x] Dataset console: tracked inventory, текущий dataset marker, checkbox и
+  202 worker dispatch добавлены; API key не передаётся во frontend.
+- [x] Alembic `upgrade head`/`current` проверены на отдельной временной SQLite
+  БД; исправлен SQLite-неспособный `ALTER COLUMN` в старой follow-up revision.
 - [ ] One-station live apply на NAS выполнен: snapshot и clone созданы, но
   `iscsi.extent.update` не подтверждён read-back и target получил
   `recovery_required`; созданный clone не удалять и job вслепую не повторять.
@@ -347,6 +360,8 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Завершён план 35 | добавлены update history, CRUD process policy, экран политики и retry preflight; `196 passed, 1 skipped` |
 | 2026-08-25 | Продолжен план 36 | добавлен fail-closed write adapter для snapshot/clone и обновления старого extent без targetextent switch |
 | 2026-08-25 | Подключён план 36 к worker | добавлены TrueNAS workflow, station target mapping, fake read-back и режим `PUBLISH_EXECUTOR_MODE=truenas`; реальный NAS не запускался |
+| 2026-09-05 | Усилен JSON-RPC WebSocket transport | timeout/connection retry с bounded backoff, reconnect после закрытия сокета, конфиг через runtime env; live NAS не запускался |
+| 2026-09-05 | Добавлен план 38 и завершён локальный implementation slice | station `last_update_at`, повторная auth-сессия при JSON-RPC retry, dataset inventory/worker dispatch и frontend menu; backend `231 passed, 1 skipped`, frontend `11 passed`; production migration/TrueNAS/cleanup apply не запускались |
 | 2026-08-25 | Завершён локальный чек-ап плана 36 | backend `203 passed, 1 skipped`, frontend `8 passed`, production build, Ruff, format и compileall пройдены; следующий шаг — read-only LAN smoke |
 | 2026-08-25 | Исправлен TrueNAS TLS runtime | `ws://` запрещён для API key, добавлены `wss://`, CA/verification settings и диагностируемые TLS/WebSocket ошибки; реальный NAS не запускался |
 | 2026-08-25 | Исправлен live extent switch после one-station теста | TrueNAS API использует `disk=zvol/...`, а `/dev` добавляется middleware; обновлены adapter, read-back, fake/fixtures и инструкция, recovery теперь сохраняет причину исходного сбоя |

@@ -69,6 +69,9 @@ class StationRepository(Protocol):
     ) -> Station | None:
         """Update operator-owned station metadata without changing its UUID."""
 
+    async def update_last_update(self, station_id: UUID, updated_at: datetime) -> None:
+        """Record the last successfully verified update for one station."""
+
     async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:
         """Soft-delete a station and remove its active agent binding."""
 
@@ -218,6 +221,12 @@ class PublishArtifactRepository(Protocol):
     async def list_for_job(self, job_id: UUID) -> tuple[PublishArtifact, ...]:
         """Return all storage artifacts recorded for one job."""
 
+    async def list_all(self, *, include_deleted: bool = False) -> tuple[PublishArtifact, ...]:
+        """Return the dataset inventory for the operator screen."""
+
+    async def list_by_ids(self, artifact_ids: tuple[UUID, ...]) -> tuple[PublishArtifact, ...]:
+        """Load explicitly selected dataset records for a worker command."""
+
     async def save(self, artifact: PublishArtifact) -> None:
         """Insert or update an idempotent job/station artifact."""
 
@@ -237,6 +246,13 @@ class PublishArtifactRepository(Protocol):
 
     async def mark_cleanup_failed(self, artifact_id: UUID, error: str) -> None:
         """Persist a bounded cleanup error without losing the artifact record."""
+
+
+class DatasetCleanupTaskQueue(Protocol):
+    """Queue boundary for explicit operator-selected dataset cleanup."""
+
+    def enqueue(self, *, artifact_ids: tuple[UUID, ...]) -> None:
+        """Queue only tracked artifact IDs; the worker reloads all state."""
 
 
 class OutboxRepository(Protocol):

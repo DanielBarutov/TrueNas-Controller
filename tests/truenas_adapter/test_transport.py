@@ -76,6 +76,50 @@ async def test_transport_maps_timeout_and_remote_errors_without_raw_payload() ->
 
 
 @pytest.mark.asyncio
+async def test_transport_retries_timeout_with_same_request_id_and_reconnects() -> None:
+    first = FakeConnection([TimeoutError()])
+    second = FakeConnection(['{"jsonrpc":"2.0","id":1,"result":true}'])
+    connections = iter((first, second))
+
+    async def factory() -> FakeConnection:
+        return next(connections)
+
+    transport = JsonRpcWebSocketTransport(
+        factory,
+        timeout_seconds=1,
+        retry_attempts=1,
+        retry_backoff_seconds=0,
+    )
+
+    assert await transport.request("pool.snapshot.create", ["games/master"]) is True
+    assert first.closed is True
+    assert first.sent[0]["id"] == second.sent[0]["id"] == 1
+    assert first.sent[0]["method"] == second.sent[0]["method"] == "pool.snapshot.create"
+    assert first.sent[0]["params"] == second.sent[0]["params"] == ["games/master"]
+
+
+@pytest.mark.asyncio
+async def test_transport_retries_timeout_while_opening_connection() -> None:
+    connection = FakeConnection(['{"jsonrpc":"2.0","id":1,"result":true}'])
+    outcomes: list[BaseException | FakeConnection] = [TimeoutError(), connection]
+
+    async def factory() -> FakeConnection:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    transport = JsonRpcWebSocketTransport(
+        factory,
+        retry_attempts=1,
+        retry_backoff_seconds=0,
+    )
+
+    assert await transport.request("core.ping") is True
+    assert connection.sent[0]["id"] == 1
+
+
+@pytest.mark.asyncio
 async def test_transport_reconnects_once_after_connection_loss() -> None:
     first = FakeConnection([ConnectionError("lost")])
     second = FakeConnection(['{"jsonrpc":"2.0","id":1,"result":true}'])
@@ -84,7 +128,7 @@ async def test_transport_reconnects_once_after_connection_loss() -> None:
     async def factory() -> FakeConnection:
         return next(connections)
 
-    transport = JsonRpcWebSocketTransport(factory)
+    transport = JsonRpcWebSocketTransport(factory, retry_backoff_seconds=0)
 
     assert await transport.request("core.ping") is True
     assert first.closed is True
@@ -103,10 +147,27 @@ async def test_transport_rejects_malformed_jsonrpc_response() -> None:
 @pytest.mark.asyncio
 async def test_transport_reports_connection_failure_after_retry_budget() -> None:
     connection = FakeConnection([ConnectionError("lost")])
-    transport = JsonRpcWebSocketTransport(lambda: _resolved(connection), reconnect_attempts=0)
+    transport = JsonRpcWebSocketTransport(
+        lambda: _resolved(connection), reconnect_attempts=0, retry_backoff_seconds=0
+    )
 
     with pytest.raises(JSONRPCConnectionError):
         await transport.request("core.ping")
+
+
+@pytest.mark.asyncio
+async def test_transport_does_not_retry_permanent_remote_error() -> None:
+    connection = FakeConnection(
+        ['{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"invalid"}}']
+    )
+    transport = JsonRpcWebSocketTransport(
+        lambda: _resolved(connection), retry_attempts=3, retry_backoff_seconds=0
+    )
+
+    with pytest.raises(JSONRPCRemoteError):
+        await transport.request("pool.snapshot.create")
+
+    assert len(connection.sent) == 1
 
 
 async def _resolved(connection: FakeConnection) -> FakeConnection:

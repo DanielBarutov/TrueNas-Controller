@@ -90,6 +90,7 @@ class StationRecord(Base):
     target_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     target_iqn: Mapped[str | None] = mapped_column(String(255), nullable=True)
     initiator_iqn: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_update_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now

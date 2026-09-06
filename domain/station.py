@@ -37,6 +37,7 @@ class Station:
     target_name: str | None = None
     target_iqn: str | None = None
     initiator_iqn: str | None = None
+    last_update_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.display_name.strip():

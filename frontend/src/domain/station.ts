@@ -15,6 +15,7 @@ export interface Station {
   target_name?: string | null;
   target_iqn?: string | null;
   initiator_iqn?: string | null;
+  last_update_at?: string | null;
 }
 
 export interface StationSetupReport {

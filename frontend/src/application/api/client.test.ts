@@ -62,4 +62,32 @@ describe("ControllerApi", () => {
       method: "POST",
     }));
   });
+
+  it("lists datasets and queues selected dataset cleanup", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "artifact-1", status: "retired" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "accepted", artifact_ids: ["artifact-1"] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new ControllerApi({ username: "admin", password: "secret" });
+
+    await expect(api.listDatasets(true)).resolves.toEqual([{ id: "artifact-1", status: "retired" }]);
+    await expect(api.deleteDatasets(["artifact-1"])).resolves.toEqual({
+      status: "accepted",
+      artifact_ids: ["artifact-1"],
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/datasets?include_deleted=true", expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: `Basic ${btoa("admin:secret")}` }),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/datasets/delete", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ artifact_ids: ["artifact-1"] }),
+    }));
+  });
 });

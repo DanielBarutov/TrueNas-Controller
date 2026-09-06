@@ -2,9 +2,10 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from application.ports import TrueNASWriteClient, UnitOfWorkFactory
-from domain.publish import PublishArtifact
+from domain.publish import PublishArtifact, StorageArtifactStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,15 +47,29 @@ class DatasetCleanupUseCase:
         self,
         *,
         write_client: TrueNASWriteClient | None = None,
+        artifact_ids: tuple[UUID, ...] | None = None,
         now: datetime | None = None,
     ) -> DatasetCleanupResult:
         current_time = now or datetime.now(UTC)
         cutoff = current_time - timedelta(days=self._retention_days)
         async with self._uow_factory() as uow:
-            candidates = await uow.publish_artifacts.list_cleanup_candidates(
-                before=cutoff,
-                limit=self._batch_size,
-            )
+            if artifact_ids is None:
+                candidates = await uow.publish_artifacts.list_cleanup_candidates(
+                    before=cutoff,
+                    limit=self._batch_size,
+                )
+            else:
+                selected = await uow.publish_artifacts.list_by_ids(artifact_ids)
+                candidates = tuple(
+                    artifact
+                    for artifact in selected
+                    if (
+                        not artifact.is_current
+                        and artifact.deleted_at is None
+                        and artifact.status
+                        in {StorageArtifactStatus.RETIRED, StorageArtifactStatus.CLEANUP_FAILED}
+                    )
+                )
 
         if not self._apply_enabled:
             return DatasetCleanupResult(

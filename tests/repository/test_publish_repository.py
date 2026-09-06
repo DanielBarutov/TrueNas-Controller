@@ -7,7 +7,13 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from domain.publish import PublishJob, PublishJobStatus, PublishTarget
+from domain.publish import (
+    PublishArtifact,
+    PublishJob,
+    PublishJobStatus,
+    PublishTarget,
+    StorageArtifactStatus,
+)
 from domain.station import Station, StationRole, StationStatus
 from repository.database import create_engine, create_session_factory
 from repository.models import Base
@@ -175,3 +181,57 @@ async def test_publish_job_and_target_updates_round_trip(
     async with uow_factory() as uow:
         assert await uow.publish_jobs.get(job.id) == updated_job
         assert await uow.publish_targets.list_for_job(job.id) == (updated_target,)
+
+
+async def test_publish_artifact_inventory_filters_deleted_and_loads_selected_ids(
+    uow_factory: SqlAlchemyUnitOfWorkFactory,
+) -> None:
+    station = make_station()
+    deleted_station = replace(
+        station,
+        id=uuid4(),
+        station_id=uuid4(),
+        display_name="Client 02",
+        hostname="client-02",
+    )
+    job = make_job(idempotency_key="artifact-inventory")
+    created_at = datetime(2026, 9, 5, 11, tzinfo=UTC)
+    active = PublishArtifact(
+        id=uuid4(),
+        job_id=job.id,
+        station_id=station.station_id,
+        source_dataset="games/master-games",
+        dataset_name="games/clone-pc1",
+        snapshot_ref="games/master-games@snapshot",
+        mapping_ref="zvol/games/clone-pc1",
+        created_at=created_at,
+        status=StorageArtifactStatus.RETIRED,
+    )
+    deleted = PublishArtifact(
+        id=uuid4(),
+        job_id=job.id,
+        station_id=deleted_station.station_id,
+        source_dataset="games/master-games",
+        dataset_name="games/clone-pc2",
+        snapshot_ref="games/master-games@snapshot-2",
+        mapping_ref="zvol/games/clone-pc2",
+        created_at=datetime(2026, 9, 5, 10, tzinfo=UTC),
+        status=StorageArtifactStatus.DELETED,
+        deleted_at=datetime(2026, 9, 5, 12, tzinfo=UTC),
+    )
+    second_target = make_target(job, deleted_station)
+
+    async with uow_factory() as uow:
+        await uow.stations.add(station)
+        await uow.stations.add(deleted_station)
+        await uow.publish_jobs.add(job)
+        await uow.publish_targets.add_many((make_target(job, station), second_target))
+        await uow.publish_artifacts.save(active)
+        await uow.publish_artifacts.save(deleted)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        assert await uow.publish_artifacts.list_all() == (active,)
+        assert await uow.publish_artifacts.list_all(include_deleted=True) == (active, deleted)
+        selected = await uow.publish_artifacts.list_by_ids((deleted.id, active.id))
+        assert set(selected) == {active, deleted}

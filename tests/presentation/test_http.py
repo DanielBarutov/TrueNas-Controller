@@ -249,6 +249,7 @@ def test_stations_route_uses_application_query(monkeypatch) -> None:
             "target_name": None,
             "target_iqn": None,
             "initiator_iqn": None,
+            "last_update_at": None,
         }
     ]
     assert query.requested_include_disabled is True

@@ -115,6 +115,10 @@ async def test_fake_executor_persists_dry_run_without_fake_storage_mutation(
     assert stored_targets[0].old_mapping == {"ref": "old:station"}
     assert adapter.masters == {}
     assert adapter.clones == {}
+    async with uow_factory() as uow:
+        unchanged_station = await uow.stations.get(station.station_id)
+    assert unchanged_station is not None
+    assert unchanged_station.last_update_at is None
 
 
 async def test_fake_executor_persists_successful_apply(
@@ -136,6 +140,10 @@ async def test_fake_executor_persists_successful_apply(
     assert stored_targets[0].switch_status == "switched"
     assert stored_targets[0].verify_status == "verified"
     assert stored_targets[0].progress_percent == 100
+    async with uow_factory() as uow:
+        updated_station = await uow.stations.get(station.station_id)
+    assert updated_station is not None
+    assert updated_station.last_update_at is not None
 
 
 async def test_fake_executor_persists_partial_failure_per_target(
@@ -215,3 +223,7 @@ async def test_truenas_executor_persists_existing_extent_update(
     assert stored_targets[0].new_mapping is not None
     assert len(storage.extents) == 1
     assert storage.target_extents == [TrueNASTargetExtent(7, 11, 0)]
+    async with uow_factory() as uow:
+        updated_station = await uow.stations.get(station.station_id)
+    assert updated_station is not None
+    assert updated_station.last_update_at is not None

@@ -61,6 +61,8 @@ tr:last-child td { border-bottom: 0; }
 .form-card { margin-top: 24px; padding: 24px; }
 .station-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end; }
 label { display: grid; gap: 8px; color: #c9d4e5; font-size: 14px; font-weight: 650; }
+.checkbox-row { display: flex; align-items: center; gap: 8px; }
+.checkbox-row input { width: auto; margin: 0; accent-color: #8ea4ff; }
 label input, label select, .knowledge-nav input, .login-card input { width: 100%; border: 1px solid #354762; border-radius: 9px; padding: 11px 12px; outline: 0; background: #0d1626; color: #edf3ff; }
 label input:focus, label select:focus, .knowledge-nav input:focus, .login-card input:focus { border-color: #8ea4ff; box-shadow: 0 0 0 3px #718bff22; }
 label small { min-height: 34px; font-weight: 400; line-height: 1.35; }
@@ -214,6 +216,15 @@ textarea:focus { border-color: #8ea4ff; box-shadow: 0 0 0 3px #718bff22; }
 .recovery-banner small { color: #f0d79e; line-height: 1.45; }
 .search-field span, .filter-field span { display: inline-flex; align-items: center; gap: 6px; }
 .secure-badge { display: inline-flex; align-items: center; gap: 5px; }
+.dataset-card { display: grid; gap: 16px; }
+.dataset-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.dataset-toolbar .muted { margin-right: auto; }
+.dataset-status { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.dataset-status-current { background: #173c36; color: #72e0bb; }
+.dataset-status-retired { background: #263b62; color: #b7c5ff; }
+.dataset-status-deleted { background: #263146; color: #9aa8bf; }
+.dataset-status-cleanup_failed { background: #3b2029; color: #ff9eaa; }
+.success-message { border: 1px solid #3d7568; border-radius: 9px; padding: 11px 13px; background: #15352f; color: #8be5c6; }
 .status-badge .lucide { margin-left: -1px; }
 body { background: #080f1c; }
 body::before { position: fixed; z-index: -1; inset: 0; background: radial-gradient(circle at 82% 8%, #263a6c55, transparent 30%), radial-gradient(circle at 8% 90%, #163b4e44, transparent 28%); content: ""; pointer-events: none; }

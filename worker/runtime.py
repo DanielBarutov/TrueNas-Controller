@@ -212,8 +212,9 @@ class PublishWorkerRuntime:
         # Declare the actor afterwards so after_declare_queue can attach the
         # consumer to the already-running worker.
         self._actor = build_publish_actor(self._handler_factory)
-        if self._config.dataset_cleanup_enabled:
-            self._cleanup_actor = build_dataset_cleanup_actor(self._cleanup_handler_factory)
+        # Manual cleanup requests from the operator API must be consumable even
+        # when the periodic retention scheduler is disabled.
+        self._cleanup_actor = build_dataset_cleanup_actor(self._cleanup_handler_factory)
         self._relay = PublishOutboxRelay(
             self._uow_factory,
             DramatiqPublishTaskQueue(self._actor),
@@ -231,10 +232,10 @@ class PublishWorkerRuntime:
         )
         next_cleanup_at = (
             monotonic() + self._config.dataset_cleanup_interval_seconds
-            if self._cleanup_actor is not None
+            if self._config.dataset_cleanup_enabled
             else None
         )
-        if self._cleanup_actor is not None:
+        if next_cleanup_at is not None:
             logger.info(
                 "dataset cleanup scheduled: interval=%ss retention=%sd batch=%s apply=%s",
                 self._config.dataset_cleanup_interval_seconds,

@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -70,6 +71,27 @@ async def test_station_repository_updates_truenas_mapping(
     assert updated.target_name == "PC1"
     assert updated.target_iqn == "iqn.target.pc1"
     assert updated.initiator_iqn == "iqn.initiator.pc1"
+
+
+async def test_station_repository_persists_last_update_timestamp(
+    uow_factory: SqlAlchemyUnitOfWorkFactory,
+) -> None:
+    station = make_station()
+    updated_at = datetime(2026, 9, 5, 10, 30, tzinfo=UTC)
+
+    async with uow_factory() as uow:
+        await uow.stations.add(station)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        await uow.stations.update_last_update(station.station_id, updated_at)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        updated = await uow.stations.get(station.station_id)
+
+    assert updated is not None
+    assert updated.last_update_at == updated_at
 
 
 async def test_list_excludes_disabled_by_default(

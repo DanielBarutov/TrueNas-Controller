@@ -76,6 +76,8 @@
 | [34-worker-runtime](34-worker-runtime/01-compose-worker-and-secret-boundary.md) | Runtime Dramatiq worker, outbox relay и граница TrueNAS secret | в работе |
 | [35-update-history-and-process-policy](35-update-history-and-process-policy/01-history-process-policy.md) | История publish, web-политика процессов и повторный preflight | завершён |
 | [36-truenas-write-adapter](36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | Snapshot, clone и обновление device/file существующего extent | в работе |
+| [37-operator-follow-up](37-operator-follow-up/01-history-station-edit.md) | История, station edit, native agent и dataset retention | в работе |
+| [38-update-observability-and-dataset-console](38-update-observability-and-dataset-console/01-update-tracking-retry-dataset-console.md) | Статус обновления по станциям, JSON-RPC retry и консоль датасетов | завершён |
 
 ## Текущий этап
 

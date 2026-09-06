@@ -2,7 +2,11 @@ from uuid import uuid4
 
 import pytest
 
-from worker.tasks import PublishTaskPayload, build_publish_actor
+from worker.tasks import (
+    PublishTaskPayload,
+    build_dataset_cleanup_actor,
+    build_publish_actor,
+)
 
 
 def test_task_payload_contains_only_ids_and_idempotency() -> None:
@@ -42,3 +46,20 @@ def test_invalid_task_payload_fails_before_handler() -> None:
         actor.fn("not-a-uuid", str(uuid4()), "idempotency-key")
 
     assert called is False
+
+
+def test_dataset_cleanup_actor_parses_explicit_artifact_ids() -> None:
+    artifact_id = uuid4()
+    calls: list[tuple] = []
+
+    def factory():
+        def handler(artifact_ids):
+            calls.append(artifact_ids)
+
+        return handler
+
+    actor = build_dataset_cleanup_actor(factory, actor_name=f"dataset_cleanup_{uuid4().hex}")
+    actor.fn([str(artifact_id)])
+    actor.fn()
+
+    assert calls == [(artifact_id,), ()]

@@ -9,6 +9,7 @@ from truenas_adapter.runtime import (
     TrueNASRuntimeConfigError,
     build_write_client,
 )
+from truenas_adapter.transport import JSONRPCTimeoutError
 
 
 class RecordingTransport:
@@ -69,6 +70,48 @@ def test_runtime_config_parses_tls_options_and_trims_secret() -> None:
     assert config.tls_ca_file == "/run/secrets/truenas-ca.pem"
 
 
+def test_runtime_config_parses_transport_retry_options() -> None:
+    config = TrueNASRuntimeConfig.from_env(
+        {
+            "TRUENAS_WS_URL": "wss://nas.example/api/current",
+            "TRUENAS_API_KEY": "secret",
+            "TRUENAS_TIMEOUT_SECONDS": "15",
+            "TRUENAS_OPEN_TIMEOUT_SECONDS": "8",
+            "TRUENAS_RETRY_ATTEMPTS": "4",
+            "TRUENAS_RETRY_BACKOFF_SECONDS": "0.5",
+            "TRUENAS_RETRY_BACKOFF_MAX_SECONDS": "3",
+        }
+    )
+
+    assert config.timeout_seconds == 15
+    assert config.open_timeout_seconds == 8
+    assert config.reconnect_attempts == 4
+    assert config.retry_backoff_seconds == 0.5
+    assert config.retry_backoff_max_seconds == 3
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("TRUENAS_TIMEOUT_SECONDS", "0"),
+        ("TRUENAS_OPEN_TIMEOUT_SECONDS", "nan"),
+        ("TRUENAS_RETRY_ATTEMPTS", "11"),
+        ("TRUENAS_RETRY_BACKOFF_SECONDS", "-1"),
+        ("TRUENAS_RETRY_BACKOFF_MAX_SECONDS", "0.1"),
+    ],
+)
+def test_runtime_config_rejects_unsafe_transport_retry_options(name: str, value: str) -> None:
+    environment = {
+        "TRUENAS_WS_URL": "wss://nas.example/api/current",
+        "TRUENAS_API_KEY": "secret",
+        "TRUENAS_RETRY_BACKOFF_SECONDS": "0.25",
+    }
+    environment[name] = value
+
+    with pytest.raises(TrueNASRuntimeConfigError):
+        TrueNASRuntimeConfig.from_env(environment)
+
+
 @pytest.mark.asyncio
 async def test_api_key_transport_authenticates_without_leaking_secret() -> None:
     inner = RecordingTransport()
@@ -98,3 +141,35 @@ async def test_api_key_transport_fails_closed_on_rejected_key() -> None:
         await transport.request("core.ping")
     assert "test-only-secret" not in str(error.value)
     assert inner.calls == [("auth.login_with_api_key", ["test-only-secret"])]
+
+
+@pytest.mark.asyncio
+async def test_api_key_transport_reauthenticates_after_transient_failure() -> None:
+    class FlakyTransport(RecordingTransport):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failures_left = 1
+
+        async def request(self, method: str, params: object | None = None) -> object:
+            result = await super().request(method, params)
+            if method != "auth.login_with_api_key" and self.failures_left:
+                self.failures_left -= 1
+                raise JSONRPCTimeoutError("temporary timeout")
+            return result
+
+    inner = FlakyTransport()
+    transport = ApiKeyJsonRpcTransport(
+        inner,
+        api_key="test-only-secret",
+        authentication_method="auth.login_with_api_key",
+        retry_attempts=1,
+        retry_backoff_seconds=0,
+    )
+
+    assert await transport.request("core.ping") == {"method": "core.ping"}
+    assert inner.calls == [
+        ("auth.login_with_api_key", ["test-only-secret"]),
+        ("core.ping", None),
+        ("auth.login_with_api_key", ["test-only-secret"]),
+        ("core.ping", None),
+    ]

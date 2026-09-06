@@ -27,6 +27,25 @@ class SqlAlchemyPublishArtifactRepository(PublishArtifactRepository):
         records = (await self._session.scalars(statement)).all()
         return tuple(self._to_domain(record) for record in records)
 
+    async def list_all(self, *, include_deleted: bool = False) -> tuple[PublishArtifact, ...]:
+        statement = select(PublishArtifactRecord).order_by(
+            PublishArtifactRecord.created_at.desc(),
+            PublishArtifactRecord.station_id,
+        )
+        if not include_deleted:
+            statement = statement.where(
+                PublishArtifactRecord.status != StorageArtifactStatus.DELETED
+            )
+        records = (await self._session.scalars(statement)).all()
+        return tuple(self._to_domain(record) for record in records)
+
+    async def list_by_ids(self, artifact_ids: tuple[UUID, ...]) -> tuple[PublishArtifact, ...]:
+        if not artifact_ids:
+            return ()
+        statement = select(PublishArtifactRecord).where(PublishArtifactRecord.id.in_(artifact_ids))
+        records = (await self._session.scalars(statement)).all()
+        return tuple(self._to_domain(record) for record in records)
+
     async def save(self, artifact: PublishArtifact) -> None:
         statement = select(PublishArtifactRecord).where(
             PublishArtifactRecord.job_id == artifact.job_id,

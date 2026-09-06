@@ -154,6 +154,11 @@ async def _persist_result(
                     progress_percent=100,
                 )
             )
+            if not original_job.dry_run and target_result.status is TargetStatus.VERIFIED:
+                await uow.stations.update_last_update(
+                    target_result.station_id,
+                    datetime.now(UTC),
+                )
             if (
                 not original_job.dry_run
                 and target_result.storage_created

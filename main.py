@@ -5,6 +5,8 @@ import binascii
 import os
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+import dramatiq
+from dramatiq.brokers.redis import RedisBroker
 from fastapi import FastAPI
 
 from agent.command_signing import Ed25519CommandSigner
@@ -12,6 +14,7 @@ from application.agent_commands import (
     AcknowledgeAgentCommandUseCase,
     IssueAgentCommandUseCase,
 )
+from application.datasets import ListDatasetsUseCase, QueueDatasetCleanupUseCase
 from application.lifecycle import (
     BootstrapAgentUseCase,
     CreateProvisioningTokenUseCase,
@@ -20,6 +23,7 @@ from application.lifecycle import (
     EnrollAgentUseCase,
     ReceiveHeartbeatUseCase,
 )
+from application.ports import DatasetCleanupTaskQueue
 from application.preflight import EvaluateStationPreflightUseCase
 from application.process_rules import (
     CreateProcessRuleUseCase,
@@ -38,6 +42,7 @@ from application.stations import (
 from presentation.http import create_app
 from repository.database import create_engine, create_session_factory
 from repository.uow import SqlAlchemyUnitOfWorkFactory
+from worker.tasks import DramatiqDatasetCleanupTaskQueue, build_dataset_cleanup_actor
 
 
 def build_app(database_url: str | None = None) -> FastAPI:
@@ -51,6 +56,7 @@ def build_app(database_url: str | None = None) -> FastAPI:
     uow_factory = SqlAlchemyUnitOfWorkFactory(session_factory)
     command_signer = _command_signer_from_env()
     preflight = EvaluateStationPreflightUseCase(uow_factory)
+    dataset_cleanup_queue = _dataset_cleanup_queue_from_env()
     return create_app(
         ListStationsUseCase(uow_factory),
         station_registry=CreateStationUseCase(uow_factory),
@@ -68,6 +74,12 @@ def build_app(database_url: str | None = None) -> FastAPI:
         list_publish_jobs=ListPublishJobsUseCase(uow_factory),
         update_station=UpdateStationUseCase(uow_factory),
         update_station_storage_mapping=UpdateStationStorageMappingUseCase(uow_factory),
+        list_datasets=ListDatasetsUseCase(uow_factory),
+        queue_dataset_cleanup=(
+            QueueDatasetCleanupUseCase(uow_factory, dataset_cleanup_queue)
+            if dataset_cleanup_queue is not None
+            else None
+        ),
         prepare_publish_job=PreparePublishJobUseCase(uow_factory, preflight),
         dispatch_publish_job=DispatchPublishJobUseCase(uow_factory),
         issue_agent_command=(
@@ -91,6 +103,25 @@ def _command_signer_from_env() -> Ed25519CommandSigner | None:
     except (ValueError, binascii.Error) as exc:
         raise RuntimeError("AGENT_COMMAND_SIGNING_PRIVATE_KEY is invalid") from exc
     return Ed25519CommandSigner(private_key)
+
+
+def _dataset_cleanup_queue_from_env() -> DatasetCleanupTaskQueue | None:
+    """Register the worker actor in the API process without loading NAS secrets."""
+
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    if not redis_url:
+        return None
+    broker = RedisBroker(url=redis_url)
+    dramatiq.set_broker(broker)
+
+    def api_only_handler_factory():
+        def api_only_handler(_artifact_ids) -> None:
+            raise RuntimeError("dataset cleanup must run in the worker process")
+
+        return api_only_handler
+
+    actor = build_dataset_cleanup_actor(api_only_handler_factory)
+    return DramatiqDatasetCleanupTaskQueue(actor)
 
 
 app = build_app()

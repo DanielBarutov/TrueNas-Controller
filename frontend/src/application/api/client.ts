@@ -1,3 +1,4 @@
+import type { Dataset } from "../../domain/dataset";
 import type { Station, StationRole } from "../../domain/station";
 import type {
   PreflightReport,
@@ -92,6 +93,17 @@ export class ControllerApi {
     return this.request(`/api/v1/stations/${stationId}/storage-mapping`, {
       method: "PATCH",
       body: JSON.stringify(input),
+    });
+  }
+
+  async listDatasets(includeDeleted = false): Promise<Dataset[]> {
+    return this.request<Dataset[]>(`/api/v1/datasets?include_deleted=${includeDeleted}`);
+  }
+
+  async deleteDatasets(artifactIds: string[]): Promise<{ status: string; artifact_ids: string[] }> {
+    return this.request<{ status: string; artifact_ids: string[] }>("/api/v1/datasets/delete", {
+      method: "POST",
+      body: JSON.stringify({ artifact_ids: artifactIds }),
     });
   }
 

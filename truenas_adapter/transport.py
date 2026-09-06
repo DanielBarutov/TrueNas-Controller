@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import suppress
 import json
+import math
 from typing import Protocol
 
 
@@ -57,20 +58,46 @@ class JsonRpcWebSocketTransport:
     client, while contract tests use a deterministic fake connection.
     """
 
+    _MAX_RETRY_ATTEMPTS = 10
+
     def __init__(
         self,
         connection_factory: ConnectionFactory,
         *,
         timeout_seconds: float = 10.0,
-        reconnect_attempts: int = 1,
+        reconnect_attempts: int | None = None,
+        retry_attempts: int | None = None,
+        retry_backoff_seconds: float = 0.25,
+        retry_backoff_max_seconds: float = 2.0,
     ) -> None:
-        if timeout_seconds <= 0:
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
-        if reconnect_attempts < 0:
-            raise ValueError("reconnect_attempts cannot be negative")
+        if reconnect_attempts is not None and retry_attempts is not None:
+            raise ValueError("configure only one of reconnect_attempts or retry_attempts")
+        configured_attempts = (
+            retry_attempts
+            if retry_attempts is not None
+            else reconnect_attempts
+            if reconnect_attempts is not None
+            else 2
+        )
+        if (
+            not isinstance(configured_attempts, int)
+            or isinstance(configured_attempts, bool)
+            or not 0 <= configured_attempts <= self._MAX_RETRY_ATTEMPTS
+        ):
+            raise ValueError("retry_attempts must be an integer from 0 to 10")
+        if not math.isfinite(retry_backoff_seconds) or retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds cannot be negative")
+        if not math.isfinite(retry_backoff_max_seconds) or retry_backoff_max_seconds < 0:
+            raise ValueError("retry_backoff_max_seconds cannot be negative")
+        if retry_backoff_max_seconds < retry_backoff_seconds:
+            raise ValueError("retry_backoff_max_seconds cannot be less than retry_backoff_seconds")
         self._connection_factory = connection_factory
         self._timeout_seconds = timeout_seconds
-        self._reconnect_attempts = reconnect_attempts
+        self._retry_attempts = configured_attempts
+        self._retry_backoff_seconds = retry_backoff_seconds
+        self._retry_backoff_max_seconds = retry_backoff_max_seconds
         self._connection: WebSocketConnection | None = None
         self._next_request_id = 1
         self._closed = False
@@ -94,20 +121,28 @@ class JsonRpcWebSocketTransport:
         except (TypeError, ValueError) as exc:
             raise JSONRPCProtocolError("JSON-RPC parameters are not serializable") from exc
 
-        for attempt in range(self._reconnect_attempts + 1):
+        for attempt in range(self._retry_attempts + 1):
             try:
                 return await asyncio.wait_for(
                     self._request_once(payload, request_id, method), self._timeout_seconds
                 )
-            except TimeoutError as exc:
+            except (
+                TimeoutError,
+                ConnectionError,
+                OSError,
+                EOFError,
+                JSONRPCConnectionError,
+            ) as exc:
                 await self._reset_connection()
-                raise JSONRPCTimeoutError(f"TrueNAS JSON-RPC request timed out: {method}") from exc
-            except (ConnectionError, OSError) as exc:
-                await self._reset_connection()
-                if attempt >= self._reconnect_attempts:
+                if attempt >= self._retry_attempts:
+                    if isinstance(exc, TimeoutError):
+                        raise JSONRPCTimeoutError(
+                            f"TrueNAS JSON-RPC request timed out: {method}"
+                        ) from exc
                     raise JSONRPCConnectionError(
                         f"TrueNAS JSON-RPC connection failed: {method}"
                     ) from exc
+                await self._wait_before_retry(attempt)
 
         raise AssertionError("request retry loop must return or raise")
 
@@ -151,8 +186,17 @@ class JsonRpcWebSocketTransport:
         connection = self._connection
         self._connection = None
         if connection is not None:
-            with suppress(ConnectionError, OSError):
+            with suppress(TimeoutError, ConnectionError, OSError, EOFError):
                 await connection.close()
+
+    async def _wait_before_retry(self, attempt: int) -> None:
+        if self._retry_backoff_seconds == 0:
+            return
+        delay = min(
+            self._retry_backoff_seconds * (2**attempt),
+            self._retry_backoff_max_seconds,
+        )
+        await asyncio.sleep(delay)
 
     def _allocate_request_id(self) -> int:
         request_id = self._next_request_id

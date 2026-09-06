@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports import StationRepository
 from domain.station import Station, StationRole, StationStatus
+from domain.time import ensure_utc
 from repository.models import AgentCommandRecord, AgentRecord, EnrollmentTokenRecord, StationRecord
 
 
@@ -44,6 +45,7 @@ class SqlAlchemyStationRepository(StationRepository):
                 target_name=station.target_name,
                 target_iqn=station.target_iqn,
                 initiator_iqn=station.initiator_iqn,
+                last_update_at=station.last_update_at,
             )
         )
 
@@ -117,6 +119,16 @@ class SqlAlchemyStationRepository(StationRepository):
         )
         return self._to_domain(record)
 
+    async def update_last_update(self, station_id: UUID, updated_at: datetime) -> None:
+        statement = select(StationRecord).where(
+            StationRecord.station_id == station_id,
+            StationRecord.deleted_at.is_(None),
+        )
+        record = await self._session.scalar(statement)
+        if record is None:
+            raise ValueError("station not found")
+        record.last_update_at = updated_at
+
     async def delete(self, station_id: UUID, deleted_at: datetime) -> bool:
         """Hide a station while removing credentials and pending agent work."""
 
@@ -157,8 +169,11 @@ class SqlAlchemyStationRepository(StationRepository):
             role=record.role,
             status=record.state,
             enabled=record.enabled,
-            deleted_at=record.deleted_at,
+            deleted_at=None if record.deleted_at is None else ensure_utc(record.deleted_at),
             target_name=record.target_name,
             target_iqn=record.target_iqn,
             initiator_iqn=record.initiator_iqn,
+            last_update_at=(
+                None if record.last_update_at is None else ensure_utc(record.last_update_at)
+            ),
         )

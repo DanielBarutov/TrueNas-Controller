@@ -6,7 +6,7 @@ from uuid import UUID
 
 import dramatiq
 
-from application.ports import PublishTaskQueue
+from application.ports import DatasetCleanupTaskQueue, PublishTaskQueue
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +28,7 @@ class PublishTaskPayload:
 
 PublishTaskHandler = Callable[[PublishTaskPayload], None]
 PublishTaskHandlerFactory = Callable[[], PublishTaskHandler]
-DatasetCleanupTaskHandler = Callable[[], None]
+DatasetCleanupTaskHandler = Callable[[tuple[UUID, ...]], None]
 DatasetCleanupTaskHandlerFactory = Callable[[], DatasetCleanupTaskHandler]
 
 
@@ -46,6 +46,16 @@ class DramatiqPublishTaskQueue(PublishTaskQueue):
         idempotency_key: str,
     ) -> None:
         self._actor.send(str(job_id), str(correlation_id), idempotency_key)
+
+
+class DramatiqDatasetCleanupTaskQueue(DatasetCleanupTaskQueue):
+    """Queue explicit dataset IDs for the existing cleanup worker actor."""
+
+    def __init__(self, actor: dramatiq.Actor) -> None:
+        self._actor = actor
+
+    def enqueue(self, *, artifact_ids: tuple[UUID, ...]) -> None:
+        self._actor.send([str(artifact_id) for artifact_id in artifact_ids])
 
 
 def build_publish_actor(
@@ -68,10 +78,13 @@ def build_dataset_cleanup_actor(
     *,
     actor_name: str = "dataset_cleanup",
 ) -> dramatiq.Actor:
-    """Build a scheduled actor with no user-controlled message payload."""
+    """Build the scheduled/manual cleanup actor with validated artifact IDs."""
 
     @dramatiq.actor(actor_name=actor_name, max_retries=0)
-    def dataset_cleanup() -> None:
-        handler_factory()()
+    def dataset_cleanup(artifact_ids: list[str] | None = None) -> None:
+        parsed_ids = (
+            () if artifact_ids is None else tuple(UUID(artifact_id) for artifact_id in artifact_ids)
+        )
+        handler_factory()(parsed_ids)
 
     return dataset_cleanup

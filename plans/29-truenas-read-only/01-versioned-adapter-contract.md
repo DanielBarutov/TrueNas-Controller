@@ -40,12 +40,19 @@ connection и API key не используются; сначала провер
 - fixture `truenas_adapter/fixtures/25.10/read_only.json` без секретов и
   зависимости от реального NAS;
 - adapter mapper с отказом на malformed shape и false ping.
+- transport retry policy: каждая JSON-RPC операция использует bounded retry
+  budget для timeout/connection/temporary transport failures, закрывает
+  повреждённый WebSocket перед reconnect и повторяет тот же serialized
+  request ID; JSON-RPC protocol/application errors не ретраятся.
+- timeout/retry budget и backoff настраиваются из runtime config; безопасные
+  defaults ограничивают общее число попыток и задержку.
 
 ## Проверки
 
 - `uv run ruff check .` — passed;
 - `uv run ruff format --check .` — passed;
 - `uv run pytest -q` — `93 passed`;
+- transport/runtime targeted tests после retry slice — `20 passed`;
 - real WebSocket, Redis broker, API key и storage write не запускались.
 
 ## Статус

@@ -16,6 +16,9 @@ class FakeArtifacts:
     async def list_cleanup_candidates(self, *, before, limit):
         return tuple(self.artifacts[:limit])
 
+    async def list_by_ids(self, artifact_ids):
+        return tuple(artifact for artifact in self.artifacts if artifact.id in artifact_ids)
+
     async def mark_deleted(self, artifact_id, deleted_at):
         self.deleted.append((artifact_id, deleted_at))
 

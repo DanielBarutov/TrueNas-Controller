@@ -30,6 +30,7 @@ npm run test
 Пароль Basic Auth вводится на login-экране и хранится только в памяти вкладки.
 Frontend не содержит TrueNAS API key, agent credential или private signing key.
 
-Срез включает overview, station list/create, publish wizard и встроенную
-Markdown-базу знаний. Frontend не выполняет storage-операции и не проверяет
-версию игры: это подтверждает оператор, а backend остаётся источником истины.
+Срез включает overview, station list/create, publish wizard, консоль tracked
+датасетов и встроенную Markdown-базу знаний. Frontend не выполняет storage-
+операции напрямую и не проверяет версию игры: это подтверждает оператор, а
+backend остаётся источником истины.
