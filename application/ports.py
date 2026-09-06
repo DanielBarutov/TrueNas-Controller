@@ -233,6 +233,9 @@ class PublishArtifactRepository(Protocol):
     async def retire_station_artifacts(self, station_id: UUID, except_id: UUID) -> None:
         """Remove the current flag from previous artifacts for one station."""
 
+    async def set_current_artifact(self, station_id: UUID, artifact_id: UUID | None) -> None:
+        """Synchronize the current artifact with a verified live station mapping."""
+
     async def list_cleanup_candidates(
         self,
         *,

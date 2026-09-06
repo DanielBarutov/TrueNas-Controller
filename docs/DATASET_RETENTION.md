@@ -12,22 +12,24 @@
 
 ## Настройка worker
 
-Cleanup — это отдельная периодическая задача внутри Dramatiq worker. В `.env`
+Cleanup — это задача внутри Dramatiq worker: она запускается либо из меню по
+чекбоксам, либо периодически при включённом scheduler. В `.env`
 можно задать:
 
 ```dotenv
-DATASET_CLEANUP_ENABLED=true
+DATASET_CLEANUP_ENABLED=false
 DATASET_CLEANUP_INTERVAL_SECONDS=604800
 DATASET_CLEANUP_RETENTION_DAYS=30
 DATASET_CLEANUP_BATCH_SIZE=10
-TRUENAS_CLEANUP_APPLY_ENABLED=false
+TRUENAS_CLEANUP_APPLY_ENABLED=true
 ```
 
 По умолчанию интервал равен 7 дням, retention — 30 дней, batch — 10 записей.
-Сначала оставляйте `TRUENAS_CLEANUP_APPLY_ENABLED=false`: worker только
-читает кандидатов и пишет их количество в лог. Для фактического удаления
-нужно отдельно включить этот флаг, `PUBLISH_EXECUTOR_MODE=truenas`, корректный
-`TRUENAS_API_KEY` и общий `TRUENAS_APPLY_ENABLED=true`.
+`DATASET_CLEANUP_ENABLED=false` оставляет автоматический retention выключенным:
+удаление запускается только из меню по выбранным чекбоксам. Для фактического
+удаления нужны корректные `TRUENAS_WS_URL`/`TRUENAS_API_KEY` и
+`TRUENAS_CLEANUP_APPLY_ENABLED=true`; publish-gate и
+`PUBLISH_EXECUTOR_MODE=truenas` для этого не требуются.
 
 В удаление попадают только записи, которые:
 

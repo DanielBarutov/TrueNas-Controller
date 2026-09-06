@@ -2,6 +2,7 @@
 
 import base64
 import binascii
+from collections.abc import Callable
 import os
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -23,7 +24,7 @@ from application.lifecycle import (
     EnrollAgentUseCase,
     ReceiveHeartbeatUseCase,
 )
-from application.ports import DatasetCleanupTaskQueue
+from application.ports import DatasetCleanupTaskQueue, TrueNASReadOnlyClient
 from application.preflight import EvaluateStationPreflightUseCase
 from application.process_rules import (
     CreateProcessRuleUseCase,
@@ -42,6 +43,7 @@ from application.stations import (
 from presentation.http import create_app
 from repository.database import create_engine, create_session_factory
 from repository.uow import SqlAlchemyUnitOfWorkFactory
+from truenas_adapter.runtime import TrueNASRuntimeConfig, build_read_only_client
 from worker.tasks import DramatiqDatasetCleanupTaskQueue, build_dataset_cleanup_actor
 
 
@@ -57,6 +59,7 @@ def build_app(database_url: str | None = None) -> FastAPI:
     command_signer = _command_signer_from_env()
     preflight = EvaluateStationPreflightUseCase(uow_factory)
     dataset_cleanup_queue = _dataset_cleanup_queue_from_env()
+    truenas_read_client_factory = _truenas_read_client_factory_from_env()
     return create_app(
         ListStationsUseCase(uow_factory),
         station_registry=CreateStationUseCase(uow_factory),
@@ -74,9 +77,16 @@ def build_app(database_url: str | None = None) -> FastAPI:
         list_publish_jobs=ListPublishJobsUseCase(uow_factory),
         update_station=UpdateStationUseCase(uow_factory),
         update_station_storage_mapping=UpdateStationStorageMappingUseCase(uow_factory),
-        list_datasets=ListDatasetsUseCase(uow_factory),
+        list_datasets=ListDatasetsUseCase(
+            uow_factory,
+            truenas_read_client_factory=truenas_read_client_factory,
+        ),
         queue_dataset_cleanup=(
-            QueueDatasetCleanupUseCase(uow_factory, dataset_cleanup_queue)
+            QueueDatasetCleanupUseCase(
+                uow_factory,
+                dataset_cleanup_queue,
+                truenas_read_client_factory=truenas_read_client_factory,
+            )
             if dataset_cleanup_queue is not None
             else None
         ),
@@ -122,6 +132,15 @@ def _dataset_cleanup_queue_from_env() -> DatasetCleanupTaskQueue | None:
 
     actor = build_dataset_cleanup_actor(api_only_handler_factory)
     return DramatiqDatasetCleanupTaskQueue(actor)
+
+
+def _truenas_read_client_factory_from_env() -> Callable[[], TrueNASReadOnlyClient] | None:
+    """Enable live dataset reconciliation only with a complete TrueNAS config."""
+
+    if not os.getenv("TRUENAS_WS_URL", "").strip() or not os.getenv("TRUENAS_API_KEY", "").strip():
+        return None
+    config = TrueNASRuntimeConfig.from_env()
+    return lambda: build_read_only_client(config)
 
 
 app = build_app()

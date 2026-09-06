@@ -75,6 +75,25 @@ class SqlAlchemyPublishArtifactRepository(PublishArtifactRepository):
             .values(is_current=False, status=StorageArtifactStatus.RETIRED)
         )
 
+    async def set_current_artifact(self, station_id: UUID, artifact_id: UUID | None) -> None:
+        statement = select(PublishArtifactRecord).where(
+            PublishArtifactRecord.station_id == station_id,
+        )
+        records = (await self._session.scalars(statement)).all()
+        for record in records:
+            if record.status == StorageArtifactStatus.DELETED:
+                record.is_current = False
+                continue
+            if record.id == artifact_id:
+                record.is_current = True
+                record.status = StorageArtifactStatus.CURRENT
+                record.deleted_at = None
+                record.last_error = None
+            else:
+                record.is_current = False
+                if record.status == StorageArtifactStatus.CURRENT:
+                    record.status = StorageArtifactStatus.RETIRED
+
     async def list_cleanup_candidates(
         self,
         *,

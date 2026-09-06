@@ -92,12 +92,17 @@ def test_runtime_config_accepts_weekly_cleanup_schedule_without_apply() -> None:
     assert config.dataset_cleanup_batch_size == 4
 
 
-def test_runtime_config_does_not_allow_cleanup_apply_in_fake_mode() -> None:
-    with pytest.raises(WorkerRuntimeConfigError, match="PUBLISH_EXECUTOR_MODE"):
-        WorkerRuntimeConfig.from_env(
-            {
-                "DATABASE_URL": "postgresql://db",
-                "REDIS_URL": "redis://redis:6379/0",
-                "TRUENAS_CLEANUP_APPLY_ENABLED": "true",
-            }
-        )
+def test_runtime_config_allows_cleanup_apply_without_enabling_publish() -> None:
+    config = WorkerRuntimeConfig.from_env(
+        {
+            "DATABASE_URL": "postgresql://db",
+            "REDIS_URL": "redis://redis:6379/0",
+            "PUBLISH_EXECUTOR_MODE": "fake",
+            "TRUENAS_WS_URL": "wss://nas.example/api/current",
+            "TRUENAS_API_KEY": "test-only-key",
+            "TRUENAS_CLEANUP_APPLY_ENABLED": "true",
+        }
+    )
+
+    assert config.executor_mode == "fake"
+    assert config.truenas_cleanup_apply_enabled is True

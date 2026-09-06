@@ -16,6 +16,7 @@ from application.agent_commands import (
 )
 from application.datasets import (
     DatasetSelectionError,
+    DatasetStorageSyncError,
     ListDatasetsUseCase,
     QueueDatasetCleanupUseCase,
 )
@@ -520,7 +521,13 @@ def create_app(
             include_deleted: bool = Query(default=False),
             _: Annotated[str, Depends(require_basic_auth)] = "",
         ) -> list[DatasetResponse]:
-            artifacts = await list_datasets.execute(include_deleted=include_deleted)
+            try:
+                artifacts = await list_datasets.execute(include_deleted=include_deleted)
+            except DatasetStorageSyncError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=str(error),
+                ) from error
             return [DatasetResponse.from_domain(artifact) for artifact in artifacts]
 
     if queue_dataset_cleanup is not None:
@@ -541,6 +548,11 @@ def create_app(
             except DatasetSelectionError as error:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(error),
+                ) from error
+            except DatasetStorageSyncError as error:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=str(error),
                 ) from error
             return DatasetDeleteResponse(artifact_ids=list(result.artifact_ids))

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import replace
 import logging
 import os
 import signal
@@ -103,15 +104,6 @@ class WorkerRuntimeConfig:
         executor_mode = source.get("PUBLISH_EXECUTOR_MODE", "fake").strip().lower()
         if executor_mode not in {"fake", "truenas"}:
             raise WorkerRuntimeConfigError("PUBLISH_EXECUTOR_MODE must be 'fake' or 'truenas'")
-        if executor_mode == "truenas":
-            try:
-                truenas_config = TrueNASRuntimeConfig.from_env(source)
-            except TrueNASRuntimeConfigError as exc:
-                raise WorkerRuntimeConfigError(f"invalid TrueNAS worker config: {exc}") from exc
-            if not truenas_config.apply_enabled:
-                raise WorkerRuntimeConfigError(
-                    "TRUENAS_APPLY_ENABLED=true is required for PUBLISH_EXECUTOR_MODE=truenas"
-                )
         dataset_cleanup_enabled = _boolean(
             source.get("DATASET_CLEANUP_ENABLED", "false"),
             "DATASET_CLEANUP_ENABLED",
@@ -120,10 +112,15 @@ class WorkerRuntimeConfig:
             source.get("TRUENAS_CLEANUP_APPLY_ENABLED", "false"),
             "TRUENAS_CLEANUP_APPLY_ENABLED",
         )
-        if truenas_cleanup_apply_enabled and executor_mode != "truenas":
-            raise WorkerRuntimeConfigError(
-                "TRUENAS_CLEANUP_APPLY_ENABLED=true requires PUBLISH_EXECUTOR_MODE=truenas"
-            )
+        if executor_mode == "truenas" or truenas_cleanup_apply_enabled:
+            try:
+                truenas_config = TrueNASRuntimeConfig.from_env(source)
+            except TrueNASRuntimeConfigError as exc:
+                raise WorkerRuntimeConfigError(f"invalid TrueNAS worker config: {exc}") from exc
+            if executor_mode == "truenas" and not truenas_config.apply_enabled:
+                raise WorkerRuntimeConfigError(
+                    "TRUENAS_APPLY_ENABLED=true is required for PUBLISH_EXECUTOR_MODE=truenas"
+                )
         return cls(
             database_url=database_url,
             redis_url=redis_url,
@@ -156,7 +153,9 @@ class PublishWorkerRuntime:
         engine = create_engine(config.database_url, poolclass=NullPool)
         self._uow_factory = SqlAlchemyUnitOfWorkFactory(create_session_factory(engine))
         self._truenas_config = (
-            TrueNASRuntimeConfig.from_env() if config.executor_mode == "truenas" else None
+            TrueNASRuntimeConfig.from_env()
+            if config.executor_mode == "truenas" or config.truenas_cleanup_apply_enabled
+            else None
         )
 
         broker = _configure_broker(config.redis_url)
@@ -189,7 +188,7 @@ class PublishWorkerRuntime:
         if self._config.truenas_cleanup_apply_enabled:
             if self._truenas_config is None:
                 raise WorkerRuntimeConfigError("TrueNAS cleanup config is not initialized")
-            config = self._truenas_config
+            config = replace(self._truenas_config, apply_enabled=True)
 
             def write_client_factory():
                 return build_write_client(config)

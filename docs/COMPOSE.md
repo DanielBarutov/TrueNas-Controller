@@ -1,9 +1,9 @@
 # Локальный запуск через Docker Compose
 
 Compose поднимает PostgreSQL, Redis, backend, publish worker и frontend.
-По умолчанию worker запускает детерминированный fake executor. Реальный TrueNAS
-подключается только при явном `PUBLISH_EXECUTOR_MODE=truenas` и отдельном
-`TRUENAS_APPLY_ENABLED=true`.
+По умолчанию worker запускает детерминированный fake executor. Backend и worker
+могут читать live mapping TrueNAS, если заданы `TRUENAS_WS_URL` и
+`TRUENAS_API_KEY`; publish-запись и cleanup-запись управляются разными gate.
 
 ## Первый запуск в PowerShell
 
@@ -37,10 +37,10 @@ Basic Auth использует логин `admin` и значение `BASIC_AU
 Пароль из репозитория не подставляется и не должен попадать в git.
 
 `TRUENAS_API_KEY` — отдельный ключ TrueNAS, не Basic Auth приложения. Для
-подключения worker нужны `TRUENAS_VERSION`, полный `wss://`-адрес
-`TRUENAS_WS_URL`, `TRUENAS_API_KEY` и `PUBLISH_EXECUTOR_MODE=truenas`. Запись на
-NAS дополнительно останется выключенной, пока явно не задано
-`TRUENAS_APPLY_ENABLED=true`.
+live-сверки нужны `TRUENAS_VERSION`, полный `wss://`-адрес `TRUENAS_WS_URL` и
+`TRUENAS_API_KEY`. Publish-запись требует `PUBLISH_EXECUTOR_MODE=truenas` и
+`TRUENAS_APPLY_ENABLED=true`; удаление из меню требует только
+`TRUENAS_CLEANUP_APPLY_ENABLED=true`.
 
 Даже в режиме `truenas` dry-run не выполняет snapshot, clone или update extent:
 он только читает dataset, target/extent association и строит ожидаемый zvol.

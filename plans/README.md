@@ -78,6 +78,7 @@
 | [36-truenas-write-adapter](36-truenas-write-adapter/01-snapshot-clone-extent-switch.md) | Snapshot, clone и обновление device/file существующего extent | в работе |
 | [37-operator-follow-up](37-operator-follow-up/01-history-station-edit.md) | История, station edit, native agent и dataset retention | в работе |
 | [38-update-observability-and-dataset-console](38-update-observability-and-dataset-console/01-update-tracking-retry-dataset-console.md) | Статус обновления по станциям, JSON-RPC retry и консоль датасетов | завершён |
+| [39-live-dataset-reconciliation](39-live-dataset-reconciliation/01-live-mapping-and-cleanup-apply.md) | Сверка фактического TrueNAS mapping и независимое удаление из UI | завершён |
 
 ## Текущий этап
 

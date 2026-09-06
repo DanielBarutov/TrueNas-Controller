@@ -235,3 +235,53 @@ async def test_publish_artifact_inventory_filters_deleted_and_loads_selected_ids
         assert await uow.publish_artifacts.list_all(include_deleted=True) == (active, deleted)
         selected = await uow.publish_artifacts.list_by_ids((deleted.id, active.id))
         assert set(selected) == {active, deleted}
+
+
+async def test_publish_artifact_current_state_can_be_reconciled_from_live_mapping(
+    uow_factory: SqlAlchemyUnitOfWorkFactory,
+) -> None:
+    station = make_station()
+    job = make_job(idempotency_key="artifact-reconcile")
+    second_job = make_job(idempotency_key="artifact-reconcile-second")
+    first = PublishArtifact(
+        id=uuid4(),
+        job_id=job.id,
+        station_id=station.station_id,
+        source_dataset="games/master-games",
+        dataset_name="games/clone-pc1-old",
+        snapshot_ref="games/master-games@snapshot-old",
+        mapping_ref="zvol/games/clone-pc1-old",
+        created_at=datetime(2026, 9, 5, 10, tzinfo=UTC),
+        status=StorageArtifactStatus.CURRENT,
+        is_current=True,
+    )
+    second = replace(
+        first,
+        id=uuid4(),
+        job_id=second_job.id,
+        dataset_name="games/clone-pc1-new",
+        mapping_ref="zvol/games/clone-pc1-new",
+        status=StorageArtifactStatus.RETIRED,
+        is_current=False,
+    )
+
+    async with uow_factory() as uow:
+        await uow.stations.add(station)
+        await uow.publish_jobs.add(job)
+        await uow.publish_jobs.add(second_job)
+        await uow.publish_artifacts.save(first)
+        await uow.publish_artifacts.save(second)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        await uow.publish_artifacts.set_current_artifact(station.station_id, second.id)
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        records = await uow.publish_artifacts.list_all()
+
+    records_by_id = {record.id: record for record in records}
+    assert records_by_id[second.id].is_current is True
+    assert records_by_id[second.id].status is StorageArtifactStatus.CURRENT
+    assert records_by_id[first.id].is_current is False
+    assert records_by_id[first.id].status is StorageArtifactStatus.RETIRED
