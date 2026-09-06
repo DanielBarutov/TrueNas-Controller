@@ -8,7 +8,12 @@ from application.datasets import (
     ListDatasetsUseCase,
     QueueDatasetCleanupUseCase,
 )
-from application.truenas import TrueNASExtent, TrueNASTarget, TrueNASTargetExtent
+from application.truenas import (
+    TrueNASDataset,
+    TrueNASExtent,
+    TrueNASTarget,
+    TrueNASTargetExtent,
+)
 from domain.publish import PublishArtifact, StorageArtifactStatus
 from domain.station import Station, StationRole, StationStatus
 
@@ -128,9 +133,17 @@ async def test_queue_dataset_cleanup_rejects_current_dataset() -> None:
 
 
 class FakeTrueNASReadClient:
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, dataset_names: tuple[str, ...] | None = None) -> None:
         self.path = path
+        self.dataset_names = dataset_names
         self.closed = False
+
+    async def query_datasets(self):
+        names = self.dataset_names or (_canonical_dataset_for_test(self.path),)
+        return tuple(
+            TrueNASDataset(id=str(index), name=name, path=None, dataset_type="VOLUME")
+            for index, name in enumerate(names)
+        )
 
     async def query_targets(self):
         return (TrueNASTarget(id=1, name="iscsi/pc01", alias=None),)
@@ -157,6 +170,10 @@ def make_station_for_live_mapping() -> Station:
     )
 
 
+def _canonical_dataset_for_test(value: str) -> str:
+    return value.removeprefix("/dev/").removeprefix("zvol/")
+
+
 @pytest.mark.asyncio
 async def test_list_datasets_uses_live_truenas_mapping_for_current_status() -> None:
     station = make_station_for_live_mapping()
@@ -179,7 +196,10 @@ async def test_list_datasets_switches_current_version_after_manual_truenas_chang
     station = make_station_for_live_mapping()
     old_artifact = make_artifact(station_id=station.station_id, current=True)
     new_artifact = make_artifact(station_id=station.station_id)
-    client = FakeTrueNASReadClient(new_artifact.mapping_ref)
+    client = FakeTrueNASReadClient(
+        new_artifact.mapping_ref,
+        (old_artifact.dataset_name, new_artifact.dataset_name),
+    )
     use_case = ListDatasetsUseCase(
         lambda: FakeUow((old_artifact, new_artifact), (station,)),
         lambda: client,
@@ -192,6 +212,24 @@ async def test_list_datasets_switches_current_version_after_manual_truenas_chang
     assert by_id[old_artifact.id].status is StorageArtifactStatus.RETIRED
     assert by_id[new_artifact.id].is_current is True
     assert by_id[new_artifact.id].status is StorageArtifactStatus.CURRENT
+
+
+@pytest.mark.asyncio
+async def test_list_datasets_hides_history_rows_absent_from_truenas() -> None:
+    station = make_station_for_live_mapping()
+    present = make_artifact(station_id=station.station_id)
+    absent = make_artifact(station_id=station.station_id)
+    client = FakeTrueNASReadClient(present.mapping_ref)
+    use_case = ListDatasetsUseCase(
+        lambda: FakeUow((present, absent), (station,)),
+        lambda: client,
+    )
+
+    result = await use_case.execute()
+
+    assert len(result) == 1
+    assert result[0].id == present.id
+    assert result[0].is_current is True
 
 
 @pytest.mark.asyncio
@@ -213,7 +251,7 @@ async def test_queue_cleanup_rechecks_live_truenas_mapping_before_enqueue() -> N
 
 
 @pytest.mark.asyncio
-async def test_queue_cleanup_rejects_untracked_live_truenas_mapping() -> None:
+async def test_queue_cleanup_allows_untracked_live_truenas_mapping() -> None:
     station = make_station_for_live_mapping()
     artifact = make_artifact(station_id=station.station_id, current=True)
     client = FakeTrueNASReadClient("zvol/games/manual-image")
@@ -224,7 +262,7 @@ async def test_queue_cleanup_rejects_untracked_live_truenas_mapping() -> None:
         lambda: client,
     )
 
-    with pytest.raises(DatasetSelectionError, match="not verified"):
-        await use_case.execute(artifact_ids=(artifact.id,))
+    result = await use_case.execute(artifact_ids=(artifact.id,))
 
-    assert queue.calls == []
+    assert result.artifact_ids == (artifact.id,)
+    assert queue.calls == [(artifact.id,)]

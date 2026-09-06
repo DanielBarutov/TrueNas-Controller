@@ -21,8 +21,10 @@
   `target → extent → device` в TrueNAS; разрешить checkbox cleanup отдельным
   gate, не включая publish/switch.
 - **Последнее исправление:** tracked dataset current-state синхронизируется с
-  live TrueNAS mapping, external/untracked mapping блокирует cleanup, а в
-  текущем `.env` включён `TRUENAS_CLEANUP_APPLY_ENABLED=true`.
+  live TrueNAS mapping, обычный inventory фильтруется по физически существующим
+  dataset, а unknown/untracked записи можно передавать в cleanup;
+  финальный отказ для используемого dataset оставлен TrueNAS. В текущем `.env`
+  включён `TRUENAS_CLEANUP_APPLY_ENABLED=true`.
 - **Следующий разрешённый шаг:** перезапустить backend/worker с текущим `.env`,
   проверить список и удаление на одной тестовой записи; фактический NAS smoke
   выполнять только на выбранной тестовой станции.
@@ -86,7 +88,7 @@
 - [x] Пароль приложения не хранится в репозитории; runtime-конфигурация — `BASIC_AUTH_PASSWORD`.
 - [x] TrueNAS API key остаётся отдельным backend/worker secret и не связан с Basic Auth приложения.
 - [x] TrueNAS API key передаётся только через `wss://`; проверка TLS включена по умолчанию, CA задаётся через `TRUENAS_TLS_CA_FILE`.
-- [x] Live dataset current-state подтверждается read-only TrueNAS mapping; неизвестный или неоднозначный mapping не ставится в cleanup автоматически.
+- [x] Live dataset current-state подтверждается read-only TrueNAS mapping; неизвестные записи можно передать в cleanup, а используемый dataset отклоняет сам TrueNAS.
 - [x] Cleanup apply отделён от publish apply: `TRUENAS_CLEANUP_APPLY_ENABLED` не включает snapshot/clone/switch.
 - [x] Официальная документация TrueNAS найдена и занесена в [docs/ONLINE_DOCS.md](docs/ONLINE_DOCS.md).
 - [x] Проверить фактическую версию `25.10.5` и live `/api/docs/current/` конкретного NAS через временный доступ; runtime smoke check отдельно.
@@ -368,4 +370,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Добавлен реестр publish artifacts и retention worker | Создана migration, Dramatiq schedule и отдельный fail-closed TrueNAS `pool.dataset.delete`; apply gate выключен по умолчанию |
 | 2026-08-25 | Native installer упрощён | `--report` стал необязательным, identity и bootstrap выполняются self-contained EXE без Python; root EXE требует пересборки из обновлённого source |
 | 2026-08-25 | Локальный чек-ап плана 37 | `213 passed, 1 skipped`, Ruff/format/compileall, Alembic head, frontend `8 passed` и production build; реальный NAS cleanup и Windows smoke не выполнялись |
-| 2026-09-06 | Добавлен план 39 и live dataset reconciliation | current определяется по `target → extent → device`, external mapping блокирует cleanup, cleanup apply отделён от publish; реальный TrueNAS delete не выполнялся |
+| 2026-09-06 | Уточнён план 39 и live dataset reconciliation | current определяется по `target → extent → device`, unknown mapping не блокирует ручной cleanup, cleanup apply отделён от publish; реальный TrueNAS delete не выполнялся |

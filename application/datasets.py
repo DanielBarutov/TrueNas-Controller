@@ -9,7 +9,11 @@ from application.ports import (
     TrueNASReadOnlyClient,
     UnitOfWorkFactory,
 )
-from application.truenas import TrueNASExtent, TrueNASTarget, TrueNASTargetExtent
+from application.truenas import (
+    TrueNASExtent,
+    TrueNASTarget,
+    TrueNASTargetExtent,
+)
 from domain.publish import PublishArtifact, StorageArtifactStatus
 from domain.station import Station
 
@@ -50,12 +54,19 @@ class ListDatasetsUseCase:
                 return artifacts
             stations = tuple(await uow.stations.list(include_disabled=True))
 
-        live_mappings = await _read_live_mappings(
+        live_mappings, live_dataset_names = await _read_live_state(
             self._truenas_read_client_factory,
             stations,
         )
         await _persist_current_state(self._uow_factory, artifacts, live_mappings)
-        return _reconcile_artifacts(artifacts, live_mappings)
+        reconciled = _reconcile_artifacts(artifacts, live_mappings)
+        if include_deleted:
+            return reconciled
+        return tuple(
+            artifact
+            for artifact in reconciled
+            if _artifact_exists_in_live(artifact, live_dataset_names)
+        )
 
 
 class QueueDatasetCleanupUseCase:
@@ -104,37 +115,11 @@ class QueueDatasetCleanupUseCase:
             raise DatasetSelectionError("one or more selected datasets were not found")
 
         if self._truenas_read_client_factory is not None:
-            live_mappings = await _read_live_mappings(
+            live_mappings, _ = await _read_live_state(
                 self._truenas_read_client_factory,
                 stations,
             )
             await _persist_current_state(self._uow_factory, artifacts, live_mappings)
-            selected_station_ids = {artifact.station_id for artifact in selected}
-            unverified_station_ids = {
-                station.station_id
-                for station in stations
-                if station.target_name and station.station_id not in live_mappings
-            }
-            untracked_station_ids = {
-                station_id
-                for station_id, live_mapping in live_mappings.items()
-                if len(
-                    [
-                        artifact
-                        for artifact in artifacts
-                        if (
-                            artifact.station_id == station_id
-                            and artifact.deleted_at is None
-                            and _artifact_matches_mapping(artifact, live_mapping)
-                        )
-                    ]
-                )
-                != 1
-            }
-            if selected_station_ids & (unverified_station_ids | untracked_station_ids):
-                raise DatasetSelectionError(
-                    "the current TrueNAS mapping is not verified as a unique tracked dataset"
-                )
             selected = _reconcile_artifacts(selected, live_mappings)
 
         selected_by_id = {artifact.id: artifact for artifact in selected}
@@ -149,13 +134,14 @@ class QueueDatasetCleanupUseCase:
         return DatasetDeletionDispatch(normalized_ids)
 
 
-async def _read_live_mappings(
+async def _read_live_state(
     factory: TrueNASReadClientFactory,
     stations: tuple[Station, ...],
-) -> dict[UUID, str]:
+) -> tuple[dict[UUID, str], frozenset[str]]:
     client = factory()
     try:
         try:
+            datasets = await client.query_datasets()
             targets = await client.query_targets()
             associations = await client.query_target_extents()
             extents = await client.query_extents()
@@ -166,7 +152,10 @@ async def _read_live_mappings(
     finally:
         await client.close()
 
-    return _map_station_mappings(stations, targets, associations, extents)
+    return (
+        _map_station_mappings(stations, targets, associations, extents),
+        frozenset(_canonical_dataset(dataset.name) for dataset in datasets),
+    )
 
 
 def _map_station_mappings(
@@ -266,6 +255,17 @@ def _artifact_matches_mapping(artifact: PublishArtifact, live_mapping: str) -> b
         _canonical_mapping(artifact.mapping_ref),
         _canonical_mapping(f"zvol/{artifact.dataset_name}"),
     }
+
+
+def _artifact_exists_in_live(
+    artifact: PublishArtifact,
+    live_dataset_names: frozenset[str],
+) -> bool:
+    return _canonical_dataset(artifact.dataset_name) in live_dataset_names
+
+
+def _canonical_dataset(value: str) -> str:
+    return _canonical_mapping(value).removeprefix("zvol/")
 
 
 def _canonical_mapping(value: str) -> str:

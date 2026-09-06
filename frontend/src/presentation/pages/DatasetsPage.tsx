@@ -43,6 +43,8 @@ export function DatasetsPage({ api }: { api: ControllerApi }) {
   const selectableDatasets = datasets.filter(
     (dataset) => !dataset.is_current && dataset.status !== "deleted" && dataset.deleted_at === null,
   );
+  const stationCount = new Set(datasets.map((dataset) => dataset.station_id)).size;
+  const currentCount = datasets.filter((dataset) => dataset.is_current).length;
 
   function toggleDataset(datasetId: string) {
     setSelectedIds((current) => current.includes(datasetId)
@@ -88,7 +90,7 @@ export function DatasetsPage({ api }: { api: ControllerApi }) {
       <section className="form-card dataset-card">
         <div className="dataset-toolbar">
           <label className="checkbox-row"><input type="checkbox" checked={includeDeleted} onChange={(event) => setIncludeDeleted(event.target.checked)} /> Показывать удалённые</label>
-          <span className="muted">Всего: {datasets.length} · выбрано: {selectedIds.length}</span>
+          <span className="muted">Записей истории: {datasets.length} · ПК: {stationCount} · активно: {currentCount} · к удалению: {selectableDatasets.length} · выбрано: {selectedIds.length}</span>
           <button className="danger-button" type="button" onClick={() => void queueDeletion()} disabled={busy || selectedIds.length === 0}><Trash2 aria-hidden size={15} /> Удалить выбранные</button>
         </div>
         <HelpHint>В списке отображаются только записи, которые контроллер знает по publish history. Если TrueNAS отклонит удаление, worker сохранит ошибку для повторной попытки.</HelpHint>
