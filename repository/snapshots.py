@@ -20,7 +20,10 @@ class SqlAlchemyProcessSnapshotRepository:
             select(ProcessSnapshotRecord, StationRecord)
             .join(StationRecord, ProcessSnapshotRecord.station_id == StationRecord.id)
             .where(StationRecord.station_id == station_id)
-            .order_by(ProcessSnapshotRecord.captured_at.desc())
+            .order_by(
+                ProcessSnapshotRecord.received_at.desc(),
+                ProcessSnapshotRecord.captured_at.desc(),
+            )
             .limit(1)
         )
         row = (await self._session.execute(statement)).one_or_none()
@@ -30,6 +33,7 @@ class SqlAlchemyProcessSnapshotRepository:
         return ProcessSnapshot(
             station_id=station.station_id,
             captured_at=record.captured_at,
+            received_at=record.received_at,
             agent_version=record.agent_version,
             processes=tuple(
                 ProcessInfo(name=item["name"], pid=item.get("pid"), path=item.get("path"))

@@ -118,27 +118,49 @@ def evaluate_preflight(
         )
         return PreflightReport(station.station_id, CheckStatus.BLOCK, (mismatch,), evaluated_at)
 
-    normalized_snapshot = snapshot
-    snapshot_age = evaluated_at - ensure_utc(normalized_snapshot.captured_at)
     checks = [
-        _freshness_check(snapshot_age, policy, evaluated_at),
-        _drive_check(normalized_snapshot, policy, evaluated_at),
-        _process_check(station, normalized_snapshot, rules, evaluated_at),
+        _freshness_check(snapshot, policy, evaluated_at),
+        _drive_check(snapshot, policy, evaluated_at),
+        _process_check(station, snapshot, rules, evaluated_at),
     ]
     status = _aggregate_status(checks)
     return PreflightReport(station.station_id, status, tuple(checks), evaluated_at)
 
 
 def _freshness_check(
-    snapshot_age: timedelta,
+    snapshot: ProcessSnapshot,
     policy: PreflightPolicy,
     observed_at: datetime,
 ) -> CheckResult:
-    if snapshot_age < timedelta(0) or snapshot_age > policy.max_snapshot_age:
+    captured_at = ensure_utc(snapshot.captured_at)
+    snapshot_age = observed_at - captured_at
+    received = (
+        "неизвестно"
+        if snapshot.received_at is None
+        else ensure_utc(snapshot.received_at).isoformat()
+    )
+    timing = (
+        f"Снимок (UTC): {captured_at.isoformat()}; принят: {received}; "
+        f"проверка: {observed_at.isoformat()}; "
+        f"возраст: {snapshot_age.total_seconds():.3f} сек.; "
+        f"лимит: {policy.max_snapshot_age.total_seconds():g} сек."
+    )
+    if snapshot_age < timedelta(0):
+        return CheckResult(
+            CheckStatus.UNKNOWN,
+            "snapshot_clock_skew",
+            f"Время снимка опережает часы контроллера. {timing} "
+            "Синхронизируйте часы ПК и контроллера, дождитесь нового heartbeat "
+            "и повторите проверку.",
+            observed_at,
+        )
+    if snapshot_age > policy.max_snapshot_age:
         return CheckResult(
             CheckStatus.UNKNOWN,
             "snapshot_stale",
-            "agent snapshot is stale or from the future",
+            f"Снимок агента устарел. {timing} "
+            "Проверьте работу агента, связь и синхронизацию часов ПК и контроллера; "
+            "дождитесь нового heartbeat и повторите проверку.",
             observed_at,
         )
     return CheckResult(CheckStatus.PASS, "snapshot_fresh", "agent snapshot is fresh", observed_at)

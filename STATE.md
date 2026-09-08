@@ -1,6 +1,6 @@
 # STATE — состояние проекта
 
-Последнее обновление: **2026-09-06**
+Последнее обновление: **2026-09-08**
 
 ## Как читать этот файл
 
@@ -16,18 +16,21 @@
 ## Текущая стадия
 
 - **Стадия:** 3 — операторские правки после live smoke.
-- **Активный план:** [39 — live dataset reconciliation и cleanup apply](plans/39-live-dataset-reconciliation/01-live-mapping-and-cleanup-apply.md).
-- **Текущая задача:** перед списком и удалением сверять фактический
-  `target → extent → device` в TrueNAS; разрешить checkbox cleanup отдельным
-  gate, не включая publish/switch.
-- **Последнее исправление:** tracked dataset current-state синхронизируется с
-  live TrueNAS mapping, обычный inventory фильтруется по физически существующим
-  dataset, а unknown/untracked записи можно передавать в cleanup;
-  финальный отказ для используемого dataset оставлен TrueNAS. В текущем `.env`
-  включён `TRUENAS_CLEANUP_APPLY_ENABLED=true`.
-- **Следующий разрешённый шаг:** перезапустить backend/worker с текущим `.env`,
-  проверить список и удаление на одной тестовой записи; фактический NAS smoke
-  выполнять только на выбранной тестовой станции.
+- **Активный план:** [40 — свежесть снимков preflight](plans/40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md).
+- **Текущая задача:** локальное исправление постоянного `snapshot_stale`
+  завершено; требуется проверка на работающем Controller и проблемных ПК.
+- **Последнее исправление:** последний snapshot выбирается по серверному
+  `received_at`, время preflight фиксируется после чтения БД. Будущее время
+  выделено в `snapshot_clock_skew`; сообщение показывает времена создания,
+  приёма, проверки, возраст и лимит. TTL по captured_at остаётся 30 секунд.
+- **Чекап:** backend `249 passed, 1 skipped`; Ruff check/format и diff check
+  пройдены. Миграция индекса `6d9e2b4a8c10` проверена upgrade/downgrade/upgrade
+  на изолированной SQLite; production PostgreSQL migration не запускалась.
+- **Следующий разрешённый шаг:** доставить исправление на хост Controller,
+  пересобрать backend (startup применяет миграцию индекса), дождаться heartbeat
+  и повторить preflight. Если есть `snapshot_clock_skew`, сравнить показанные
+  времена ПК/контроллера. Локально Compose не запущен; причина на реальных ПК
+  пока не подтверждена.
 - **Запрещено сейчас:** удалять dataset или включать publish/switch вручную в
   рамках разработки без отдельного тестового подтверждения.
 
@@ -35,6 +38,7 @@
 
 | План | Статус | Чекап текущей стадии | Следующая проверка |
 |---|---|---|---|
+| [40 — Свежесть preflight](plans/40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md) | `closed` | latest по receipt, время оценки после IO, диагностика skew/stale; `249 passed, 1 skipped` | обновление Controller и повторная проверка на ПК |
 | [00 — Контекст](plans/00-context.md) | `closed` | `CODEX.md` изучен; границы MVP записаны | обновлять только при изменении требований |
 | [01 — Архитектура](plans/01-architecture/01-layers.md) | `closed` | слои, зависимости и package layout сверены с каркасом | сверять при добавлении новых adapters |
 | [02 — БД](plans/02-database/01-schema.md) | `closed` | сущности, связи и инварианты описаны | проверить перед первой миграцией |

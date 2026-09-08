@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from domain.preflight import (
     CheckStatus,
     PreflightPolicy,
@@ -182,3 +184,62 @@ def test_snapshot_binding_and_disabled_station_are_blocking() -> None:
     assert mismatch.checks[0].code == "snapshot_station_mismatch"
     assert disabled.status is CheckStatus.BLOCK
     assert disabled.checks[0].code == "station_disabled"
+
+
+@pytest.mark.parametrize(
+    ("age", "expected_code", "can_publish"),
+    [
+        (timedelta(0), "snapshot_fresh", True),
+        (timedelta(seconds=30), "snapshot_fresh", True),
+        (timedelta(seconds=30, microseconds=1), "snapshot_stale", False),
+        (timedelta(microseconds=-1), "snapshot_clock_skew", False),
+        (timedelta(minutes=-1), "snapshot_clock_skew", False),
+        (timedelta(minutes=1), "snapshot_stale", False),
+    ],
+)
+def test_freshness_boundaries_do_not_trust_fresh_receipt(
+    age: timedelta, expected_code: str, can_publish: bool
+) -> None:
+    station = make_station()
+    snapshot = ProcessSnapshot(
+        station_id=station.station_id,
+        captured_at=NOW - age,
+        received_at=NOW,
+        agent_version="1.0.0",
+        drives=(DriveInfo("D:", True, 100),),
+    )
+
+    report = evaluate_preflight(station, snapshot, (), PreflightPolicy(), now=NOW)
+
+    assert report.checks[0].code == expected_code
+    assert report.can_publish is can_publish
+    if not can_publish:
+        assert report.status is CheckStatus.UNKNOWN
+        assert snapshot.captured_at.isoformat() in report.checks[0].message
+        assert NOW.isoformat() in report.checks[0].message
+        assert "30 сек." in report.checks[0].message
+
+
+def test_clock_skew_keeps_process_and_drive_blockers_visible() -> None:
+    station = make_station()
+    report = evaluate_preflight(
+        station,
+        ProcessSnapshot(
+            station_id=station.station_id,
+            captured_at=NOW + timedelta(minutes=1),
+            agent_version="1.0.0",
+            processes=(ProcessInfo("game.exe", 42, "D:\\Games\\game.exe"),),
+        ),
+        (ProcessRule("game.exe"),),
+        PreflightPolicy(),
+        now=NOW,
+    )
+
+    assert report.status is CheckStatus.BLOCK
+    assert not report.can_publish
+    assert [check.code for check in report.checks] == [
+        "snapshot_clock_skew",
+        "drive_missing",
+        "blocking_process",
+    ]
+    assert report.checks[2].matched_processes[0].pid == 42

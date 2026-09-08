@@ -215,7 +215,15 @@ class ProcessSnapshotRecord(Base):
     """Normalized process/drive snapshot received from a station agent."""
 
     __tablename__ = "process_snapshots"
-    __table_args__ = (Index("ix_process_snapshots_station_captured", "station_id", "captured_at"),)
+    __table_args__ = (
+        Index("ix_process_snapshots_station_captured", "station_id", "captured_at"),
+        Index(
+            "ix_process_snapshots_station_received",
+            "station_id",
+            "received_at",
+            "captured_at",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     station_id: Mapped[UUID] = mapped_column(

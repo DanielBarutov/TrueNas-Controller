@@ -79,6 +79,7 @@
 | [37-operator-follow-up](37-operator-follow-up/01-history-station-edit.md) | История, station edit, native agent и dataset retention | в работе |
 | [38-update-observability-and-dataset-console](38-update-observability-and-dataset-console/01-update-tracking-retry-dataset-console.md) | Статус обновления по станциям, JSON-RPC retry и консоль датасетов | завершён |
 | [39-live-dataset-reconciliation](39-live-dataset-reconciliation/01-live-mapping-and-cleanup-apply.md) | Сверка фактического TrueNAS mapping и независимое удаление из UI | завершён |
+| [40-preflight-snapshot-freshness](40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md) | Последний heartbeat, время оценки и диагностика snapshot_stale | завершён локально |
 
 ## Текущий этап
 

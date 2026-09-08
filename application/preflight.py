@@ -26,13 +26,13 @@ class EvaluateStationPreflightUseCase:
         min_free_bytes: int = 0,
         now: datetime | None = None,
     ) -> PreflightReport:
-        evaluated_at = now or datetime.now(UTC)
         async with self._uow_factory() as uow:
             station = await uow.stations.get(station_id)
             if station is None:
                 raise StationNotFoundError("station not found")
             snapshot = await uow.process_snapshots.latest(station_id)
             rules = await uow.process_rules.list_for_role(station.role)
+        evaluated_at = now or datetime.now(UTC)
         return evaluate_preflight(
             station,
             snapshot,

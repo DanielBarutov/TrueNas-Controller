@@ -32,3 +32,4 @@ class ProcessSnapshot:
     agent_version: str
     processes: tuple[ProcessInfo, ...] = ()
     drives: tuple[DriveInfo, ...] = ()
+    received_at: datetime | None = None
