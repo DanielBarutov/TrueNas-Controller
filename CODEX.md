@@ -227,31 +227,31 @@ fixtures/              # responses from documented schemas
 
 ```text
 game-update-controller/
-├── compose.yaml
-├── .env.example
-├── README.md
+├── backend/
+│   ├── src/tnas_controller/
+│   │   ├── domain/           # entities, value objects, invariants
+│   │   ├── application/      # use cases, ports, workflow orchestration
+│   │   ├── infrastructure/   # SQLAlchemy, Redis/Dramatiq, TrueNAS, config
+│   │   ├── presentation/     # FastAPI routers, schemas, auth/error mapping
+│   │   └── bootstrap/        # API/worker composition roots only
+│   ├── migrations/
+│   └── tests/
+├── frontend/                 # domain/application/infrastructure/presentation
+├── winclient/
+│   ├── native/               # основной .NET Windows Agent
+│   ├── legacy-python/        # временный upgrade/recovery client
+│   └── installers/
+├── deploy/compose.yaml
 ├── docs/ONLINE_DOCS.md
-├── api/
-│   ├── app/main.py
-│   ├── routers/{stations,agents,preflight,publish,health}.py
-│   ├── models/
-│   ├── repositories/
-│   ├── services/{agent_registry,process_preflight,publish_workflow,truenas}.py
-│   └── migrations/
-├── worker/tasks.py
-├── frontend/                 # React/Vite/TypeScript
-├── agent/
-│   ├── agent.py
-│   ├── process_monitor.py
-│   ├── enrollment.py
-│   └── windows_service.py
-├── truenas_adapter/
-│   ├── websocket_jsonrpc.py
-│   ├── method_registry.py
-│   ├── mock_client.py
-│   └── fixtures/
-└── tests/
+└── plans/
 ```
+
+Backend обязательно использует зависимости
+`presentation -> application -> domain` и
+`infrastructure -> application/domain`. `bootstrap` связывает concrete adapters
+с ports и не содержит бизнес-логику. Backend, frontend и winclient не импортируют
+исходный код друг друга: интеграция проходит через versioned HTTP/JSON контракты.
+Подробный переход от текущей структуры зафиксирован планом 42.
 
 Compose-сервисы: `frontend`, `api`, `worker`, `postgres`, `redis`, опционально `caddy`. Добавить healthchecks, volume для БД и резервное копирование конфигурации/аудита. Не запускать приложение с привилегиями, достаточными для изменения ОС TrueNAS.
 
@@ -286,12 +286,18 @@ Compose-сервисы: `frontend`, `api`, `worker`, `postgres`, `redis`, опц
 
 ## 13. Правила разработки Python-приложения
 
-- Работать по чистой архитектуре со слоями `presentation`, `application`, `repository`, `domain`.
-- `main.py` использовать только как composition root для сборки зависимостей и запуска; HTTP/WebSocket routes держать в `presentation`.
+- Backend строить по чистой архитектуре со слоями `presentation`, `application`,
+  `infrastructure`, `domain`.
+- `backend/src/tnas_controller/bootstrap/{api,worker}.py` использовать только как
+  composition roots для сборки зависимостей и запуска; HTTP/WebSocket routes
+  держать в `presentation`.
 - Соблюдать SOLID и ООП; application зависит от портов, а не от concrete adapters.
 - Порты описывать через `typing.Protocol`; `abc.ABC` для портов не использовать.
-- Persistence и реализацию Unit of Work держать в `repository`; на каждый HTTP use case и Dramatiq task создавать свежий UoW.
+- Persistence и реализацию Unit of Work держать в `infrastructure/persistence`;
+  на каждый HTTP use case и Dramatiq task создавать свежий UoW.
 - Worker — Dramatiq с Redis broker.
 - Тестировать только ключевую domain/application логику, инварианты UoW и критичные adapter contracts; не добавлять лишние тесты для очевидного glue-кода.
-- Использовать Ruff для lint, format и сортировки импортов согласно корневому `pyproject.toml`.
+- Использовать Ruff для lint, format и сортировки импортов; после разделения
+  компонентов backend и legacy Python client имеют собственные manifests с
+  согласованными правилами.
 - Перед рабочей сессией читать `STATE.md` и `PROJECT_RULES.md`; после изменений обновлять состояние и чекапы.

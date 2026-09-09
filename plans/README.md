@@ -81,6 +81,7 @@
 | [39-live-dataset-reconciliation](39-live-dataset-reconciliation/01-live-mapping-and-cleanup-apply.md) | Сверка фактического TrueNAS mapping и независимое удаление из UI | завершён |
 | [40-preflight-snapshot-freshness](40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md) | Последний heartbeat, время оценки и диагностика snapshot_stale | завершён локально |
 | [41-publish-reliability](41-publish-reliability/01-retry-idempotency-recovery.md) | Сквозная идемпотентность, retry policy, fencing и восстановление publish/cleanup/agent | план готов, реализация не начата |
+| [42-clean-architecture](42-clean-architecture/01-component-and-layer-boundaries.md) | Разделение backend/frontend/winclient и обязательные backend-слои clean architecture | план готов, реализация не начата |
 
 ## Текущий этап
 

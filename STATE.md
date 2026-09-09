@@ -19,7 +19,8 @@
 - **Активный план:** [41 — надёжность publish](plans/41-publish-reliability/01-retry-idempotency-recovery.md).
 - **Текущая задача:** план исправления найденных collision, concurrency,
   idempotency, retry, unknown-outcome и recovery дефектов составлен; реализация
-  не начата.
+  не начата. План 42 отдельно фиксирует целевое разделение
+  backend/frontend/winclient и порядок архитектурного переноса.
 - **Последнее исправление:** план 40 локально устранил постоянный
   `snapshot_stale`; runtime-проверка на Controller и проблемных ПК остаётся
   отдельным открытым gate.
@@ -37,6 +38,7 @@
 
 | План | Статус | Чекап текущей стадии | Следующая проверка |
 |---|---|---|---|
+| [42 — Clean architecture](plans/42-clean-architecture/01-component-and-layer-boundaries.md) | `open` | целевая структура компонентов, backend-слои, import contracts и migration sequence зафиксированы | после локального завершения плана 41 выполнить 42.1 architecture baseline |
 | [41 — Надёжность publish](plans/41-publish-reliability/01-retry-idempotency-recovery.md) | `in_progress` | независимое ревью и последовательный план исправления зафиксированы; код не менялся | 41.1 stable naming и mapping invariants |
 | [40 — Свежесть preflight](plans/40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md) | `closed` | latest по receipt, время оценки после IO, диагностика skew/stale; `249 passed, 1 skipped` | обновление Controller и повторная проверка на ПК |
 | [00 — Контекст](plans/00-context.md) | `closed` | `CODEX.md` изучен; границы MVP записаны | обновлять только при изменении требований |
@@ -376,3 +378,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Локальный чек-ап плана 37 | `213 passed, 1 skipped`, Ruff/format/compileall, Alembic head, frontend `8 passed` и production build; реальный NAS cleanup и Windows smoke не выполнялись |
 | 2026-09-06 | Уточнён план 39 и live dataset reconciliation | current определяется по `target → extent → device`, unknown mapping не блокирует ручной cleanup, cleanup apply отделён от publish; реальный TrueNAS delete не выполнялся |
 | 2026-09-09 | Добавлен план 41 по итогам независимого reliability review | Зафиксированы stable resource identity, mapping uniqueness, station claim/fencing, resumable checkpoints, read/write retry split, fresh preflight, agent verify, cleanup/enrollment idempotency и PostgreSQL concurrency gates; реализация не начата |
+| 2026-09-09 | Добавлен план 42 clean architecture | Зафиксировано независимое разделение backend/frontend/winclient, обязательные backend-слои presentation/application/infrastructure/domain, composition roots, import contracts и поэтапный перенос относительно плана 41; реализация не начата |

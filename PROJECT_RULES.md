@@ -4,17 +4,17 @@
 
 ## Архитектурная модель
 
-Основные слои приложения:
+Основные слои backend:
 
 ```text
-presentation → application → domain
-                    ↑
-              Protocol ports
-                    ↑
-              repository adapters
+presentation ──────→ application ──────→ domain
+                           ↑                 ↑
+                           └── infrastructure┘
 ```
 
-`main.py` — composition root: он собирает зависимости, создаёт приложение, подключает БД, UoW, Dramatiq и запускает процесс. Бизнес-логика в `main.py` запрещена.
+`backend/src/tnas_controller/bootstrap/{api,worker}.py` — composition roots: они
+собирают зависимости, создают приложение/worker и подключают concrete adapters.
+Бизнес-логика в bootstrap запрещена.
 
 ### `presentation`
 
@@ -39,17 +39,19 @@ presentation → application → domain
 - не выполняет IO и не знает о способе хранения;
 - содержит только правила, которые должны быть истинны независимо от инфраструктуры.
 
-### `repository`
+### `infrastructure`
 
-- SQLAlchemy models, repositories, Alembic mappings, session factory и UoW implementation;
+- SQLAlchemy models/repositories, Alembic, Redis/Dramatiq, TrueNAS JSON-RPC,
+  config, security и observability adapters;
 - реализует порты application слоя;
 - отвечает за persistence и transaction mechanics;
 - не принимает бизнес-решение, можно ли переключать станцию;
-- не импортируется domain слоем.
+- может импортировать application/domain, но не импортируется ими.
 
 ### Внешние адаптеры
 
-`worker/`, `truenas_adapter/` и Windows-агент являются runtime/external adapters вокруг core-слоёв:
+Worker и TrueNAS являются backend infrastructure adapters. Windows-agent —
+отдельный продукт `winclient`, а не backend adapter:
 
 - Dramatiq task только принимает сообщение, создаёт свежий UoW и вызывает application use case;
 - TrueNAS adapter реализует Protocol и скрывает JSON-RPC/WebSocket;
@@ -61,19 +63,20 @@ presentation → application → domain
 
 ```text
 presentation → application → domain
-repository ────────────────→ application/domain ports
-worker ────────────────────→ application ports/use cases
-truenas_adapter ───────────→ application ports
-main ──────────────────────→ все concrete implementations
+infrastructure ────────────→ application/domain ports
+bootstrap ────────────────→ presentation/application/infrastructure/domain
 ```
 
 Запрещено:
 
-- `presentation → repository` в обход application;
+- `presentation → infrastructure` в обход application;
 - `domain → SQLAlchemy/FastAPI/Dramatiq/Redis`;
 - `application → concrete adapter`;
 - глобальная общая SQLAlchemy session или UoW между запросами/сообщениями;
 - вызов TrueNAS напрямую из browser, frontend или agent.
+
+Backend, frontend и winclient не импортируют source packages друг друга. Их
+совместимость проверяется через versioned HTTP/JSON contracts и fixtures.
 
 ## SOLID и ООП
 
@@ -133,7 +136,10 @@ main ──────────────────────→ вс�
 
 ## Ruff и форматирование
 
-Единая конфигурация хранится в корневом `pyproject.toml`.
+До архитектурного переноса единая конфигурация хранится в корневом
+`pyproject.toml`; после плана 42 backend и legacy Python client получают
+собственные manifests, а общие Ruff правила синхронизируются без смешивания
+runtime dependencies.
 
 - Python target: 3.12;
 - форматирование выполняется Ruff formatter;
