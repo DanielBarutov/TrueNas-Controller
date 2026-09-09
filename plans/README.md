@@ -80,16 +80,14 @@
 | [38-update-observability-and-dataset-console](38-update-observability-and-dataset-console/01-update-tracking-retry-dataset-console.md) | Статус обновления по станциям, JSON-RPC retry и консоль датасетов | завершён |
 | [39-live-dataset-reconciliation](39-live-dataset-reconciliation/01-live-mapping-and-cleanup-apply.md) | Сверка фактического TrueNAS mapping и независимое удаление из UI | завершён |
 | [40-preflight-snapshot-freshness](40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md) | Последний heartbeat, время оценки и диагностика snapshot_stale | завершён локально |
+| [41-publish-reliability](41-publish-reliability/01-retry-idempotency-recovery.md) | Сквозная идемпотентность, retry policy, fencing и восстановление publish/cleanup/agent | план готов, реализация не начата |
 
 ## Текущий этап
 
-**Этап 2 — каркас и read-only backend.** Bootstrap и persistence-подшаг для
-`stations`/`agents`, agent lifecycle, preflight core/API, wizard gating,
-deterministic fake publish workflow, job/target persistence, Dramatiq
-composition handler и application draft/queue boundary выполнены. Versioned
-TrueNAS read-only adapter contract завершён; следующий gate — проверка
-конкретного локального `/api/docs/`, storage write и реальный NAS по-прежнему
-запрещены.
+**Этап 3 — надёжность publish после live smoke.** План 41 фиксирует порядок
+устранения collision, concurrency, lost-response и stale-preflight сценариев.
+До завершения локальных и PostgreSQL gates новые TrueNAS publish/switch и
+cleanup apply не выполняются.
 
 ## Принятые решения
 

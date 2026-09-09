@@ -1,6 +1,6 @@
 # STATE — состояние проекта
 
-Последнее обновление: **2026-09-08**
+Последнее обновление: **2026-09-09**
 
 ## Как читать этот файл
 
@@ -16,21 +16,20 @@
 ## Текущая стадия
 
 - **Стадия:** 3 — операторские правки после live smoke.
-- **Активный план:** [40 — свежесть снимков preflight](plans/40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md).
-- **Текущая задача:** локальное исправление постоянного `snapshot_stale`
-  завершено; требуется проверка на работающем Controller и проблемных ПК.
-- **Последнее исправление:** последний snapshot выбирается по серверному
-  `received_at`, время preflight фиксируется после чтения БД. Будущее время
-  выделено в `snapshot_clock_skew`; сообщение показывает времена создания,
-  приёма, проверки, возраст и лимит. TTL по captured_at остаётся 30 секунд.
-- **Чекап:** backend `249 passed, 1 skipped`; Ruff check/format и diff check
-  пройдены. Миграция индекса `6d9e2b4a8c10` проверена upgrade/downgrade/upgrade
-  на изолированной SQLite; production PostgreSQL migration не запускалась.
-- **Следующий разрешённый шаг:** доставить исправление на хост Controller,
-  пересобрать backend (startup применяет миграцию индекса), дождаться heartbeat
-  и повторить preflight. Если есть `snapshot_clock_skew`, сравнить показанные
-  времена ПК/контроллера. Локально Compose не запущен; причина на реальных ПК
-  пока не подтверждена.
+- **Активный план:** [41 — надёжность publish](plans/41-publish-reliability/01-retry-idempotency-recovery.md).
+- **Текущая задача:** план исправления найденных collision, concurrency,
+  idempotency, retry, unknown-outcome и recovery дефектов составлен; реализация
+  не начата.
+- **Последнее исправление:** план 40 локально устранил постоянный
+  `snapshot_stale`; runtime-проверка на Controller и проблемных ПК остаётся
+  отдельным открытым gate.
+- **Чекап:** независимое ревью охватило HTTP, DB/outbox, Dramatiq worker,
+  TrueNAS adapter, cleanup, heartbeat/enrollment и UI. Текущий baseline:
+  backend `249 passed, 1 skipped`, frontend `11 passed` и production build,
+  Ruff/diff check прошли; `.NET` не проверен из-за отсутствия `dotnet`.
+- **Следующий разрешённый шаг:** реализовать 41.1 — стабильные имена clone и
+  взаимную уникальность station target/extent/LUN, затем 41.2 — request/dispatch
+  idempotency, station claim и outbox fencing. Apply flags остаются выключены.
 - **Запрещено сейчас:** удалять dataset или включать publish/switch вручную в
   рамках разработки без отдельного тестового подтверждения.
 
@@ -38,6 +37,7 @@
 
 | План | Статус | Чекап текущей стадии | Следующая проверка |
 |---|---|---|---|
+| [41 — Надёжность publish](plans/41-publish-reliability/01-retry-idempotency-recovery.md) | `in_progress` | независимое ревью и последовательный план исправления зафиксированы; код не менялся | 41.1 stable naming и mapping invariants |
 | [40 — Свежесть preflight](plans/40-preflight-snapshot-freshness/01-clock-and-latest-snapshot.md) | `closed` | latest по receipt, время оценки после IO, диагностика skew/stale; `249 passed, 1 skipped` | обновление Controller и повторная проверка на ПК |
 | [00 — Контекст](plans/00-context.md) | `closed` | `CODEX.md` изучен; границы MVP записаны | обновлять только при изменении требований |
 | [01 — Архитектура](plans/01-architecture/01-layers.md) | `closed` | слои, зависимости и package layout сверены с каркасом | сверять при добавлении новых adapters |
@@ -375,3 +375,4 @@ workflow: состояние агента, доступность `D:` и соо
 | 2026-08-25 | Native installer упрощён | `--report` стал необязательным, identity и bootstrap выполняются self-contained EXE без Python; root EXE требует пересборки из обновлённого source |
 | 2026-08-25 | Локальный чек-ап плана 37 | `213 passed, 1 skipped`, Ruff/format/compileall, Alembic head, frontend `8 passed` и production build; реальный NAS cleanup и Windows smoke не выполнялись |
 | 2026-09-06 | Уточнён план 39 и live dataset reconciliation | current определяется по `target → extent → device`, unknown mapping не блокирует ручной cleanup, cleanup apply отделён от publish; реальный TrueNAS delete не выполнялся |
+| 2026-09-09 | Добавлен план 41 по итогам независимого reliability review | Зафиксированы stable resource identity, mapping uniqueness, station claim/fencing, resumable checkpoints, read/write retry split, fresh preflight, agent verify, cleanup/enrollment idempotency и PostgreSQL concurrency gates; реализация не начата |
