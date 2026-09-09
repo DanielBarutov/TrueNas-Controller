@@ -49,6 +49,7 @@ htmlcov/
 .env.*
 !.env.example
 secrets/
+reports/
 
 # Local application data and logs
 data/
