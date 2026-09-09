@@ -228,7 +228,7 @@ fixtures/              # responses from documented schemas
 ```text
 game-update-controller/
 ├── backend/
-│   ├── src/tnas_controller/
+│   ├── src/
 │   │   ├── domain/           # entities, value objects, invariants
 │   │   ├── application/      # use cases, ports, workflow orchestration
 │   │   ├── infrastructure/   # SQLAlchemy, Redis/Dramatiq, TrueNAS, config
@@ -288,7 +288,7 @@ Compose-сервисы: `frontend`, `api`, `worker`, `postgres`, `redis`, опц
 
 - Backend строить по чистой архитектуре со слоями `presentation`, `application`,
   `infrastructure`, `domain`.
-- `backend/src/tnas_controller/bootstrap/{api,worker}.py` использовать только как
+- `backend/src/bootstrap/{api,worker}.py` использовать только как
   composition roots для сборки зависимостей и запуска; HTTP/WebSocket routes
   держать в `presentation`.
 - Соблюдать SOLID и ООП; application зависит от портов, а не от concrete adapters.

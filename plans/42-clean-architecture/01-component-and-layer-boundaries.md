@@ -67,7 +67,7 @@ tnas/
 │   ├── uv.lock
 │   ├── alembic.ini
 │   ├── Dockerfile
-│   ├── src/tnas_controller/
+│   ├── src/
 │   │   ├── domain/
 │   │   │   ├── station/
 │   │   │   ├── agent/
@@ -214,14 +214,14 @@ fixtures; он не является импортируемой общей domai
 
 | Сейчас | Цель |
 |---|---|
-| `domain/` | `backend/src/tnas_controller/domain/` |
-| `application/` | `backend/src/tnas_controller/application/` с разбиением по feature |
-| `presentation/` | `backend/src/tnas_controller/presentation/http/` |
-| `repository/` | `backend/src/tnas_controller/infrastructure/persistence/sqlalchemy/` |
+| `domain/` | `backend/src/domain/` |
+| `application/` | `backend/src/application/` с разбиением по feature |
+| `presentation/` | `backend/src/presentation/http/` |
+| `repository/` | `backend/src/infrastructure/persistence/sqlalchemy/` |
 | `repository/migrations/` | `backend/migrations/` |
-| `truenas_adapter/` | `backend/src/tnas_controller/infrastructure/truenas/jsonrpc/` |
+| `truenas_adapter/` | `backend/src/infrastructure/truenas/jsonrpc/` |
 | `worker/` | adapters в `infrastructure/messaging/dramatiq/`, entrypoint в `bootstrap/worker.py` |
-| `main.py` | `backend/src/tnas_controller/bootstrap/api.py` |
+| `main.py` | `backend/src/bootstrap/api.py` |
 | server command signer из `agent/` | `backend/.../infrastructure/security/` |
 | `tests/{domain,application,...}` | `backend/tests/{unit,integration,contract,acceptance}` |
 | `frontend/src/application/api/` | port в `application/ports`, fetch adapter в `infrastructure/http/` |
@@ -320,7 +320,8 @@ runtime path не изменён.
 
 ### 42.2. Отделить backend core
 
-- [ ] Создать installable `backend/src/tnas_controller` package.
+- [ ] Создать `backend/src` и installable пакеты `domain`, `application`,
+  `infrastructure`, `presentation`, `bootstrap` непосредственно внутри него.
 - [ ] Через `git mv` перенести domain без изменений поведения.
 - [ ] Перенести application, разбить ports по feature и убрать circular imports.
 - [ ] Перенести server command signing из client component в backend
@@ -338,8 +339,9 @@ application не импортирует concrete adapters.
 - [ ] Разбить монолитный FastAPI router по feature и перенести schemas/errors.
 - [ ] Создать `bootstrap/api.py`; presentation не импортирует infrastructure.
 
-**Gate:** API, worker, migrations и TrueNAS fake contracts проходят из нового
-package; старые top-level packages больше не являются source of truth.
+**Gate:** API, worker, migrations и TrueNAS fake contracts проходят из новой
+структуры `backend/src`; старые root packages больше не являются source of
+truth.
 
 ### 42.4. Перенести backend runtime/deploy
 

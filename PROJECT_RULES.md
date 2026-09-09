@@ -12,7 +12,7 @@ presentation ──────→ application ──────→ domain
                            └── infrastructure┘
 ```
 
-`backend/src/tnas_controller/bootstrap/{api,worker}.py` — composition roots: они
+`backend/src/bootstrap/{api,worker}.py` — composition roots: они
 собирают зависимости, создают приложение/worker и подключают concrete adapters.
 Бизнес-логика в bootstrap запрещена.
 
